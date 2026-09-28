@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma, ensureDatabaseReady } from '../utils/prisma';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 const requireSuperAdmin = async (req: Request, res: Response, next: Function) => {
+  await ensureDatabaseReady();
   const requesterDni = req.headers['x-user-dni'] as string;
   if (!requesterDni) {
     return res.status(401).json({ error: 'Acceso no autorizado. Falta DNI del usuario.' });

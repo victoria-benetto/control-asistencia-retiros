@@ -1,9 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma, ensureDatabaseReady } from '../utils/prisma';
 import { getTodayDateString, getTodayDayName } from '../utils/date';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 /**
  * @openapi
@@ -23,6 +22,7 @@ const prisma = new PrismaClient();
  */
 router.get('/today', async (req: Request, res: Response) => {
   try {
+    await ensureDatabaseReady();
     const todayDate = getTodayDateString();
     const todayDayName = getTodayDayName();
     
@@ -103,6 +103,7 @@ router.get('/today', async (req: Request, res: Response) => {
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
+    await ensureDatabaseReady();
     const { studentId, status, recordedByAdminId } = req.body;
     const todayDate = getTodayDateString();
 
@@ -161,6 +162,7 @@ router.post('/', async (req: Request, res: Response) => {
  */
 router.get('/history', async (req: Request, res: Response) => {
   try {
+    await ensureDatabaseReady();
     const { date, shift } = req.query;
 
     const whereCondition: any = {};

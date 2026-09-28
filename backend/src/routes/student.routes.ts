@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma, ensureDatabaseReady } from '../utils/prisma';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 /**
  * @openapi
@@ -22,6 +21,7 @@ const prisma = new PrismaClient();
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
+    await ensureDatabaseReady();
     const { shift } = req.query;
     const whereCondition = shift ? { shift: String(shift) } : {};
 
@@ -52,6 +52,7 @@ router.get('/', async (req: Request, res: Response) => {
  */
 router.get('/shifts', async (_req: Request, res: Response) => {
   try {
+    await ensureDatabaseReady();
     const students = await prisma.student.findMany({
       select: { shift: true },
       distinct: ['shift'],
@@ -86,6 +87,7 @@ router.get('/shifts', async (_req: Request, res: Response) => {
  */
 router.get('/:id', async (req: Request, res: Response) => {
   try {
+    await ensureDatabaseReady();
     const { id } = req.params;
     const student = await prisma.student.findUnique({
       where: { id },

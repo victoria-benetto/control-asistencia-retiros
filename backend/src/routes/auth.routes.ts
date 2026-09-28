@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma, ensureDatabaseReady } from '../utils/prisma';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 /**
  * @openapi
@@ -31,6 +30,9 @@ const prisma = new PrismaClient();
  */
 router.post('/login', async (req: Request, res: Response) => {
   try {
+    // Garantizar que la base de datos y Victoria existan
+    await ensureDatabaseReady();
+
     const { dni } = req.body;
     if (!dni || typeof dni !== 'string') {
       return res.status(400).json({ error: 'El DNI es requerido.' });
@@ -38,7 +40,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const cleanDni = dni.trim();
 
-    // 1. Buscar si el DNI pertenece a un Admin / Profesor / Super Admin
+    // 1. Buscar si el DNI pertenece a un Admin / Profesor / Super Admin (Victoria)
     const adminUser = await prisma.adminUser.findUnique({
       where: { dni: cleanDni },
     });
@@ -129,9 +131,9 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     return res.status(404).json({ error: 'No se encontró ningún usuario o alumna registrado con este DNI.' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error en login:', error);
-    return res.status(500).json({ error: 'Error interno del servidor.' });
+    return res.status(500).json({ error: error?.message || 'Error interno del servidor.' });
   }
 });
 
