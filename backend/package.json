@@ -1,10 +1,11 @@
 {
   "name": "asistencia-backend",
   "version": "1.0.0",
-  "description": "Backend TypeScript para Sistema de Asistencia y Retiros",
+  "description": "Backend TypeScript para Sistema de Asistencia y Retiros VULPIARE",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
+    "vercel-build": "prisma generate && tsc",
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "prisma:generate": "prisma generate",
@@ -17,7 +18,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.18.3",
-    "swagger-jsdoc": "^6.3.0",
+    "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {

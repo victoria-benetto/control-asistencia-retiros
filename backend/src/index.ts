@@ -35,7 +35,12 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'VULPIARE Asistencia API', time: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor backend VULPIARE corriendo en http://localhost:${PORT}`);
-  console.log(`📚 Documentación Swagger disponible en http://localhost:${PORT}/api-docs`);
-});
+// Inicialización de servidor si no estamos en entorno Serverless de Vercel
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor backend VULPIARE corriendo en http://localhost:${PORT}`);
+    console.log(`📚 Documentación Swagger disponible en http://localhost:${PORT}/api-docs`);
+  });
+}
+
+export default app;
