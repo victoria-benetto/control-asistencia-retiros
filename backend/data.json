@@ -1,0 +1,126 @@
+{
+  "admins": [
+    {
+      "id": "admin-victoria-44122509",
+      "dni": "44122509",
+      "fullName": "Victoria",
+      "role": "SUPER_ADMIN",
+      "permissions": {
+        "canAttendance": true,
+        "canPickups": true,
+        "canHistory": true
+      }
+    },
+    {
+      "id": "admin-maria-43213538",
+      "dni": "43213538",
+      "fullName": "Profe María",
+      "role": "ADMIN",
+      "permissions": {
+        "canAttendance": true,
+        "canPickups": true,
+        "canHistory": true
+      }
+    }
+  ],
+  "students": [
+    {
+      "id": "student-pepa",
+      "firstName": "Pepa",
+      "lastName": "Pérez",
+      "dni": "55111222",
+      "shift": "Lunes",
+      "notes": "",
+      "authorizedPeople": [
+        {
+          "id": "auth-1",
+          "studentId": "student-pepa",
+          "fullName": "Juan Pérez",
+          "dni": "30111222",
+          "relationship": "Papá",
+          "phone": "1144556677"
+        },
+        {
+          "id": "auth-2",
+          "studentId": "student-pepa",
+          "fullName": "Ana Gómez",
+          "dni": "30111223",
+          "relationship": "Mamá",
+          "phone": "1144556678"
+        }
+      ]
+    },
+    {
+      "id": "student-pepita",
+      "firstName": "Pepita",
+      "lastName": "Gómez",
+      "dni": "55222333",
+      "shift": "Lunes",
+      "notes": "",
+      "authorizedPeople": [
+        {
+          "id": "auth-3",
+          "studentId": "student-pepita",
+          "fullName": "Carlos Gómez",
+          "dni": "30222333",
+          "relationship": "Papá",
+          "phone": "1155667788"
+        },
+        {
+          "id": "auth-4",
+          "studentId": "student-pepita",
+          "fullName": "María Rodríguez",
+          "dni": "20111222",
+          "relationship": "Abuela",
+          "phone": "1155667789"
+        }
+      ]
+    },
+    {
+      "id": "student-popa",
+      "firstName": "Popa",
+      "lastName": "López",
+      "dni": "55333444",
+      "shift": "Lunes",
+      "notes": "",
+      "authorizedPeople": [
+        {
+          "id": "auth-5",
+          "studentId": "student-popa",
+          "fullName": "Lucía López",
+          "dni": "30333444",
+          "relationship": "Mamá",
+          "phone": "1166778899"
+        },
+        {
+          "id": "auth-6",
+          "studentId": "student-popa",
+          "fullName": "Esteban López",
+          "dni": "31333444",
+          "relationship": "Tío",
+          "phone": "1166778800"
+        }
+      ]
+    },
+    {
+      "id": "student-sofia",
+      "firstName": "Sofía",
+      "lastName": "Martínez",
+      "dni": "55444555",
+      "shift": "Martes",
+      "notes": "",
+      "authorizedPeople": [
+        {
+          "id": "auth-7",
+          "studentId": "student-sofia",
+          "fullName": "Gonzalo Martínez",
+          "dni": "30444555",
+          "relationship": "Papá",
+          "phone": "1177889900"
+        }
+      ]
+    }
+  ],
+  "attendances": [],
+  "pickups": []
+}

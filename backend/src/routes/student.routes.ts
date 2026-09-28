@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma, ensureDatabaseReady } from '../utils/prisma';
+import { DataStore } from '../utils/store';
 
 const router = Router();
 
@@ -14,28 +14,16 @@ const router = Router();
  *         name: shift
  *         schema:
  *           type: string
- *         description: Filtrar por turno (ej. Lunes)
  *     responses:
  *       200:
  *         description: Lista de alumnas.
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    await ensureDatabaseReady();
     const { shift } = req.query;
-    const whereCondition = shift ? { shift: String(shift) } : {};
-
-    const students = await prisma.student.findMany({
-      where: whereCondition,
-      include: {
-        authorizedPeople: true,
-      },
-      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-    });
-
+    const students = DataStore.getAllStudents(shift ? String(shift) : undefined);
     return res.json(students);
   } catch (error) {
-    console.error('Error al listar alumnas:', error);
     return res.status(500).json({ error: 'Error al obtener la lista de alumnas.' });
   }
 });
@@ -52,18 +40,8 @@ router.get('/', async (req: Request, res: Response) => {
  */
 router.get('/shifts', async (_req: Request, res: Response) => {
   try {
-    await ensureDatabaseReady();
-    const students = await prisma.student.findMany({
-      select: { shift: true },
-      distinct: ['shift'],
-    });
-
-    const defaultShifts = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
-    const dbShifts = students.map(s => s.shift);
-
-    const allShifts = Array.from(new Set([...defaultShifts, ...dbShifts]));
-
-    return res.json(allShifts);
+    const shifts = DataStore.getAvailableShifts();
+    return res.json(shifts);
   } catch (error) {
     return res.status(500).json({ error: 'Error al obtener turnos.' });
   }
@@ -87,27 +65,11 @@ router.get('/shifts', async (_req: Request, res: Response) => {
  */
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    await ensureDatabaseReady();
     const { id } = req.params;
-    const student = await prisma.student.findUnique({
-      where: { id },
-      include: {
-        authorizedPeople: true,
-        attendances: {
-          include: {
-            pickups: {
-              include: { authorizedPerson: true },
-            },
-          },
-          orderBy: { date: 'desc' },
-        },
-      },
-    });
-
+    const student = DataStore.getStudentById(id);
     if (!student) {
       return res.status(404).json({ error: 'Alumna no encontrada.' });
     }
-
     return res.json(student);
   } catch (error) {
     return res.status(500).json({ error: 'Error al obtener datos de la alumna.' });

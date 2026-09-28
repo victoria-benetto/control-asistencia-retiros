@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma, ensureDatabaseReady } from '../utils/prisma';
+import { DataStore } from '../utils/store';
 import { getTodayDateString } from '../utils/date';
 
 const router = Router();
@@ -21,39 +21,15 @@ const router = Router();
  */
 router.get('/today', async (req: Request, res: Response) => {
   try {
-    await ensureDatabaseReady();
     const todayDate = getTodayDateString();
     const { shift } = req.query;
+    const targetShift = shift ? String(shift) : 'Lunes';
 
-    const whereCondition: any = {
-      date: todayDate,
-      status: 'PRESENT',
-    };
-
-    if (shift) {
-      whereCondition.student = { shift: String(shift) };
-    }
-
-    const presentRecords = await prisma.attendanceRecord.findMany({
-      where: whereCondition,
-      include: {
-        student: {
-          include: { authorizedPeople: true },
-        },
-        recordedBy: { select: { fullName: true } },
-        pickups: {
-          include: {
-            authorizedPerson: true,
-            recordedBy: { select: { fullName: true, dni: true } },
-          },
-        },
-      },
-      orderBy: { student: { lastName: 'asc' } },
-    });
+    const presentStudents = DataStore.getTodayAttendance(todayDate, targetShift).filter((s) => s.status === 'PRESENT');
 
     return res.json({
       date: todayDate,
-      presentStudents: presentRecords,
+      presentStudents,
     });
   } catch (error) {
     console.error('Error al obtener retiros de hoy:', error);
@@ -89,39 +65,13 @@ router.get('/today', async (req: Request, res: Response) => {
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    await ensureDatabaseReady();
     const { attendanceId, authorizedPersonId, recordedByAdminId, notes } = req.body;
 
     if (!attendanceId || !authorizedPersonId) {
       return res.status(400).json({ error: 'attendanceId y authorizedPersonId son requeridos.' });
     }
 
-    const attendance = await prisma.attendanceRecord.findUnique({
-      where: { id: attendanceId },
-    });
-
-    if (!attendance) {
-      return res.status(404).json({ error: 'Registro de asistencia no encontrado.' });
-    }
-
-    if (attendance.status !== 'PRESENT') {
-      return res.status(400).json({ error: 'No se puede registrar el retiro de una alumna ausente.' });
-    }
-
-    const pickup = await prisma.pickupRecord.create({
-      data: {
-        attendanceId,
-        authorizedPersonId,
-        recordedByAdminId: recordedByAdminId || null,
-        pickupTime: new Date(),
-        notes: notes ? notes.trim() : null,
-      },
-      include: {
-        authorizedPerson: true,
-        recordedBy: { select: { fullName: true } },
-      },
-    });
-
+    const pickup = DataStore.savePickup(attendanceId, authorizedPersonId, recordedByAdminId, notes);
     return res.status(201).json(pickup);
   } catch (error) {
     console.error('Error al registrar retiro:', error);
