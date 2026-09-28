@@ -1,0 +1,41 @@
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './swagger';
+
+import authRoutes from './routes/auth.routes';
+import adminRoutes from './routes/admin.routes';
+import studentRoutes from './routes/student.routes';
+import attendanceRoutes from './routes/attendance.routes';
+import pickupRoutes from './routes/pickup.routes';
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// Middlewares
+app.use(cors());
+app.use(express.json());
+
+// Documentación Swagger API
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Rutas API
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/students', studentRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/pickups', pickupRoutes);
+
+// Endpoint de estado / salud
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', service: 'VULPIARE Asistencia API', time: new Date().toISOString() });
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor backend VULPIARE corriendo en http://localhost:${PORT}`);
+  console.log(`📚 Documentación Swagger disponible en http://localhost:${PORT}/api-docs`);
+});

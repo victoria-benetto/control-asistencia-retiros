@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id               String             @id @default(uuid())
+  dni              String             @unique
+  fullName         String
+  role             String             @default("ADMIN") // SUPER_ADMIN | ADMIN
+  permissions      String             @default("{\"canAttendance\":true,\"canPickups\":true,\"canHistory\":true}")
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  AttendanceRecord AttendanceRecord[]
+  PickupRecord     PickupRecord[]
+}
+
+model Student {
+  id               String             @id @default(uuid())
+  firstName        String
+  lastName         String
+  dni              String             @unique
+  shift            String             @default("Lunes")
+  notes            String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  authorizedPeople AuthorizedPerson[]
+  attendances      AttendanceRecord[]
+}
+
+model AuthorizedPerson {
+  id           String         @id @default(uuid())
+  studentId    String
+  fullName     String
+  dni          String
+  relationship String
+  phone        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  student      Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  pickups      PickupRecord[]
+}
+
+model AttendanceRecord {
+  id                String           @id @default(uuid())
+  studentId         String
+  date              String           // Formato YYYY-MM-DD
+  status            String           // PRESENT | ABSENT
+  recordedByAdminId String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  student           Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  recordedBy        AdminUser?       @relation(fields: [recordedByAdminId], references: [id], onDelete: SetNull)
+  pickups           PickupRecord[]
+
+  @@unique([studentId, date])
+}
+
+model PickupRecord {
+  id                 String           @id @default(uuid())
+  attendanceId       String
+  authorizedPersonId String
+  pickupTime         DateTime         @default(now())
+  recordedByAdminId  String?
+  notes              String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  attendance         AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  authorizedPerson   AuthorizedPerson @relation(fields: [authorizedPersonId], references: [id], onDelete: Cascade)
+  recordedBy         AdminUser?       @relation(fields: [recordedByAdminId], references: [id], onDelete: SetNull)
+}
