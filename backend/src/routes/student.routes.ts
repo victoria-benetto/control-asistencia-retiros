@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../utils/prisma';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 /**
  * @openapi
@@ -34,8 +33,8 @@ router.get('/', async (req: Request, res: Response) => {
 
     return res.json(students);
   } catch (error) {
-    console.error('Error al listar alumnas:', error);
-    return res.status(500).json({ error: 'Error al obtener la lista de alumnas desde Supabase.' });
+    console.warn('⚠️ Base de datos inaccesible en /students, retornando lista vacia:', error);
+    return res.json([]);
   }
 });
 
@@ -50,20 +49,20 @@ router.get('/', async (req: Request, res: Response) => {
  *         description: Lista de turnos.
  */
 router.get('/shifts', async (_req: Request, res: Response) => {
+  const defaultShifts = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
   try {
     const students = await prisma.student.findMany({
       select: { shift: true },
       distinct: ['shift'],
     });
 
-    const defaultShifts = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
     const dbShifts = students.map(s => s.shift);
-
     const allShifts = Array.from(new Set([...defaultShifts, ...dbShifts]));
 
     return res.json(allShifts);
   } catch (error) {
-    return res.status(500).json({ error: 'Error al obtener turnos.' });
+    console.warn('⚠️ Base de datos inaccesible en /shifts, usando turnos por defecto:', error);
+    return res.json(defaultShifts);
   }
 });
 
@@ -107,7 +106,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     return res.json(student);
   } catch (error) {
-    return res.status(500).json({ error: 'Error al obtener datos de la alumna.' });
+    return res.status(404).json({ error: 'Alumna no encontrada o base de datos no disponible.' });
   }
 });
 

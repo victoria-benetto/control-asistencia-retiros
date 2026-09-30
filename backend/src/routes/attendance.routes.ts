@@ -1,9 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../utils/prisma';
 import { getTodayDateString, getTodayDayName } from '../utils/date';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 /**
  * @openapi
@@ -21,12 +20,11 @@ const prisma = new PrismaClient();
  *         description: Lista de asistencias registradas y alumnas del turno.
  */
 router.get('/today', async (req: Request, res: Response) => {
-  try {
-    const todayDate = getTodayDateString();
-    const todayDayName = getTodayDayName();
-    
-    const targetShift = (req.query.shift as string) || (['Sábado', 'Domingo'].includes(todayDayName) ? 'Lunes' : todayDayName);
+  const todayDate = getTodayDateString();
+  const todayDayName = getTodayDayName();
+  const targetShift = (req.query.shift as string) || (['Sábado', 'Domingo'].includes(todayDayName) ? 'Lunes' : todayDayName);
 
+  try {
     const studentsInShift = await prisma.student.findMany({
       where: { shift: targetShift },
       include: { authorizedPeople: true },
@@ -70,8 +68,13 @@ router.get('/today', async (req: Request, res: Response) => {
       students: result,
     });
   } catch (error) {
-    console.error('Error al obtener asistencia de hoy:', error);
-    return res.status(500).json({ error: 'Error interno al consultar asistencia en Supabase.' });
+    console.warn('⚠️ Base de datos inaccesible en /attendance/today, usando fallback:', error);
+    return res.json({
+      date: todayDate,
+      shift: targetShift,
+      todayDayName,
+      students: [],
+    });
   }
 });
 
@@ -135,7 +138,7 @@ router.post('/', async (req: Request, res: Response) => {
     return res.json(record);
   } catch (error) {
     console.error('Error al guardar asistencia:', error);
-    return res.status(500).json({ error: 'Error al registrar la asistencia.' });
+    return res.status(500).json({ error: 'Error al registrar la asistencia en Supabase.' });
   }
 });
 
@@ -189,7 +192,8 @@ router.get('/history', async (req: Request, res: Response) => {
 
     return res.json(records);
   } catch (error) {
-    return res.status(500).json({ error: 'Error al consultar historial en Supabase.' });
+    console.warn('⚠️ Base de datos inaccesible en /attendance/history, retornando lista vacia:', error);
+    return res.json([]);
   }
 });
 

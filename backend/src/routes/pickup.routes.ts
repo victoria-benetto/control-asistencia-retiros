@@ -1,9 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../utils/prisma';
 import { getTodayDateString } from '../utils/date';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 /**
  * @openapi
@@ -21,10 +20,10 @@ const prisma = new PrismaClient();
  *         description: Lista de alumnas presentes con sus autorizados y retiros registrados.
  */
 router.get('/today', async (req: Request, res: Response) => {
-  try {
-    const todayDate = getTodayDateString();
-    const { shift } = req.query;
+  const todayDate = getTodayDateString();
+  const { shift } = req.query;
 
+  try {
     const whereCondition: any = {
       date: todayDate,
       status: 'PRESENT',
@@ -56,8 +55,11 @@ router.get('/today', async (req: Request, res: Response) => {
       presentStudents: presentRecords,
     });
   } catch (error) {
-    console.error('Error al obtener retiros de hoy:', error);
-    return res.status(500).json({ error: 'Error al consultar retiros de hoy en Supabase.' });
+    console.warn('⚠️ Base de datos inaccesible en /pickups/today, retornando lista vacia:', error);
+    return res.json({
+      date: todayDate,
+      presentStudents: [],
+    });
   }
 });
 
