@@ -19,9 +19,13 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Documentación Swagger API
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// Documentación Swagger API (solamente en entorno local o si no falla el asset serving)
+try {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+} catch (e) {
+  console.warn('⚠️ Swagger UI setup skipped:', e);
+}
 
 // Rutas API
 app.use('/api/auth', authRoutes);
