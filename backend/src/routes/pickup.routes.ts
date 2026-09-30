@@ -1,14 +1,15 @@
 import { Router, Request, Response } from 'express';
-import { DataStore } from '../utils/store';
+import { PrismaClient } from '@prisma/client';
 import { getTodayDateString } from '../utils/date';
 
 const router = Router();
+const prisma = new PrismaClient();
 
 /**
  * @openapi
  * /api/pickups/today:
  *   get:
- *     summary: Obtener alumnas PRESENTES de hoy para gestionar sus retiros
+ *     summary: Obtener alumnas PRESENTES de hoy para gestionar sus retiros (Supabase)
  *     tags: [Retiros]
  *     parameters:
  *       - in: query
@@ -23,17 +24,40 @@ router.get('/today', async (req: Request, res: Response) => {
   try {
     const todayDate = getTodayDateString();
     const { shift } = req.query;
-    const targetShift = shift ? String(shift) : 'Lunes';
 
-    const presentStudents = DataStore.getTodayAttendance(todayDate, targetShift).filter((s) => s.status === 'PRESENT');
+    const whereCondition: any = {
+      date: todayDate,
+      status: 'PRESENT',
+    };
+
+    if (shift) {
+      whereCondition.student = { shift: String(shift) };
+    }
+
+    const presentRecords = await prisma.attendanceRecord.findMany({
+      where: whereCondition,
+      include: {
+        student: {
+          include: { authorizedPeople: true },
+        },
+        recordedBy: { select: { fullName: true } },
+        pickups: {
+          include: {
+            authorizedPerson: true,
+            recordedBy: { select: { fullName: true, dni: true } },
+          },
+        },
+      },
+      orderBy: { student: { lastName: 'asc' } },
+    });
 
     return res.json({
       date: todayDate,
-      presentStudents,
+      presentStudents: presentRecords,
     });
   } catch (error) {
     console.error('Error al obtener retiros de hoy:', error);
-    return res.status(500).json({ error: 'Error al consultar retiros de hoy.' });
+    return res.status(500).json({ error: 'Error al consultar retiros de hoy en Supabase.' });
   }
 });
 
@@ -71,11 +95,36 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'attendanceId y authorizedPersonId son requeridos.' });
     }
 
-    const pickup = DataStore.savePickup(attendanceId, authorizedPersonId, recordedByAdminId, notes);
+    const attendance = await prisma.attendanceRecord.findUnique({
+      where: { id: attendanceId },
+    });
+
+    if (!attendance) {
+      return res.status(404).json({ error: 'Registro de asistencia no encontrado.' });
+    }
+
+    if (attendance.status !== 'PRESENT') {
+      return res.status(400).json({ error: 'No se puede registrar el retiro de una alumna ausente.' });
+    }
+
+    const pickup = await prisma.pickupRecord.create({
+      data: {
+        attendanceId,
+        authorizedPersonId,
+        recordedByAdminId: recordedByAdminId || null,
+        pickupTime: new Date(),
+        notes: notes ? notes.trim() : null,
+      },
+      include: {
+        authorizedPerson: true,
+        recordedBy: { select: { fullName: true } },
+      },
+    });
+
     return res.status(201).json(pickup);
   } catch (error) {
     console.error('Error al registrar retiro:', error);
-    return res.status(500).json({ error: 'Error al guardar el retiro.' });
+    return res.status(500).json({ error: 'Error al guardar el retiro en Supabase.' });
   }
 });
 

@@ -1,13 +1,14 @@
 import { Router, Request, Response } from 'express';
-import { DataStore } from '../utils/store';
+import { PrismaClient } from '@prisma/client';
 
 const router = Router();
+const prisma = new PrismaClient();
 
 /**
  * @openapi
  * /api/auth/login:
  *   post:
- *     summary: Login Unificado por DNI
+ *     summary: Login Unificado por DNI (Supabase PostgreSQL)
  *     tags: [Autenticación]
  *     requestBody:
  *       required: true
@@ -33,70 +34,102 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const cleanDni = dni.trim();
 
-    // 🌟 HARDCODE PRINCIPAL PARA TESTING: Victoria Super Admin 44122509 🌟
-    if (cleanDni === '44122509') {
-      return res.json({
-        type: 'ADMIN',
-        user: {
-          id: 'super-admin-victoria-44122509',
-          dni: '44122509',
-          fullName: 'Victoria',
-          role: 'SUPER_ADMIN',
-          permissions: {
-            canAttendance: true,
-            canPickups: true,
-            canHistory: true,
-          },
-        },
-      });
-    }
+    // 1. Buscar si el DNI pertenece a un Admin / Profesor / Super Admin Victoria (44122509)
+    const adminUser = await prisma.adminUser.findUnique({
+      where: { dni: cleanDni },
+    });
 
-    // 🌟 HARDCODE SECUNDARIO PARA TESTING: Profe María 43213538 🌟
-    if (cleanDni === '43213538') {
-      return res.json({
-        type: 'ADMIN',
-        user: {
-          id: 'admin-maria-43213538',
-          dni: '43213538',
-          fullName: 'Profe María',
-          role: 'ADMIN',
-          permissions: {
-            canAttendance: true,
-            canPickups: true,
-            canHistory: true,
-          },
-        },
-      });
-    }
-
-    // Buscar otros en el DataStore
-    const adminUser = DataStore.getAdminByDni(cleanDni);
     if (adminUser) {
-      return res.json({ type: 'ADMIN', user: adminUser });
+      let permissionsParsed = {};
+      try {
+        permissionsParsed = typeof adminUser.permissions === 'string' 
+          ? JSON.parse(adminUser.permissions || '{}') 
+          : adminUser.permissions;
+      } catch (e) {
+        permissionsParsed = { canAttendance: true, canPickups: true, canHistory: true };
+      }
+
+      return res.json({
+        type: 'ADMIN',
+        user: {
+          id: adminUser.id,
+          dni: adminUser.dni,
+          fullName: adminUser.fullName,
+          role: adminUser.role,
+          permissions: permissionsParsed,
+        },
+      });
     }
 
-    let student = DataStore.getStudentByDni(cleanDni) || DataStore.getStudentByAuthorizedDni(cleanDni);
+    // 2. Buscar si el DNI pertenece directamente a una Alumna
+    let student = await prisma.student.findUnique({
+      where: { dni: cleanDni },
+      include: {
+        authorizedPeople: true,
+        attendances: {
+          include: {
+            recordedBy: { select: { fullName: true } },
+            pickups: {
+              include: {
+                authorizedPerson: true,
+                recordedBy: { select: { fullName: true } },
+              },
+            },
+          },
+          orderBy: { date: 'desc' },
+        },
+      },
+    });
+
+    // 3. Buscar si el DNI pertenece a una Persona Autorizada (Tutor/Padre)
+    if (!student) {
+      const authorizedPerson = await prisma.authorizedPerson.findFirst({
+        where: { dni: cleanDni },
+        include: {
+          student: {
+            include: {
+              authorizedPeople: true,
+              attendances: {
+                include: {
+                  recordedBy: { select: { fullName: true } },
+                  pickups: {
+                    include: {
+                      authorizedPerson: true,
+                      recordedBy: { select: { fullName: true } },
+                    },
+                  },
+                },
+                orderBy: { date: 'desc' },
+              },
+            },
+          },
+        },
+      });
+
+      if (authorizedPerson && authorizedPerson.student) {
+        student = authorizedPerson.student;
+      }
+    }
+
     if (student) {
-      const fullStudentData = DataStore.getParentStudentData(student.id);
-      return res.json({ type: 'PARENT', student: fullStudentData });
+      return res.json({
+        type: 'PARENT',
+        student: {
+          id: student.id,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          dni: student.dni,
+          shift: student.shift,
+          authorizedPeople: student.authorizedPeople,
+          attendances: student.attendances,
+        },
+      });
     }
 
     return res.status(404).json({ error: 'No se encontró ningún usuario o alumna registrado con este DNI.' });
   } catch (error: any) {
-    // Si cualquier error inesperado ocurriera en el servidor, si el DNI es 44122509 retornar a Victoria
-    if (req.body?.dni?.trim() === '44122509') {
-      return res.json({
-        type: 'ADMIN',
-        user: {
-          id: 'super-admin-victoria-44122509',
-          dni: '44122509',
-          fullName: 'Victoria',
-          role: 'SUPER_ADMIN',
-          permissions: { canAttendance: true, canPickups: true, canHistory: true },
-        },
-      });
-    }
-    return res.status(500).json({ error: 'Error al procesar el ingreso.' });
+    console.error('Error en login Supabase:', error);
+    return res.status(500).json({ error: 'Error al consultar la base de datos Supabase.' });
   }
 });
 

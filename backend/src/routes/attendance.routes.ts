@@ -1,14 +1,15 @@
 import { Router, Request, Response } from 'express';
-import { DataStore } from '../utils/store';
+import { PrismaClient } from '@prisma/client';
 import { getTodayDateString, getTodayDayName } from '../utils/date';
 
 const router = Router();
+const prisma = new PrismaClient();
 
 /**
  * @openapi
  * /api/attendance/today:
  *   get:
- *     summary: Obtener la asistencia de hoy por turno (Detección de fecha automática)
+ *     summary: Obtener la asistencia de hoy por turno (Supabase PostgreSQL)
  *     tags: [Asistencia]
  *     parameters:
  *       - in: query
@@ -25,17 +26,52 @@ router.get('/today', async (req: Request, res: Response) => {
     const todayDayName = getTodayDayName();
     
     const targetShift = (req.query.shift as string) || (['Sábado', 'Domingo'].includes(todayDayName) ? 'Lunes' : todayDayName);
-    const studentsResult = DataStore.getTodayAttendance(todayDate, targetShift);
+
+    const studentsInShift = await prisma.student.findMany({
+      where: { shift: targetShift },
+      include: { authorizedPeople: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+
+    const existingAttendances = await prisma.attendanceRecord.findMany({
+      where: { date: todayDate },
+      include: {
+        recordedBy: { select: { fullName: true, dni: true } },
+        pickups: {
+          include: {
+            authorizedPerson: true,
+            recordedBy: { select: { fullName: true, dni: true } },
+          },
+        },
+      },
+    });
+
+    const attendanceMap = new Map();
+    existingAttendances.forEach(record => {
+      attendanceMap.set(record.studentId, record);
+    });
+
+    const result = studentsInShift.map(student => {
+      const record = attendanceMap.get(student.id);
+      return {
+        student,
+        attendanceId: record?.id || null,
+        status: record?.status || null,
+        date: todayDate,
+        recordedBy: record?.recordedBy || null,
+        pickups: record?.pickups || [],
+      };
+    });
 
     return res.json({
       date: todayDate,
       shift: targetShift,
       todayDayName,
-      students: studentsResult,
+      students: result,
     });
   } catch (error) {
     console.error('Error al obtener asistencia de hoy:', error);
-    return res.status(500).json({ error: 'Error interno al consultar asistencia.' });
+    return res.status(500).json({ error: 'Error interno al consultar asistencia en Supabase.' });
   }
 });
 
@@ -73,7 +109,29 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'studentId y estado válido (PRESENT/ABSENT) son requeridos.' });
     }
 
-    const record = DataStore.saveAttendance(studentId, todayDate, status, recordedByAdminId);
+    const record = await prisma.attendanceRecord.upsert({
+      where: {
+        studentId_date: {
+          studentId,
+          date: todayDate,
+        },
+      },
+      update: {
+        status,
+        recordedByAdminId: recordedByAdminId || null,
+      },
+      create: {
+        studentId,
+        date: todayDate,
+        status,
+        recordedByAdminId: recordedByAdminId || null,
+      },
+      include: {
+        student: true,
+        recordedBy: { select: { fullName: true } },
+      },
+    });
+
     return res.json(record);
   } catch (error) {
     console.error('Error al guardar asistencia:', error);
@@ -103,10 +161,35 @@ router.post('/', async (req: Request, res: Response) => {
 router.get('/history', async (req: Request, res: Response) => {
   try {
     const { date, shift } = req.query;
-    const records = DataStore.getAttendanceHistory(date ? String(date) : undefined, shift ? String(shift) : undefined);
+
+    const whereCondition: any = {};
+    if (date) {
+      whereCondition.date = String(date);
+    }
+    if (shift) {
+      whereCondition.student = { shift: String(shift) };
+    }
+
+    const records = await prisma.attendanceRecord.findMany({
+      where: whereCondition,
+      include: {
+        student: {
+          include: { authorizedPeople: true },
+        },
+        recordedBy: { select: { fullName: true } },
+        pickups: {
+          include: {
+            authorizedPerson: true,
+            recordedBy: { select: { fullName: true } },
+          },
+        },
+      },
+      orderBy: [{ date: 'desc' }, { student: { lastName: 'asc' } }],
+    });
+
     return res.json(records);
   } catch (error) {
-    return res.status(500).json({ error: 'Error al consultar historial.' });
+    return res.status(500).json({ error: 'Error al consultar historial en Supabase.' });
   }
 });
 

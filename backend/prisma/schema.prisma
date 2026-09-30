@@ -3,15 +3,26 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
 }
 
 model AdminUser {
   id               String             @id @default(uuid())
   dni              String             @unique
   fullName         String
-  role             String             @default("ADMIN") // SUPER_ADMIN | ADMIN
+  role             Role               @default(ADMIN)
   permissions      String             @default("{\"canAttendance\":true,\"canPickups\":true,\"canHistory\":true}")
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
@@ -49,7 +60,7 @@ model AttendanceRecord {
   id                String           @id @default(uuid())
   studentId         String
   date              String           // Formato YYYY-MM-DD
-  status            String           // PRESENT | ABSENT
+  status            AttendanceStatus
   recordedByAdminId String?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
