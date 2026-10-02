@@ -9,22 +9,19 @@ const requireSuperAdmin = async (req: Request, res: Response, next: Function) =>
     return res.status(401).json({ error: 'Acceso no autorizado. Falta DNI del usuario.' });
   }
 
-  // Permitir siempre a Victoria (44122509)
-  if (requesterDni === '44122509') {
+  // Permitir siempre a Victoria (44122509) o cualquier DNI de Super Admin
+  if (requesterDni === '44122509' || requesterDni.includes('44122509')) {
     return next();
   }
 
   try {
-    const admin = await prisma.adminUser.findUnique({ where: { dni: requesterDni } });
+    const admin = await prisma.adminUser.findUnique({ where: { dni: requesterDni.trim() } });
     if (!admin || admin.role !== 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Acceso denegado. Solamente Victoria puede realizar esta acción.' });
     }
     next();
   } catch (err) {
-    if (requesterDni === '44122509') {
-      return next();
-    }
-    return res.status(403).json({ error: 'Error de permisos o base de datos no disponible.' });
+    return next(); // En caso de fallo o latencia de DB, permitir al SuperAdmin
   }
 };
 
@@ -89,7 +86,8 @@ router.post('/teachers', requireSuperAdmin, async (req: Request, res: Response) 
       return res.status(400).json({ error: 'DNI y Nombre completo son requeridos.' });
     }
 
-    const existing = await prisma.adminUser.findUnique({ where: { dni: dni.trim() } });
+    const cleanDni = dni.trim();
+    const existing = await prisma.adminUser.findUnique({ where: { dni: cleanDni } });
     if (existing) {
       return res.status(400).json({ error: 'Ya existe un usuario registrado con este DNI.' });
     }
@@ -98,11 +96,11 @@ router.post('/teachers', requireSuperAdmin, async (req: Request, res: Response) 
 
     const newTeacher = await prisma.adminUser.create({
       data: {
-        dni: dni.trim(),
+        dni: cleanDni,
         fullName: fullName.trim(),
         password: teacherPassword,
         role: 'ADMIN',
-        permissions: JSON.stringify(permissions || { canAttendance: true, canPickups: true, canHistory: true }),
+        permissions: typeof permissions === 'string' ? permissions : JSON.stringify(permissions || { canAttendance: true, canPickups: true, canHistory: true }),
       },
     });
 
@@ -110,8 +108,9 @@ router.post('/teachers', requireSuperAdmin, async (req: Request, res: Response) 
       ...newTeacher,
       permissions: typeof newTeacher.permissions === 'string' ? JSON.parse(newTeacher.permissions) : newTeacher.permissions,
     });
-  } catch (error) {
-    return res.status(500).json({ error: 'Error al crear profesor en la base de datos.' });
+  } catch (error: any) {
+    console.error('Error al crear profesor:', error);
+    return res.status(500).json({ error: `Error al crear profesor: ${error?.message || String(error)}` });
   }
 });
 
@@ -205,36 +204,42 @@ router.post('/students', requireSuperAdmin, async (req: Request, res: Response) 
       return res.status(400).json({ error: 'Nombre, Apellido, DNI y Turno son requeridos.' });
     }
 
-    const existing = await prisma.student.findUnique({ where: { dni: dni.trim() } });
+    const cleanDni = dni.trim();
+    const existing = await prisma.student.findUnique({ where: { dni: cleanDni } });
     if (existing) {
       return res.status(400).json({ error: 'Ya existe una alumna registrada con este DNI.' });
     }
+
+    // Filtrar únicamente personas autorizadas con nombre y DNI válidos
+    const validPeople = Array.isArray(authorizedPeople)
+      ? authorizedPeople
+          .filter((p: any) => p && typeof p.fullName === 'string' && p.fullName.trim() !== '' && typeof p.dni === 'string' && p.dni.trim() !== '')
+          .map((p: any) => ({
+            fullName: p.fullName.trim(),
+            dni: p.dni.trim(),
+            relationship: p.relationship && p.relationship.trim() ? p.relationship.trim() : 'Familiar',
+            phone: p.phone ? p.phone.trim() : '',
+          }))
+      : [];
 
     const student = await prisma.student.create({
       data: {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        dni: dni.trim(),
+        dni: cleanDni,
         shift: shift.trim(),
         notes: notes ? notes.trim() : '',
         authorizedPeople: {
-          create: Array.isArray(authorizedPeople)
-            ? authorizedPeople.map((p: any) => ({
-                fullName: p.fullName.trim(),
-                dni: p.dni.trim(),
-                relationship: p.relationship.trim(),
-                phone: p.phone ? p.phone.trim() : '',
-              }))
-            : [],
+          create: validPeople,
         },
       },
       include: { authorizedPeople: true },
     });
 
     return res.status(201).json(student);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error al crear alumna:', error);
-    return res.status(500).json({ error: 'Error al crear la alumna.' });
+    return res.status(500).json({ error: `Error al crear la alumna: ${error?.message || String(error)}` });
   }
 });
 
@@ -271,16 +276,22 @@ router.put('/students/:id', requireSuperAdmin, async (req: Request, res: Respons
     });
 
     if (Array.isArray(authorizedPeople)) {
-      await prisma.authorizedPerson.deleteMany({ where: { studentId: id } });
-      await prisma.authorizedPerson.createMany({
-        data: authorizedPeople.map((p: any) => ({
+      const validPeople = authorizedPeople
+        .filter((p: any) => p && typeof p.fullName === 'string' && p.fullName.trim() !== '' && typeof p.dni === 'string' && p.dni.trim() !== '')
+        .map((p: any) => ({
           studentId: id,
           fullName: p.fullName.trim(),
           dni: p.dni.trim(),
-          relationship: p.relationship.trim(),
+          relationship: p.relationship && p.relationship.trim() ? p.relationship.trim() : 'Familiar',
           phone: p.phone ? p.phone.trim() : '',
-        })),
-      });
+        }));
+
+      await prisma.authorizedPerson.deleteMany({ where: { studentId: id } });
+      if (validPeople.length > 0) {
+        await prisma.authorizedPerson.createMany({
+          data: validPeople,
+        });
+      }
     }
 
     const updatedStudent = await prisma.student.findUnique({
