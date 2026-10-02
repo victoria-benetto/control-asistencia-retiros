@@ -85,10 +85,12 @@ router.post('/login', async (req: Request, res: Response) => {
 
       const cleanPassword = password.trim();
 
-      // Validación de contraseña
+      // Validación de contraseña única
       const validPassword = adminUser.password
         ? adminUser.password === cleanPassword
-        : cleanPassword === 'Vulpiare2026!' || cleanPassword === '123456' || cleanPassword === 'admin123';
+        : (adminUser.role === 'SUPER_ADMIN' || adminUser.dni === '44122509')
+          ? cleanPassword === 'Vulpiare2026!'
+          : cleanPassword === '123456';
 
       if (!validPassword) {
         return res.status(401).json({ error: 'Contraseña incorrecta. Por favor verifique e intente nuevamente.' });
@@ -139,7 +141,7 @@ router.post('/login', async (req: Request, res: Response) => {
     if (!password) {
       return res.json({ type: 'PASSWORD_REQUIRED', fullName: 'Victoria', role: 'SUPER_ADMIN' });
     }
-    if (password.trim() !== 'Vulpiare2026!' && password.trim() !== '123456' && password.trim() !== 'admin123') {
+    if (password.trim() !== 'Vulpiare2026!') {
       return res.status(401).json({ error: 'Contraseña incorrecta.' });
     }
     return res.json({
@@ -157,6 +159,9 @@ router.post('/login', async (req: Request, res: Response) => {
   if (cleanDni === '43213538') {
     if (!password) {
       return res.json({ type: 'PASSWORD_REQUIRED', fullName: 'Profe María', role: 'ADMIN' });
+    }
+    if (password.trim() !== '123456') {
+      return res.status(401).json({ error: 'Contraseña incorrecta.' });
     }
     return res.json({
       type: 'ADMIN',

@@ -7,8 +7,9 @@ import { StudentManagement } from './components/Admin/StudentManagement';
 import { AdminManagement } from './components/Admin/AdminManagement';
 import { HistoryView } from './components/Admin/HistoryView';
 import { ParentPortal } from './components/Parent/ParentPortal';
-import { LoginResponse, AdminUser, Student, AttendanceRecord } from './types';
-import { getShifts } from './services/api';
+import { LoginResponse, AdminUser, Student, AttendanceRecord, OFFICIAL_SHIFTS } from './types';
+
+const SESSION_STORAGE_KEY = 'vulpiare_session_active';
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
@@ -17,18 +18,23 @@ export function App() {
   >(null);
 
   const [activeTab, setActiveTab] = useState<string>('attendance');
-  const [selectedShift, setSelectedShift] = useState<string>('Lunes');
-  const [availableShifts, setAvailableShifts] = useState<string[]>(['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']);
+  const [selectedShift, setSelectedShift] = useState<string>(OFFICIAL_SHIFTS[0]);
 
-  // Cargar turnos disponibles al iniciar
+  // Restaurar sesión persistente al abrir la aplicación
   useEffect(() => {
-    getShifts()
-      .then((shifts) => {
-        if (shifts && shifts.length > 0) {
-          setAvailableShifts(shifts);
+    const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.type === 'ADMIN' && parsed.user) {
+          setCurrentUser(parsed.user);
+        } else if (parsed.type === 'PARENT' && parsed.student) {
+          setParentStudent(parsed.student);
         }
-      })
-      .catch(() => {});
+      } catch (e) {
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+      }
+    }
   }, []);
 
   const handleLoginSuccess = (data: LoginResponse) => {
@@ -36,15 +42,18 @@ export function App() {
       setCurrentUser(data.user);
       setParentStudent(null);
       setActiveTab('attendance');
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ type: 'ADMIN', user: data.user }));
     } else if (data.type === 'PARENT' && data.student) {
       setParentStudent(data.student);
       setCurrentUser(null);
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ type: 'PARENT', student: data.student }));
     }
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     setParentStudent(null);
+    localStorage.removeItem(SESSION_STORAGE_KEY);
   };
 
   // 1. Si no hay sesión iniciada, mostrar Login Único por DNI
@@ -67,9 +76,6 @@ export function App() {
           user={currentUser}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          selectedShift={selectedShift}
-          setSelectedShift={setSelectedShift}
-          availableShifts={availableShifts}
           onLogout={handleLogout}
         />
 
@@ -78,12 +84,17 @@ export function App() {
             <AttendanceView
               shift={selectedShift}
               user={currentUser}
+              onShiftChange={(newShift) => setSelectedShift(newShift)}
               onNavigateToPickups={() => setActiveTab('pickups')}
             />
           )}
 
           {activeTab === 'pickups' && (
-            <PickupsView shift={selectedShift} user={currentUser} />
+            <PickupsView
+              shift={selectedShift}
+              user={currentUser}
+              onShiftChange={(newShift) => setSelectedShift(newShift)}
+            />
           )}
 
           {activeTab === 'history' && <HistoryView shift={selectedShift} />}

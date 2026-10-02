@@ -6,9 +6,6 @@ interface NavbarProps {
   user: AdminUser;
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  selectedShift: string;
-  setSelectedShift: (shift: string) => void;
-  availableShifts: string[];
   onLogout: () => void;
 }
 
@@ -16,9 +13,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   user,
   activeTab,
   setActiveTab,
-  selectedShift,
-  setSelectedShift,
-  availableShifts,
   onLogout,
 }) => {
   const isSuperAdmin = user.role === 'SUPER_ADMIN';
@@ -54,43 +48,27 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
 
-            {/* Selector de Turno & Perfil */}
-            <div className="flex items-center gap-2 sm:gap-4">
-              <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-100 p-1 rounded-2xl">
-                <span className="text-[11px] font-bold text-purple-700 pl-2 hidden xs:inline">Turno:</span>
-                <select
-                  value={selectedShift}
-                  onChange={(e) => setSelectedShift(e.target.value)}
-                  className="bg-white text-slate-900 text-xs font-bold px-2.5 py-1.5 rounded-xl border border-purple-200 shadow-xs focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[36px]"
+            {/* Perfil & Botón Cerrar Sesión */}
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-black text-slate-900 leading-tight">{user.fullName}</p>
+                <span
+                  className={`inline-block text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                    isSuperAdmin ? 'bg-amber-100 text-amber-900' : 'bg-purple-100 text-purple-900'
+                  }`}
                 >
-                  {availableShifts.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                  {isSuperAdmin ? 'Super Admin' : 'Profe'}
+                </span>
               </div>
 
-              <div className="flex items-center gap-2 border-l border-slate-200 pl-2 sm:pl-4">
-                <div className="text-right hidden sm:block">
-                  <p className="text-xs font-black text-slate-900 leading-tight">{user.fullName}</p>
-                  <span
-                    className={`inline-block text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
-                      isSuperAdmin ? 'bg-amber-100 text-amber-900' : 'bg-purple-100 text-purple-900'
-                    }`}
-                  >
-                    {isSuperAdmin ? 'Super Admin' : 'Profe'}
-                  </span>
-                </div>
-
-                <button
-                  onClick={onLogout}
-                  title="Cerrar Sesión"
-                  className="p-2.5 rounded-2xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors active:scale-95"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
-              </div>
+              <button
+                onClick={onLogout}
+                title="Cerrar Sesión"
+                className="p-2.5 rounded-2xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors active:scale-95 flex items-center gap-1.5 font-bold text-xs"
+              >
+                <LogOut className="w-5 h-5 text-rose-500" />
+                <span className="hidden xs:inline">Salir</span>
+              </button>
             </div>
           </div>
 
