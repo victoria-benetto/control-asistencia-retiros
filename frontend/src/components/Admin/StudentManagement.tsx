@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, ShieldAlert, UserPlus, X, Save, Search } from 'lucide-react';
 import { getStudents, createStudent, updateStudent, deleteStudent, getShifts } from '../../services/api';
-import { Student, AdminUser } from '../../types';
+import { Student, AdminUser, OFFICIAL_SHIFTS } from '../../types';
 
 interface StudentManagementProps {
   user: AdminUser;
@@ -22,7 +22,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
   }
 
   const [students, setStudents] = useState<Student[]>([]);
-  const [shifts, setShifts] = useState<string[]>([]);
+  const [shifts, setShifts] = useState<string[]>(OFFICIAL_SHIFTS);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -32,7 +32,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [dni, setDni] = useState('');
-  const [shift, setShift] = useState('Lunes');
+  const [shift, setShift] = useState(OFFICIAL_SHIFTS[0]);
   const [notes, setNotes] = useState('');
   const [authorizedPeople, setAuthorizedPeople] = useState<
     Array<{ fullName: string; dni: string; relationship: string; phone: string }>
@@ -43,7 +43,9 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     try {
       const [sList, shList] = await Promise.all([getStudents(), getShifts()]);
       setStudents(sList);
-      setShifts(shList);
+      if (shList && shList.length > 0) {
+        setShifts(shList);
+      }
     } catch (err) {
       alert('Error al cargar alumnas.');
     } finally {
@@ -60,7 +62,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     setFirstName('');
     setLastName('');
     setDni('');
-    setShift('Lunes');
+    setShift(OFFICIAL_SHIFTS[0]);
     setNotes('');
     setAuthorizedPeople([
       { fullName: '', dni: '', relationship: 'Mamá', phone: '' },
@@ -190,7 +192,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar alumna..."
+          placeholder="Buscar alumna por nombre, DNI o turno..."
           className="w-full text-xs font-bold border-none focus:outline-none bg-transparent"
         />
       </div>
@@ -208,16 +210,16 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
             filteredStudents.map((s) => (
               <div key={s.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h4 className="font-black text-slate-900 text-base">
                       {s.firstName} {s.lastName}
                     </h4>
                     <span className="bg-purple-50 text-purple-900 text-xs font-extrabold px-2.5 py-0.5 rounded-full border border-purple-100">
-                      Turno {s.shift}
+                      {s.shift}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 font-medium">
-                    DNI: <span className="font-mono text-slate-700 font-bold">{s.dni}</span>
+                    DNI Alumna: <span className="font-mono text-slate-700 font-bold">{s.dni}</span>
                   </p>
 
                   {/* Autorizados */}
@@ -322,7 +324,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
                   >
                     {shifts.map((sh) => (
                       <option key={sh} value={sh}>
-                        Turno {sh}
+                        {sh}
                       </option>
                     ))}
                   </select>

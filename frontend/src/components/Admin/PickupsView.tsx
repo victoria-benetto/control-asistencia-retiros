@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { UserCheck, Clock, CheckCircle2, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
+import { UserCheck, Clock, CheckCircle2, ShieldCheck, AlertCircle, RefreshCw, Calendar } from 'lucide-react';
 import { getTodayAttendance, savePickup } from '../../services/api';
-import { TodayStudentAttendance, AdminUser } from '../../types';
+import { TodayStudentAttendance, AdminUser, OFFICIAL_SHIFTS } from '../../types';
 
 interface PickupsViewProps {
   shift: string;
   user: AdminUser;
+  onShiftChange?: (newShift: string) => void;
 }
 
-export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user }) => {
+export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftChange }) => {
+  const getTodayISO = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayISO());
   const [data, setData] = useState<{ date: string; shift: string; students: TodayStudentAttendance[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPersonMap, setSelectedPersonMap] = useState<{ [attendanceId: string]: string }>({});
@@ -19,9 +29,9 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await getTodayAttendance(shift);
+      const res = await getTodayAttendance(shift, selectedDate);
       // Filtrar únicamente alumnas presentes
-      const presentOnly = res.students.filter(s => s.status === 'PRESENT');
+      const presentOnly = res.students.filter((s) => s.status === 'PRESENT');
       setData({ ...res, students: presentOnly });
     } catch (err) {
       setError('Error al cargar retiros.');
@@ -32,7 +42,7 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user }) => {
 
   useEffect(() => {
     fetchPresentStudents();
-  }, [shift]);
+  }, [shift, selectedDate]);
 
   const handleRegisterPickup = async (attendanceId: string) => {
     const authorizedPersonId = selectedPersonMap[attendanceId];
@@ -68,16 +78,16 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user }) => {
   return (
     <div className="space-y-4 sm:space-y-6 pb-20 md:pb-6">
       {/* Banner Encabezado Mobile */}
-      <div className="bg-gradient-to-r from-purple-700 to-pink-600 rounded-3xl p-5 sm:p-6 text-white shadow-lg">
+      <div className="bg-gradient-to-r from-purple-700 to-pink-600 rounded-3xl p-5 sm:p-6 text-white shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-[11px] font-bold backdrop-blur-sm mb-2">
               <UserCheck className="w-3.5 h-3.5" />
               <span>Control de Retiros VULPIARE</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black">Retiros - Turno {shift}</h2>
+            <h2 className="text-xl sm:text-2xl font-black">Control de Retiros</h2>
             <p className="text-purple-100 text-xs sm:text-sm mt-0.5">
-              Alumnas en clase hoy ({data?.students.length || 0})
+              Alumnas presentes en la fecha seleccionada ({data?.students.length || 0})
             </p>
           </div>
 
@@ -88,6 +98,41 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user }) => {
             <RefreshCw className="w-4 h-4" />
             <span>Actualizar</span>
           </button>
+        </div>
+
+        {/* Seleccionador de Fecha y Turno */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/20">
+          <div>
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
+              Seleccionar Fecha
+            </label>
+            <div className="relative">
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 pl-10 rounded-2xl bg-white text-slate-900 text-xs font-bold focus:outline-none shadow-sm min-h-[42px]"
+              />
+              <Calendar className="w-4 h-4 text-purple-600 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
+              Seleccionar Turno
+            </label>
+            <select
+              value={shift}
+              onChange={(e) => onShiftChange && onShiftChange(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-2xl bg-white text-slate-900 text-xs font-bold focus:outline-none shadow-sm min-h-[42px]"
+            >
+              {OFFICIAL_SHIFTS.map((sh) => (
+                <option key={sh} value={sh}>
+                  {sh}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -103,15 +148,15 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user }) => {
           <div className="w-14 h-14 rounded-full bg-purple-50 text-purple-400 flex items-center justify-center mx-auto mb-3">
             <AlertCircle className="w-7 h-7 text-purple-600" />
           </div>
-          <h3 className="font-bold text-slate-900 text-sm sm:text-base">No hay alumnas marcadas como Presentes hoy</h3>
+          <h3 className="font-bold text-slate-900 text-sm sm:text-base">No hay alumnas marcadas como Presentes</h3>
           <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-            Primero andá a <strong>"Asistencia"</strong> y marcá Presentes a las alumnas que vinieron.
+            Primero andá a <strong>"Asistencia"</strong> y marcá Presentes a las alumnas que asistieron.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
           {data?.students.map((item) => {
-            const { student, attendanceId, pickups } = item;
+            const { student, attendanceId, pickups, isMakeup } = item;
             const hasPickup = pickups && pickups.length > 0;
             const lastPickup = hasPickup ? pickups[pickups.length - 1] : null;
 
@@ -130,9 +175,16 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user }) => {
                         {student.firstName[0]}
                       </div>
                       <div>
-                        <h4 className="font-black text-slate-900 text-base leading-tight">
-                          {student.firstName} {student.lastName}
-                        </h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-black text-slate-900 text-base leading-tight">
+                            {student.firstName} {student.lastName}
+                          </h4>
+                          {isMakeup && (
+                            <span className="bg-purple-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                              Recuperatorio
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-400 font-medium">
                           DNI: <span className="font-mono text-slate-700 font-bold">{student.dni}</span>
                         </p>

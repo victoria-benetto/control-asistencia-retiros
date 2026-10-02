@@ -3,6 +3,13 @@ import { prisma } from '../utils/prisma';
 
 const router = Router();
 
+export const OFFICIAL_SHIFTS = [
+  'Lunes, miércoles y viernes de 16:45 a 18',
+  'Lunes, miércoles y viernes de 17:30 a 19',
+  'Martes y Jueves de 16 a 18',
+  'Lunes y miércoles de 8 a 10',
+];
+
 /**
  * @openapi
  * /api/students:
@@ -42,14 +49,13 @@ router.get('/', async (req: Request, res: Response) => {
  * @openapi
  * /api/students/shifts:
  *   get:
- *     summary: Obtener turnos disponibles
+ *     summary: Obtener turnos disponibles oficiales de VULPIARE
  *     tags: [Alumnas]
  *     responses:
  *       200:
  *         description: Lista de turnos.
  */
 router.get('/shifts', async (_req: Request, res: Response) => {
-  const defaultShifts = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
   try {
     const students = await prisma.student.findMany({
       select: { shift: true },
@@ -57,12 +63,12 @@ router.get('/shifts', async (_req: Request, res: Response) => {
     });
 
     const dbShifts = students.map(s => s.shift);
-    const allShifts = Array.from(new Set([...defaultShifts, ...dbShifts]));
+    const allShifts = Array.from(new Set([...OFFICIAL_SHIFTS, ...dbShifts]));
 
     return res.json(allShifts);
   } catch (error) {
     console.warn('⚠️ Base de datos inaccesible en /shifts, usando turnos por defecto:', error);
-    return res.json(defaultShifts);
+    return res.json(OFFICIAL_SHIFTS);
   }
 });
 

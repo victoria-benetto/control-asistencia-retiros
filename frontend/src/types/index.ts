@@ -1,5 +1,12 @@
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'PARENT';
 
+export const OFFICIAL_SHIFTS = [
+  'Lunes, miércoles y viernes de 16:45 a 18',
+  'Lunes, miércoles y viernes de 17:30 a 19',
+  'Martes y Jueves de 16 a 18',
+  'Lunes y miércoles de 8 a 10',
+];
+
 export interface AdminPermissions {
   canAttendance?: boolean;
   canPickups?: boolean;
@@ -11,6 +18,7 @@ export interface AdminUser {
   dni: string;
   fullName: string;
   role: UserRole;
+  password?: string;
   permissions: AdminPermissions;
 }
 
@@ -51,6 +59,7 @@ export interface AttendanceRecord {
   studentId: string;
   date: string;
   status: 'PRESENT' | 'ABSENT';
+  isMakeup?: boolean;
   student?: Student;
   recordedBy?: {
     fullName: string;
@@ -62,14 +71,19 @@ export interface TodayStudentAttendance {
   student: Student;
   attendanceId: string | null;
   status: 'PRESENT' | 'ABSENT' | null;
+  isMakeup?: boolean;
   date: string;
   recordedBy: { fullName: string; dni: string } | null;
   pickups: PickupRecord[];
 }
 
 export interface LoginResponse {
-  type: 'ADMIN' | 'PARENT';
+  type: 'ADMIN' | 'PARENT' | 'PASSWORD_REQUIRED' | 'DUAL_ROLE_REQUIRED';
   user?: AdminUser;
+  fullName?: string;
+  adminName?: string;
+  studentName?: string;
+  role?: UserRole;
   student?: Student & {
     attendances: AttendanceRecord[];
   };

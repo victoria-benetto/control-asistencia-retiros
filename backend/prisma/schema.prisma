@@ -23,6 +23,7 @@ model AdminUser {
   id               String             @id @default(uuid())
   dni              String             @unique
   fullName         String
+  password         String?
   role             Role               @default(ADMIN)
   permissions      String             @default("{\"canAttendance\":true,\"canPickups\":true,\"canHistory\":true}")
   createdAt        DateTime           @default(now())
@@ -36,7 +37,7 @@ model Student {
   firstName        String
   lastName         String
   dni              String             @unique
-  shift            String             @default("Lunes")
+  shift            String             @default("Lunes, miércoles y viernes de 16:45 a 18")
   notes            String?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
@@ -62,6 +63,7 @@ model AttendanceRecord {
   studentId         String
   date              String           // Formato YYYY-MM-DD
   status            AttendanceStatus
+  isMakeup          Boolean          @default(false)
   recordedByAdminId String?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { getTodayDateString, getTodayDayName } from '../utils/date';
+import { OFFICIAL_SHIFTS } from './student.routes';
 
 const router = Router();
 
@@ -8,11 +9,15 @@ const router = Router();
  * @openapi
  * /api/attendance/today:
  *   get:
- *     summary: Obtener la asistencia de hoy por turno (Supabase PostgreSQL)
+ *     summary: Obtener la asistencia por turno y fecha opcional (Supabase PostgreSQL)
  *     tags: [Asistencia]
  *     parameters:
  *       - in: query
  *         name: shift
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: date
  *         schema:
  *           type: string
  *     responses:
@@ -20,20 +25,23 @@ const router = Router();
  *         description: Lista de asistencias registradas y alumnas del turno.
  */
 router.get('/today', async (req: Request, res: Response) => {
-  const todayDate = getTodayDateString();
+  const selectedDate = (req.query.date as string) || getTodayDateString();
   const todayDayName = getTodayDayName();
-  const targetShift = (req.query.shift as string) || (['Sábado', 'Domingo'].includes(todayDayName) ? 'Lunes' : todayDayName);
+  const targetShift = (req.query.shift as string) || OFFICIAL_SHIFTS[0];
 
   try {
+    // Alumnas registradas en este turno
     const studentsInShift = await prisma.student.findMany({
       where: { shift: targetShift },
       include: { authorizedPeople: true },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
 
+    // Registros de asistencia existentes para la fecha seleccionada
     const existingAttendances = await prisma.attendanceRecord.findMany({
-      where: { date: todayDate },
+      where: { date: selectedDate },
       include: {
+        student: { include: { authorizedPeople: true } },
         recordedBy: { select: { fullName: true, dni: true } },
         pickups: {
           include: {
@@ -49,20 +57,38 @@ router.get('/today', async (req: Request, res: Response) => {
       attendanceMap.set(record.studentId, record);
     });
 
+    // Construir lista del turno
     const result = studentsInShift.map(student => {
       const record = attendanceMap.get(student.id);
       return {
         student,
         attendanceId: record?.id || null,
         status: record?.status || null,
-        date: todayDate,
+        isMakeup: record?.isMakeup || false,
+        date: selectedDate,
         recordedBy: record?.recordedBy || null,
         pickups: record?.pickups || [],
       };
     });
 
+    // Agregar alumnas de recuperatorio (de otros turnos que asistieron en esta fecha y turno)
+    const makeupRecords = existingAttendances.filter(record => record.isMakeup && record.student && record.student.shift !== targetShift);
+    makeupRecords.forEach(record => {
+      if (!result.some(r => r.student.id === record.studentId)) {
+        result.push({
+          student: record.student,
+          attendanceId: record.id,
+          status: record.status,
+          isMakeup: true,
+          date: selectedDate,
+          recordedBy: record.recordedBy || null,
+          pickups: record.pickups || [],
+        });
+      }
+    });
+
     return res.json({
-      date: todayDate,
+      date: selectedDate,
       shift: targetShift,
       todayDayName,
       students: result,
@@ -70,7 +96,7 @@ router.get('/today', async (req: Request, res: Response) => {
   } catch (error) {
     console.warn('⚠️ Base de datos inaccesible en /attendance/today, usando fallback:', error);
     return res.json({
-      date: todayDate,
+      date: selectedDate,
       shift: targetShift,
       todayDayName,
       students: [],
@@ -82,7 +108,7 @@ router.get('/today', async (req: Request, res: Response) => {
  * @openapi
  * /api/attendance:
  *   post:
- *     summary: Registrar o actualizar la asistencia del día
+ *     summary: Registrar o actualizar la asistencia (Soporta recuperatorio)
  *     tags: [Asistencia]
  *     requestBody:
  *       required: true
@@ -97,6 +123,10 @@ router.get('/today', async (req: Request, res: Response) => {
  *               status:
  *                 type: string
  *                 enum: [PRESENT, ABSENT]
+ *               date:
+ *                 type: string
+ *               isMakeup:
+ *                 type: boolean
  *               recordedByAdminId:
  *                 type: string
  *     responses:
@@ -105,8 +135,8 @@ router.get('/today', async (req: Request, res: Response) => {
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { studentId, status, recordedByAdminId } = req.body;
-    const todayDate = getTodayDateString();
+    const { studentId, status, date, isMakeup, recordedByAdminId } = req.body;
+    const targetDate = date || getTodayDateString();
 
     if (!studentId || !['PRESENT', 'ABSENT'].includes(status)) {
       return res.status(400).json({ error: 'studentId y estado válido (PRESENT/ABSENT) son requeridos.' });
@@ -116,17 +146,19 @@ router.post('/', async (req: Request, res: Response) => {
       where: {
         studentId_date: {
           studentId,
-          date: todayDate,
+          date: targetDate,
         },
       },
       update: {
         status,
+        isMakeup: Boolean(isMakeup),
         recordedByAdminId: recordedByAdminId || null,
       },
       create: {
         studentId,
-        date: todayDate,
+        date: targetDate,
         status,
+        isMakeup: Boolean(isMakeup),
         recordedByAdminId: recordedByAdminId || null,
       },
       include: {

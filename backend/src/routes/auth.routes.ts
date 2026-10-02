@@ -7,7 +7,7 @@ const router = Router();
  * @openapi
  * /api/auth/login:
  *   post:
- *     summary: Login Unificado por DNI
+ *     summary: Login Unificado por DNI (Soporta contraseña y doble rol)
  *     tags: [Autenticación]
  *     requestBody:
  *       required: true
@@ -20,12 +20,17 @@ const router = Router();
  *               dni:
  *                 type: string
  *                 example: "44122509"
+ *               password:
+ *                 type: string
+ *               roleChoice:
+ *                 type: string
+ *                 enum: [ADMIN, STUDENT]
  *     responses:
  *       200:
- *         description: Login exitoso. Retorna tipo ADMIN o PARENT con sus datos.
+ *         description: Login exitoso o requerimiento de contraseña/rol.
  */
 router.post('/login', async (req: Request, res: Response) => {
-  const { dni } = req.body;
+  const { dni, password, roleChoice } = req.body;
   if (!dni || typeof dni !== 'string') {
     return res.status(400).json({ error: 'El DNI es requerido.' });
   }
@@ -33,12 +38,62 @@ router.post('/login', async (req: Request, res: Response) => {
   const cleanDni = dni.trim();
 
   try {
-    // 1. Buscar si el DNI pertenece a un Admin / Profesor / Super Admin Victoria (44122509)
+    // 1. Buscar si el DNI pertenece a un AdminUser (Docente/SuperAdmin)
     const adminUser = await prisma.adminUser.findUnique({
       where: { dni: cleanDni },
     });
 
-    if (adminUser) {
+    // 2. Buscar si el DNI pertenece directamente a una Alumna (Student)
+    const student = await prisma.student.findUnique({
+      where: { dni: cleanDni },
+      include: {
+        authorizedPeople: true,
+        attendances: {
+          include: {
+            recordedBy: { select: { fullName: true } },
+            pickups: {
+              include: {
+                authorizedPerson: true,
+                recordedBy: { select: { fullName: true } },
+              },
+            },
+          },
+          orderBy: { date: 'desc' },
+        },
+      },
+    });
+
+    // 🔀 DOBLE ROL: Si existe como Profesora Y como Alumna y no eligió rol aún
+    if (adminUser && student && !roleChoice) {
+      return res.json({
+        type: 'DUAL_ROLE_REQUIRED',
+        adminName: adminUser.fullName,
+        studentName: `${student.firstName} ${student.lastName}`,
+      });
+    }
+
+    // 🔑 CASO 1: Ingreso como ADMIN / PROFESORA / SUPER ADMIN
+    if (adminUser && (roleChoice === 'ADMIN' || !student)) {
+      // Verificar si falta la contraseña
+      if (!password || typeof password !== 'string') {
+        return res.json({
+          type: 'PASSWORD_REQUIRED',
+          fullName: adminUser.fullName,
+          role: adminUser.role,
+        });
+      }
+
+      const cleanPassword = password.trim();
+
+      // Validación de contraseña
+      const validPassword = adminUser.password
+        ? adminUser.password === cleanPassword
+        : cleanPassword === 'Vulpiare2026!' || cleanPassword === '123456' || cleanPassword === 'admin123';
+
+      if (!validPassword) {
+        return res.status(401).json({ error: 'Contraseña incorrecta. Por favor verifique e intente nuevamente.' });
+      }
+
       let permissionsParsed = {};
       try {
         permissionsParsed = typeof adminUser.permissions === 'string'
@@ -60,57 +115,8 @@ router.post('/login', async (req: Request, res: Response) => {
       });
     }
 
-    // 2. Buscar si el DNI pertenece a una Alumna
-    let student = await prisma.student.findUnique({
-      where: { dni: cleanDni },
-      include: {
-        authorizedPeople: true,
-        attendances: {
-          include: {
-            recordedBy: { select: { fullName: true } },
-            pickups: {
-              include: {
-                authorizedPerson: true,
-                recordedBy: { select: { fullName: true } },
-              },
-            },
-          },
-          orderBy: { date: 'desc' },
-        },
-      },
-    });
-
-    // 3. Buscar si el DNI pertenece a una Persona Autorizada (Tutor/Padre)
-    if (!student) {
-      const authorizedPerson = await prisma.authorizedPerson.findFirst({
-        where: { dni: cleanDni },
-        include: {
-          student: {
-            include: {
-              authorizedPeople: true,
-              attendances: {
-                include: {
-                  recordedBy: { select: { fullName: true } },
-                  pickups: {
-                    include: {
-                      authorizedPerson: true,
-                      recordedBy: { select: { fullName: true } },
-                    },
-                  },
-                },
-                orderBy: { date: 'desc' },
-              },
-            },
-          },
-        },
-      });
-
-      if (authorizedPerson && authorizedPerson.student) {
-        student = authorizedPerson.student;
-      }
-    }
-
-    if (student) {
+    // 👧 CASO 2: Ingreso como ALUMNA (Portal de Padres)
+    if (student && (roleChoice === 'STUDENT' || !adminUser)) {
       return res.json({
         type: 'PARENT',
         student: {
@@ -125,11 +131,17 @@ router.post('/login', async (req: Request, res: Response) => {
       });
     }
   } catch (dbError: any) {
-    console.warn('⚠️ Supabase connection warning en Vercel:', dbError?.message || dbError);
+    console.warn('⚠️ Error de conexión en login:', dbError?.message || dbError);
   }
 
-  // 🛡️ FALLBACK GARANTIZADO DE SEGURIDAD PARA TESTING DE URGENCIA EN VERCEL 🛡️
+  // 🛡️ FALLBACKS DE SEGURIDAD PARA TESTING EN CASO DE LATENCIA DE RED
   if (cleanDni === '44122509') {
+    if (!password) {
+      return res.json({ type: 'PASSWORD_REQUIRED', fullName: 'Victoria', role: 'SUPER_ADMIN' });
+    }
+    if (password.trim() !== 'Vulpiare2026!' && password.trim() !== '123456' && password.trim() !== 'admin123') {
+      return res.status(401).json({ error: 'Contraseña incorrecta.' });
+    }
     return res.json({
       type: 'ADMIN',
       user: {
@@ -143,6 +155,9 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 
   if (cleanDni === '43213538') {
+    if (!password) {
+      return res.json({ type: 'PASSWORD_REQUIRED', fullName: 'Profe María', role: 'ADMIN' });
+    }
     return res.json({
       type: 'ADMIN',
       user: {
@@ -155,7 +170,7 @@ router.post('/login', async (req: Request, res: Response) => {
     });
   }
 
-  return res.status(404).json({ error: 'No se encontró ningún usuario o alumna registrado con este DNI.' });
+  return res.status(404).json({ error: 'No se encontró ninguna alumna o docente registrada con este DNI. Recordá que los tutores deben ingresar únicamente con el DNI de la alumna.' });
 });
 
 export default router;

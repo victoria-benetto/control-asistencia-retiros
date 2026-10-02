@@ -21,12 +21,12 @@ async function parseResponse(res: Response): Promise<any> {
   return data;
 }
 
-export async function loginWithDNI(dni: string): Promise<LoginResponse> {
+export async function loginWithDNI(dni: string, password?: string, roleChoice?: 'ADMIN' | 'STUDENT'): Promise<LoginResponse> {
   const cleanDni = dni.trim();
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ dni: cleanDni }),
+    body: JSON.stringify({ dni: cleanDni, password, roleChoice }),
   });
   return parseResponse(res);
 }
@@ -39,7 +39,7 @@ export async function getTeachers(userDni: string): Promise<AdminUser[]> {
   return parseResponse(res);
 }
 
-export async function createTeacher(userDni: string, teacherData: { dni: string; fullName: string; permissions: any }): Promise<AdminUser> {
+export async function createTeacher(userDni: string, teacherData: { dni: string; fullName: string; password?: string; permissions: any }): Promise<AdminUser> {
   const res = await fetch(`${API_BASE}/admin/teachers`, {
     method: 'POST',
     headers: {
@@ -51,7 +51,7 @@ export async function createTeacher(userDni: string, teacherData: { dni: string;
   return parseResponse(res);
 }
 
-export async function updateTeacher(userDni: string, id: string, teacherData: { fullName?: string; permissions?: any }): Promise<AdminUser> {
+export async function updateTeacher(userDni: string, id: string, teacherData: { fullName?: string; password?: string; permissions?: any }): Promise<AdminUser> {
   const res = await fetch(`${API_BASE}/admin/teachers/${id}`, {
     method: 'PUT',
     headers: {
@@ -117,17 +117,20 @@ export async function getShifts(): Promise<string[]> {
 }
 
 // Asistencia
-export async function getTodayAttendance(shift?: string): Promise<{ date: string; shift: string; todayDayName: string; students: TodayStudentAttendance[] }> {
-  const url = shift ? `${API_BASE}/attendance/today?shift=${encodeURIComponent(shift)}` : `${API_BASE}/attendance/today`;
+export async function getTodayAttendance(shift?: string, date?: string): Promise<{ date: string; shift: string; todayDayName: string; students: TodayStudentAttendance[] }> {
+  const params = new URLSearchParams();
+  if (shift) params.append('shift', shift);
+  if (date) params.append('date', date);
+  const url = `${API_BASE}/attendance/today?${params.toString()}`;
   const res = await fetch(url);
   return parseResponse(res);
 }
 
-export async function saveAttendance(studentId: string, status: 'PRESENT' | 'ABSENT', recordedByAdminId?: string): Promise<any> {
+export async function saveAttendance(studentId: string, status: 'PRESENT' | 'ABSENT', recordedByAdminId?: string, date?: string, isMakeup?: boolean): Promise<any> {
   const res = await fetch(`${API_BASE}/attendance`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ studentId, status, recordedByAdminId }),
+    body: JSON.stringify({ studentId, status, recordedByAdminId, date, isMakeup }),
   });
   return parseResponse(res);
 }

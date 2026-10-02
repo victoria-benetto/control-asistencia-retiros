@@ -8,11 +8,15 @@ const router = Router();
  * @openapi
  * /api/pickups/today:
  *   get:
- *     summary: Obtener alumnas PRESENTES de hoy para gestionar sus retiros (Supabase)
+ *     summary: Obtener alumnas PRESENTES de hoy (o fecha personalizada) para gestionar sus retiros
  *     tags: [Retiros]
  *     parameters:
  *       - in: query
  *         name: shift
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: date
  *         schema:
  *           type: string
  *     responses:
@@ -20,12 +24,12 @@ const router = Router();
  *         description: Lista de alumnas presentes con sus autorizados y retiros registrados.
  */
 router.get('/today', async (req: Request, res: Response) => {
-  const todayDate = getTodayDateString();
+  const selectedDate = (req.query.date as string) || getTodayDateString();
   const { shift } = req.query;
 
   try {
     const whereCondition: any = {
-      date: todayDate,
+      date: selectedDate,
       status: 'PRESENT',
     };
 
@@ -51,13 +55,13 @@ router.get('/today', async (req: Request, res: Response) => {
     });
 
     return res.json({
-      date: todayDate,
+      date: selectedDate,
       presentStudents: presentRecords,
     });
   } catch (error) {
     console.warn('⚠️ Base de datos inaccesible en /pickups/today, retornando lista vacia:', error);
     return res.json({
-      date: todayDate,
+      date: selectedDate,
       presentStudents: [],
     });
   }
@@ -67,7 +71,7 @@ router.get('/today', async (req: Request, res: Response) => {
  * @openapi
  * /api/pickups:
  *   post:
- *     summary: Registrar retiro de una alumna presente (guarda hora y docente a cargo automáticamente)
+ *     summary: Registrar retiro de una alumna presente
  *     tags: [Retiros]
  *     requestBody:
  *       required: true

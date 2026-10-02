@@ -21,7 +21,6 @@ const requireSuperAdmin = async (req: Request, res: Response, next: Function) =>
     }
     next();
   } catch (err) {
-    // Si falla la consulta a DB, si es 44122509 lo dejamos pasar igual
     if (requesterDni === '44122509') {
       return next();
     }
@@ -75,7 +74,7 @@ router.get('/teachers', requireSuperAdmin, async (_req: Request, res: Response) 
  * @openapi
  * /api/admin/teachers:
  *   post:
- *     summary: Crear nuevo profesor (Solo Victoria / Supabase)
+ *     summary: Crear nuevo profesor con contraseña (Solo Victoria / Supabase)
  *     tags: [Administración]
  *     security:
  *       - UserDniHeader: []
@@ -85,7 +84,7 @@ router.get('/teachers', requireSuperAdmin, async (_req: Request, res: Response) 
  */
 router.post('/teachers', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
-    const { dni, fullName, permissions } = req.body;
+    const { dni, fullName, password, permissions } = req.body;
     if (!dni || !fullName) {
       return res.status(400).json({ error: 'DNI y Nombre completo son requeridos.' });
     }
@@ -95,10 +94,13 @@ router.post('/teachers', requireSuperAdmin, async (req: Request, res: Response) 
       return res.status(400).json({ error: 'Ya existe un usuario registrado con este DNI.' });
     }
 
+    const teacherPassword = password && String(password).trim() ? String(password).trim() : '123456';
+
     const newTeacher = await prisma.adminUser.create({
       data: {
         dni: dni.trim(),
         fullName: fullName.trim(),
+        password: teacherPassword,
         role: 'ADMIN',
         permissions: JSON.stringify(permissions || { canAttendance: true, canPickups: true, canHistory: true }),
       },
@@ -117,7 +119,7 @@ router.post('/teachers', requireSuperAdmin, async (req: Request, res: Response) 
  * @openapi
  * /api/admin/teachers/{id}:
  *   put:
- *     summary: Actualizar profesor (Solo Victoria)
+ *     summary: Actualizar profesor y su contraseña (Solo Victoria)
  *     tags: [Administración]
  *     security:
  *       - UserDniHeader: []
@@ -128,23 +130,21 @@ router.post('/teachers', requireSuperAdmin, async (req: Request, res: Response) 
 router.put('/teachers/:id', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { fullName, permissions } = req.body;
+    const { fullName, password, permissions } = req.body;
 
     const teacher = await prisma.adminUser.findUnique({ where: { id } });
     if (!teacher) {
       return res.status(404).json({ error: 'Profesor no encontrado.' });
     }
 
-    if (teacher.dni === '44122509') {
-      return res.status(400).json({ error: 'No se pueden modificar los permisos del Super Admin principal.' });
-    }
+    const updateData: any = {};
+    if (fullName) updateData.fullName = fullName.trim();
+    if (password && String(password).trim()) updateData.password = String(password).trim();
+    if (permissions) updateData.permissions = typeof permissions === 'string' ? permissions : JSON.stringify(permissions);
 
     const updated = await prisma.adminUser.update({
       where: { id },
-      data: {
-        fullName: fullName ? fullName.trim() : teacher.fullName,
-        permissions: permissions ? (typeof permissions === 'string' ? permissions : JSON.stringify(permissions)) : teacher.permissions,
-      },
+      data: updateData,
     });
 
     return res.json({

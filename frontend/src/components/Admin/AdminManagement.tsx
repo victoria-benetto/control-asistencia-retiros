@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, ShieldAlert, X, Save } from 'lucide-react';
+import { Plus, Trash2, Edit2, ShieldAlert, X, Save, Lock } from 'lucide-react';
 import { getTeachers, createTeacher, updateTeacher, deleteTeacher } from '../../services/api';
 import { AdminUser } from '../../types';
 
@@ -28,6 +28,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
   // Form State
   const [fullName, setFullName] = useState('');
   const [dni, setDni] = useState('');
+  const [password, setPassword] = useState('');
   const [canAttendance, setCanAttendance] = useState(true);
   const [canPickups, setCanPickups] = useState(true);
   const [canHistory, setCanHistory] = useState(true);
@@ -52,6 +53,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
     setEditingTeacher(null);
     setFullName('');
     setDni('');
+    setPassword('123456');
     setCanAttendance(true);
     setCanPickups(true);
     setCanHistory(true);
@@ -62,6 +64,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
     setEditingTeacher(t);
     setFullName(t.fullName);
     setDni(t.dni);
+    setPassword(t.password || '');
     const perms = t.permissions || {};
     setCanAttendance(perms.canAttendance !== false);
     setCanPickups(perms.canPickups !== false);
@@ -86,12 +89,14 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
       if (editingTeacher) {
         await updateTeacher(user.dni, editingTeacher.id, {
           fullName,
+          password: password.trim(),
           permissions: permissionsObj,
         });
       } else {
         await createTeacher(user.dni, {
           fullName,
           dni,
+          password: password.trim() || '123456',
           permissions: permissionsObj,
         });
       }
@@ -122,7 +127,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
           </span>
           <h2 className="text-xl sm:text-2xl font-black">Gestión de Profesores y Permisos</h2>
           <p className="text-purple-100 text-xs sm:text-sm mt-0.5">
-            Administrá las profesoras y los módulos que pueden utilizar.
+            Administrá las profesoras, contraseñas de acceso y permisos.
           </p>
         </div>
 
@@ -243,6 +248,21 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
                   onChange={(e) => setDni(e.target.value)}
                   placeholder="Ej: 43213538"
                   className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-purple-600 disabled:opacity-60 min-h-[44px]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1 flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Contraseña de Acceso</span>
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Ej: 123456"
+                  className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[44px]"
                   required
                 />
               </div>
