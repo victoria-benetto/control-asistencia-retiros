@@ -4,6 +4,27 @@ declare global {
   var prismaSingleton: PrismaClient | undefined;
 }
 
+const SUPABASE_PROJECT_REF = 'taxecszkxqwtnxiglwbu';
+const DEFAULT_FULL_URL = `postgresql://postgres.${SUPABASE_PROJECT_REF}:Vulpiare2026!Pass@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true`;
+
+function sanitizeDatabaseEnvironment() {
+  let dbUrl = process.env.DATABASE_URL;
+
+  if (!dbUrl || dbUrl.trim() === '') {
+    dbUrl = DEFAULT_FULL_URL;
+  } else {
+    // Si la URL contiene 'postgres:' pero le falta el tenant ref del proyecto
+    if (dbUrl.includes('postgres:') && !dbUrl.includes(`postgres.${SUPABASE_PROJECT_REF}:`)) {
+      dbUrl = dbUrl.replace('postgres:', `postgres.${SUPABASE_PROJECT_REF}:`);
+    }
+  }
+
+  process.env.DATABASE_URL = dbUrl;
+  if (!process.env.DIRECT_URL) {
+    process.env.DIRECT_URL = dbUrl.replace(':6543/', ':5432/').replace('?pgbouncer=true', '');
+  }
+}
+
 let prismaInstance: PrismaClient | null = null;
 
 export function getPrisma(): PrismaClient | null {
@@ -13,6 +34,8 @@ export function getPrisma(): PrismaClient | null {
     return prismaInstance;
   }
   try {
+    sanitizeDatabaseEnvironment();
+
     prismaInstance = new PrismaClient({
       log: ['error'],
     });
