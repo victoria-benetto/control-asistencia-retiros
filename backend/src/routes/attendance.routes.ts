@@ -65,6 +65,7 @@ router.get('/today', async (req: Request, res: Response) => {
         attendanceId: record?.id || null,
         status: record?.status || null,
         isMakeup: record?.isMakeup || false,
+        makeupShift: record?.makeupShift || null,
         date: selectedDate,
         recordedBy: record?.recordedBy || null,
         pickups: record?.pickups || [],
@@ -80,6 +81,7 @@ router.get('/today', async (req: Request, res: Response) => {
           attendanceId: record.id,
           status: record.status,
           isMakeup: true,
+          makeupShift: record.makeupShift || targetShift,
           date: selectedDate,
           recordedBy: record.recordedBy || null,
           pickups: record.pickups || [],
@@ -108,7 +110,7 @@ router.get('/today', async (req: Request, res: Response) => {
  * @openapi
  * /api/attendance:
  *   post:
- *     summary: Registrar o actualizar la asistencia (Soporta recuperatorio)
+ *     summary: Registrar o actualizar la asistencia (Soporta recuperatorio y makeupShift)
  *     tags: [Asistencia]
  *     requestBody:
  *       required: true
@@ -127,6 +129,8 @@ router.get('/today', async (req: Request, res: Response) => {
  *                 type: string
  *               isMakeup:
  *                 type: boolean
+ *               makeupShift:
+ *                 type: string
  *               recordedByAdminId:
  *                 type: string
  *     responses:
@@ -135,7 +139,7 @@ router.get('/today', async (req: Request, res: Response) => {
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { studentId, status, date, isMakeup, recordedByAdminId } = req.body;
+    const { studentId, status, date, isMakeup, makeupShift, recordedByAdminId } = req.body;
     const targetDate = date || getTodayDateString();
 
     if (!studentId || !['PRESENT', 'ABSENT'].includes(status)) {
@@ -152,6 +156,7 @@ router.post('/', async (req: Request, res: Response) => {
       update: {
         status,
         isMakeup: Boolean(isMakeup),
+        makeupShift: isMakeup ? makeupShift || null : null,
         recordedByAdminId: recordedByAdminId || null,
       },
       create: {
@@ -159,6 +164,7 @@ router.post('/', async (req: Request, res: Response) => {
         date: targetDate,
         status,
         isMakeup: Boolean(isMakeup),
+        makeupShift: isMakeup ? makeupShift || null : null,
         recordedByAdminId: recordedByAdminId || null,
       },
       include: {

@@ -124,7 +124,18 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift }) => {
                       <span className="text-xs text-slate-500">
                         (DNI: {student?.dni})
                       </span>
+                      {rec.isMakeup && (
+                        <span className="bg-purple-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          Recuperatorio
+                        </span>
+                      )}
                     </div>
+
+                    {rec.isMakeup && (
+                      <p className="text-xs text-purple-800 font-extrabold mt-1 bg-purple-50 px-2.5 py-1 rounded-xl border border-purple-200 inline-block">
+                        🔄 La alumna recupera una clase en el turno: <span className="underline">{rec.makeupShift || shift}</span> (Turno habitual: {student?.shift})
+                      </p>
+                    )}
 
                     <div className="flex items-center gap-3 text-xs font-medium text-slate-500">
                       <span>Profe que tomó asistencia: <strong>{rec.recordedBy?.fullName || 'Registrado'}</strong></span>

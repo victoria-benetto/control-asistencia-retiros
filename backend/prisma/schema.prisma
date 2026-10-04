@@ -64,6 +64,7 @@ model AttendanceRecord {
   date              String           // Formato YYYY-MM-DD
   status            AttendanceStatus
   isMakeup          Boolean          @default(false)
+  makeupShift       String?
   recordedByAdminId String?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt

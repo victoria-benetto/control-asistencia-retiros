@@ -156,7 +156,7 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
           {data?.students.map((item) => {
-            const { student, attendanceId, pickups, isMakeup } = item;
+            const { student, attendanceId, pickups, isMakeup, makeupShift } = item;
             const hasPickup = pickups && pickups.length > 0;
             const lastPickup = hasPickup ? pickups[pickups.length - 1] : null;
             const hasAuthorizedPeople = student.authorizedPeople && student.authorizedPeople.length > 0;
@@ -189,6 +189,11 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
                         <p className="text-xs text-slate-400 font-medium">
                           DNI: <span className="font-mono text-slate-700 font-bold">{student.dni}</span>
                         </p>
+                        {isMakeup && (
+                          <p className="text-[11px] text-purple-800 font-extrabold mt-1 bg-purple-100/80 px-2 py-0.5 rounded-lg border border-purple-200">
+                            🔄 La alumna recupera una clase en el turno: <span className="underline">{makeupShift || shift}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
 

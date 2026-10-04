@@ -127,6 +127,11 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
                         <span className="block text-[11px] text-emerald-800 font-semibold">
                           Docente a cargo: <strong>{todayRecord.recordedBy?.fullName || 'Profesora'}</strong>
                         </span>
+                        {todayRecord.isMakeup && (
+                          <span className="block text-[11px] text-purple-900 font-extrabold mt-1">
+                            🔄 La alumna recupera una clase en el turno: {todayRecord.makeupShift || student.shift}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -206,7 +211,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
                             📅 {formatDateNice(rec.date)}
                           </span>
                           <span className="text-[11px] text-slate-500 font-medium">
-                            Turno: {student.shift}
+                            Turno: {rec.makeupShift || student.shift}
                           </span>
                         </div>
 
@@ -222,6 +227,12 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
                             : 'Ausente'}
                         </span>
                       </div>
+
+                      {rec.isMakeup && (
+                        <p className="text-[11px] text-purple-800 font-extrabold bg-purple-100/80 px-2 py-0.5 rounded-lg border border-purple-200 inline-block">
+                          🔄 La alumna recupera una clase en el turno: <span className="underline">{rec.makeupShift || student.shift}</span>
+                        </p>
+                      )}
 
                       {rec.status === 'PRESENT' && rec.createdAt && (
                         <p className="text-[11px] text-slate-500 font-medium">

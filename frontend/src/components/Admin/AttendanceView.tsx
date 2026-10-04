@@ -62,7 +62,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   ) => {
     setSavingId(studentId);
     try {
-      await saveAttendance(studentId, targetStatus, user.id, selectedDate, isMakeup);
+      await saveAttendance(studentId, targetStatus, user.id, selectedDate, isMakeup, shift);
       await fetchAttendance();
     } catch (err) {
       alert('Error al guardar asistencia.');
@@ -197,7 +197,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
             className="px-3 py-2 bg-purple-100 hover:bg-purple-200 active:scale-95 text-purple-900 rounded-2xl text-xs font-extrabold transition-all flex items-center gap-1.5 min-h-[38px] border border-purple-200"
           >
             <Plus className="w-4 h-4 text-purple-700" />
-            <span>+ Alumna Recuperatorio</span>
+            <span>Alumna Recuperatorio</span>
           </button>
 
           {presentCount > 0 && onNavigateToPickups && (
@@ -227,7 +227,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
       ) : (
         <div className="grid grid-cols-1 gap-3">
           {data?.students.map((item) => {
-            const { student, status, isMakeup } = item;
+            const { student, status, isMakeup, makeupShift } = item;
             const isSaving = savingId === student.id;
 
             return (
@@ -255,12 +255,12 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                     </div>
                     <p className="text-xs text-slate-400 font-medium">
                       DNI: <span className="font-mono text-slate-700 font-bold">{student.dni}</span>
-                      {isMakeup && (
-                        <span className="ml-2 text-purple-700 font-semibold">
-                          (Turno habitual: {student.shift})
-                        </span>
-                      )}
                     </p>
+                    {isMakeup && (
+                      <p className="text-xs text-purple-800 font-extrabold mt-1 bg-purple-100/80 px-2.5 py-1 rounded-xl border border-purple-200">
+                        🔄 La alumna recupera una clase en el turno: <span className="underline">{makeupShift || shift}</span> (Turno habitual: {student.shift})
+                      </p>
+                    )}
                     {student.notes && (
                       <p className="text-[11px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md inline-block font-semibold mt-1">
                         ⚠️ {student.notes}

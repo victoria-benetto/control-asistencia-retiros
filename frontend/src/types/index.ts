@@ -60,6 +60,7 @@ export interface AttendanceRecord {
   date: string;
   status: 'PRESENT' | 'ABSENT';
   isMakeup?: boolean;
+  makeupShift?: string;
   createdAt?: string;
   updatedAt?: string;
   student?: Student;
@@ -74,6 +75,7 @@ export interface TodayStudentAttendance {
   attendanceId: string | null;
   status: 'PRESENT' | 'ABSENT' | null;
   isMakeup?: boolean;
+  makeupShift?: string;
   date: string;
   recordedBy: { fullName: string; dni: string } | null;
   pickups: PickupRecord[];
