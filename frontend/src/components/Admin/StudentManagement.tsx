@@ -163,7 +163,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
   );
 
   return (
-    <div className="space-y-4 sm:space-y-6 pb-20 md:pb-6">
+    <div className="space-y-4 sm:space-y-6 pb-28 md:pb-8">
       {/* Header */}
       <div className="bg-gradient-to-r from-amber-600 to-orange-600 rounded-3xl p-5 sm:p-6 text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>

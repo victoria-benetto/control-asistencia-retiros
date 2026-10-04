@@ -22,12 +22,29 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
   const today = new Date();
   const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
+  // Formateador de fechas para historial
+  const formatDateNice = (dateStr: string) => {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-').map(Number);
+    if (!y || !m || !d) return dateStr;
+    const dateObj = new Date(y, m - 1, d);
+    const formatted = dateObj.toLocaleDateString('es-AR', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  };
+
+  const hasAuthorizedPeople = student.authorizedPeople && student.authorizedPeople.length > 0;
+
   // Buscar la asistencia del día de hoy si existe
   const todayRecord = student.attendances.find((a) => a.date === todayDateStr);
   const todayPickup = todayRecord?.pickups && todayRecord.pickups.length > 0 ? todayRecord.pickups[0] : null;
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-purple-100 via-pink-50 to-purple-50 p-4 sm:p-6 pb-20">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-purple-100 via-pink-50 to-purple-50 p-4 sm:p-6 pb-28 sm:pb-12">
       <div className="max-w-xl mx-auto space-y-5">
         {/* Header Superior con Logo VULPIARE */}
         <header className="bg-white/90 backdrop-blur-md rounded-3xl p-4 sm:p-5 border border-white/60 shadow-lg flex items-center justify-between">
@@ -82,7 +99,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
                 <Clock className="w-6 h-6 text-amber-500 flex-shrink-0" />
                 <div>
                   <p className="font-bold text-sm text-amber-900">Asistencia aún no registrada hoy</p>
-                  <p className="text-xs text-amber-700">Apenas la profesora tome la asistencia del turno, se actualizará acá.</p>
+                  <p className="text-xs text-amber-700">Apenas la profesora tome la asistencia del turno ({student.shift}), se actualizará acá.</p>
                 </div>
               </div>
             ) : todayRecord.status === 'ABSENT' ? (
@@ -101,7 +118,15 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
                     <div>
                       <p className="font-extrabold text-base">¡PRESENTE en clase!</p>
                       <p className="text-xs text-emerald-700 font-medium">
-                        Docente a cargo: <strong>{todayRecord.recordedBy?.fullName || 'Profesora'}</strong>
+                        Horario del turno: <strong>{student.shift}</strong>
+                        {todayRecord.createdAt && (
+                          <span className="block text-[11px] text-emerald-800 font-semibold mt-0.5">
+                            Hora registrada: {new Date(todayRecord.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs
+                          </span>
+                        )}
+                        <span className="block text-[11px] text-emerald-800 font-semibold">
+                          Docente a cargo: <strong>{todayRecord.recordedBy?.fullName || 'Profesora'}</strong>
+                        </span>
                       </p>
                     </div>
                   </div>
@@ -136,12 +161,20 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
                       </div>
                     </div>
                   </div>
-                ) : (
+                ) : hasAuthorizedPeople ? (
                   <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center gap-3">
                     <Clock className="w-5 h-5 text-amber-600 flex-shrink-0" />
                     <div>
                       <p className="font-bold text-xs">En la clase (Aún no fue retirada)</p>
                       <p className="text-[11px] text-amber-700">Cuando sea retirada por la persona autorizada, aparecerá el horario y la docente que lo registró.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                    <div>
+                      <p className="font-bold text-xs">Presente y listo</p>
+                      <p className="text-[11px] text-emerald-700">No requiere persona a cargo para retiro.</p>
                     </div>
                   </div>
                 )}
@@ -167,26 +200,42 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
                       key={rec.id}
                       className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-1.5"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
-                          {rec.date}
-                        </span>
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <span className="font-extrabold text-slate-900 block text-xs">
+                            📅 {formatDateNice(rec.date)}
+                          </span>
+                          <span className="text-[11px] text-slate-500 font-medium">
+                            Turno: {student.shift}
+                          </span>
+                        </div>
+
                         <span
-                          className={`font-extrabold px-2.5 py-0.5 rounded-full text-[11px] ${
+                          className={`font-extrabold px-2.5 py-1 rounded-full text-[11px] flex-shrink-0 ${
                             rec.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                           }`}
                         >
-                          {rec.status === 'PRESENT' ? 'Presente' : 'Ausente'}
+                          {rec.status === 'PRESENT'
+                            ? !hasAuthorizedPeople && !pickup
+                              ? 'Presente y listo'
+                              : 'Presente'
+                            : 'Ausente'}
                         </span>
                       </div>
 
+                      {rec.status === 'PRESENT' && rec.createdAt && (
+                        <p className="text-[11px] text-slate-500 font-medium">
+                          Hora de asistencia registrada: <strong>{new Date(rec.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs</strong>
+                        </p>
+                      )}
+
                       {pickup && (
-                        <div className="text-slate-700 bg-white p-2.5 rounded-xl border border-slate-100 space-y-0.5">
+                        <div className="text-slate-700 bg-white p-2.5 rounded-xl border border-slate-200 space-y-0.5 mt-1">
                           <p className="font-bold text-slate-900">
                             Retirada por: {pickup.authorizedPerson.fullName} ({pickup.authorizedPerson.relationship})
                           </p>
                           <p className="text-[11px] text-slate-500">
-                            Hora: <strong>{new Date(pickup.pickupTime).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs</strong> | Docente: <strong>{pickup.recordedBy?.fullName || 'Profesora'}</strong>
+                            Hora de retiro: <strong>{new Date(pickup.pickupTime).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs</strong> | Docente: <strong>{pickup.recordedBy?.fullName || 'Profesora'}</strong>
                           </p>
                         </div>
                       )}

@@ -102,7 +102,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   );
 
   return (
-    <div className="space-y-4 sm:space-y-6 pb-20 md:pb-6">
+    <div className="space-y-4 sm:space-y-6 pb-28 md:pb-8">
       {/* Banner Encabezado Mobile-First */}
       <div className="bg-gradient-to-r from-purple-700 via-purple-600 to-pink-600 rounded-3xl p-5 sm:p-6 text-white shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

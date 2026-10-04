@@ -60,6 +60,8 @@ export interface AttendanceRecord {
   date: string;
   status: 'PRESENT' | 'ABSENT';
   isMakeup?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
   student?: Student;
   recordedBy?: {
     fullName: string;

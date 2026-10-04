@@ -30,14 +30,15 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift }) => {
   }, [shift, selectedDate]);
 
   const filteredRecords = records.filter(r => {
-    const sName = r.student ? `${r.student.firstName} ${r.student.lastName}`.toLowerCase() : '';
-    const sDni = r.student ? r.student.dni : '';
-    const q = search.toLowerCase();
-    return sName.includes(q) || sDni.includes(q);
+    if (!r.student) return false;
+    const fullName = `${r.student.firstName} ${r.student.lastName}`.toLowerCase();
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return fullName.includes(q);
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-28 md:pb-8">
       {/* Header */}
       <div className="bg-gradient-to-r from-slate-800 to-indigo-950 rounded-3xl p-6 text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -62,14 +63,14 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift }) => {
 
       {/* Filtros */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Buscador de Alumna */}
+        {/* Buscador Dinámico por Nombre de Alumna */}
         <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-200">
           <Search className="w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por Nombre o DNI..."
+            placeholder="Buscar por nombre de alumna..."
             className="w-full text-xs font-semibold border-none focus:outline-none bg-transparent"
           />
         </div>
@@ -108,6 +109,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift }) => {
               const student = rec.student;
               const hasPickup = rec.pickups && rec.pickups.length > 0;
               const pickup = hasPickup ? rec.pickups![0] : null;
+              const hasAuthorizedPeople = student?.authorizedPeople && student.authorizedPeople.length > 0;
 
               return (
                 <div key={rec.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/80 transition-colors">
@@ -129,7 +131,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift }) => {
                     </div>
 
                     {/* Detalle del Retiro si existió */}
-                    {pickup && (
+                    {pickup ? (
                       <div className="mt-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200/60 text-xs space-y-1">
                         <p className="font-bold text-emerald-900 flex items-center gap-1">
                           <ShieldCheck className="w-4 h-4 text-emerald-600" />
@@ -140,7 +142,11 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift }) => {
                           <span>Reg. por: <strong>{pickup.recordedBy?.fullName || 'Profe'}</strong></span>
                         </div>
                       </div>
-                    )}
+                    ) : rec.status === 'PRESENT' && !hasAuthorizedPeople ? (
+                      <p className="text-xs text-emerald-700 font-semibold mt-1">
+                        ✓ Presente y listo (Sin persona a cargo registrada)
+                      </p>
+                    ) : null}
                   </div>
 
                   {/* Insignia Presente/Ausente */}
@@ -148,7 +154,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift }) => {
                     {rec.status === 'PRESENT' ? (
                       <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-xs">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        Presente
+                        {!hasAuthorizedPeople && !hasPickup ? 'Presente y listo' : 'Presente'}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-rose-100 text-rose-800 font-extrabold text-xs">

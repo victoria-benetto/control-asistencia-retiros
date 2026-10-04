@@ -76,7 +76,7 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 pb-20 md:pb-6">
+    <div className="space-y-4 sm:space-y-6 pb-28 md:pb-8">
       {/* Banner Encabezado Mobile */}
       <div className="bg-gradient-to-r from-purple-700 to-pink-600 rounded-3xl p-5 sm:p-6 text-white shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -159,6 +159,7 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
             const { student, attendanceId, pickups, isMakeup } = item;
             const hasPickup = pickups && pickups.length > 0;
             const lastPickup = hasPickup ? pickups[pickups.length - 1] : null;
+            const hasAuthorizedPeople = student.authorizedPeople && student.authorizedPeople.length > 0;
 
             return (
               <div
@@ -196,10 +197,15 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                         Retirada
                       </span>
-                    ) : (
+                    ) : hasAuthorizedPeople ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[11px] flex-shrink-0">
                         <Clock className="w-3.5 h-3.5 text-amber-600" />
                         En clase
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex-shrink-0">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        Presente y listo
                       </span>
                     )}
                   </div>
@@ -221,39 +227,41 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
                     </div>
                   )}
 
+                  {/* Mensaje de Presente y listo si no tiene autorizados */}
+                  {!hasPickup && !hasAuthorizedPeople && (
+                    <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-xs font-semibold text-emerald-900 flex items-center gap-2 mt-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      <span>Presente y lista. No tiene personas a cargo para retirar.</span>
+                    </div>
+                  )}
+
                   {/* Selección de Persona Autorizada */}
-                  {attendanceId && (
+                  {attendanceId && hasAuthorizedPeople && (
                     <div className="space-y-2 mt-2">
                       <label className="block text-xs font-extrabold text-slate-700">
                         {hasPickup ? 'Registrar otro retiro / acompañante:' : 'Seleccionar persona autorizada:'}
                       </label>
 
-                      {student.authorizedPeople.length === 0 ? (
-                        <p className="text-xs text-rose-600 font-semibold italic">
-                          ⚠️ No tiene autorizados registrados.
-                        </p>
-                      ) : (
-                        <select
-                          value={selectedPersonMap[attendanceId] || ''}
-                          onChange={(e) =>
-                            setSelectedPersonMap({ ...selectedPersonMap, [attendanceId]: e.target.value })
-                          }
-                          className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[44px]"
-                        >
-                          <option value="">-- Seleccionar Autorizado --</option>
-                          {student.authorizedPeople.map((person) => (
-                            <option key={person.id} value={person.id}>
-                              {person.fullName} - {person.relationship} (DNI: {person.dni})
-                            </option>
-                          ))}
-                        </select>
-                      )}
+                      <select
+                        value={selectedPersonMap[attendanceId] || ''}
+                        onChange={(e) =>
+                          setSelectedPersonMap({ ...selectedPersonMap, [attendanceId]: e.target.value })
+                        }
+                        className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[44px]"
+                      >
+                        <option value="">-- Seleccionar Autorizado --</option>
+                        {student.authorizedPeople.map((person) => (
+                          <option key={person.id} value={person.id}>
+                            {person.fullName} - {person.relationship} (DNI: {person.dni})
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   )}
                 </div>
 
                 {/* Botón Confirmar Retiro Touch Friendly */}
-                {attendanceId && student.authorizedPeople.length > 0 && (
+                {attendanceId && hasAuthorizedPeople && (
                   <button
                     onClick={() => handleRegisterPickup(attendanceId)}
                     disabled={savingId === attendanceId || !selectedPersonMap[attendanceId]}
