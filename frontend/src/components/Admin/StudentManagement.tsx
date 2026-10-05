@@ -107,6 +107,8 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     setAuthorizedPeople(updated);
   };
 
+  const [selectedShiftFilter, setSelectedShiftFilter] = useState<string>('ALL');
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firstName.trim() || !lastName.trim() || !dni.trim() || !shift) {
@@ -123,6 +125,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
         await updateStudent(user.dni, editingStudent.id, {
           firstName,
           lastName,
+          dni,
           shift,
           notes,
           authorizedPeople: validPeople,
@@ -154,13 +157,19 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     }
   };
 
-  const filteredStudents = students.filter(
-    (s) =>
+  const filteredStudents = students.filter((s) => {
+    const matchesSearch =
+      search.trim() === '' ||
       s.firstName.toLowerCase().includes(search.toLowerCase()) ||
       s.lastName.toLowerCase().includes(search.toLowerCase()) ||
       s.dni.includes(search) ||
-      s.shift.toLowerCase().includes(search.toLowerCase())
-  );
+      s.shift.toLowerCase().includes(search.toLowerCase());
+
+    const matchesShift =
+      selectedShiftFilter === 'ALL' || s.shift === selectedShiftFilter;
+
+    return matchesSearch && matchesShift;
+  });
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-28 md:pb-8">
@@ -185,16 +194,33 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
         </button>
       </div>
 
-      {/* Buscador */}
-      <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-2">
-        <Search className="w-4 h-4 text-slate-400" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar alumna por nombre, DNI o turno..."
-          className="w-full text-xs font-bold border-none focus:outline-none bg-transparent"
-        />
+      {/* Buscador y Filtro por Turno */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-2">
+          <Search className="w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar alumna por nombre o DNI..."
+            className="w-full text-xs font-bold border-none focus:outline-none bg-transparent"
+          />
+        </div>
+
+        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-xs flex items-center min-w-[220px]">
+          <select
+            value={selectedShiftFilter}
+            onChange={(e) => setSelectedShiftFilter(e.target.value)}
+            className="w-full text-xs font-bold bg-transparent border-none focus:outline-none text-slate-700 px-2 cursor-pointer"
+          >
+            <option value="ALL">✨ Todos los Turnos</option>
+            {shifts.map((sh) => (
+              <option key={sh} value={sh}>
+                {sh}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Lista de Alumnas */}
@@ -307,10 +333,9 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
                   <input
                     type="text"
                     value={dni}
-                    disabled={!!editingStudent}
                     onChange={(e) => setDni(e.target.value)}
                     placeholder="Ej: 55111222"
-                    className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-60 min-h-[44px]"
+                    className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 min-h-[44px]"
                     required
                   />
                 </div>

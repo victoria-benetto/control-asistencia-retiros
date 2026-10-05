@@ -258,21 +258,31 @@ router.post('/students', requireSuperAdmin, async (req: Request, res: Response) 
 router.put('/students/:id', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, shift, notes, authorizedPeople } = req.body;
+    const { firstName, lastName, dni, shift, notes, authorizedPeople } = req.body;
 
     const student = await prisma.student.findUnique({ where: { id } });
     if (!student) {
       return res.status(404).json({ error: 'Alumna no encontrada.' });
     }
 
+    const updateData: any = {};
+    if (firstName) updateData.firstName = firstName.trim();
+    if (lastName) updateData.lastName = lastName.trim();
+    if (shift) updateData.shift = shift.trim();
+    if (notes !== undefined) updateData.notes = notes.trim();
+
+    if (dni && typeof dni === 'string' && dni.trim() !== '' && dni.trim() !== student.dni) {
+      const cleanDni = dni.trim();
+      const existing = await prisma.student.findUnique({ where: { dni: cleanDni } });
+      if (existing) {
+        return res.status(400).json({ error: 'Ya existe una alumna registrada con este DNI.' });
+      }
+      updateData.dni = cleanDni;
+    }
+
     await prisma.student.update({
       where: { id },
-      data: {
-        firstName: firstName ? firstName.trim() : student.firstName,
-        lastName: lastName ? lastName.trim() : student.lastName,
-        shift: shift ? shift.trim() : student.shift,
-        notes: notes !== undefined ? notes.trim() : student.notes,
-      },
+      data: updateData,
     });
 
     if (Array.isArray(authorizedPeople)) {

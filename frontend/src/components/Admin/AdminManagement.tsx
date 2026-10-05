@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, ShieldAlert, X, Save, Lock } from 'lucide-react';
+import { Plus, Trash2, Edit2, ShieldAlert, X, Save, Lock, Eye, EyeOff } from 'lucide-react';
 import { getTeachers, createTeacher, updateTeacher, deleteTeacher } from '../../services/api';
 import { AdminUser } from '../../types';
 
@@ -24,6 +24,12 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<AdminUser | null>(null);
+  const [showModalPassword, setShowModalPassword] = useState(false);
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+
+  const togglePasswordVisibility = (id: string) => {
+    setVisiblePasswords((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   // Form State
   const [fullName, setFullName] = useState('');
@@ -54,6 +60,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
     setFullName('');
     setDni('');
     setPassword('123456');
+    setShowModalPassword(false);
     setCanAttendance(true);
     setCanPickups(true);
     setCanHistory(true);
@@ -65,6 +72,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
     setFullName(t.fullName);
     setDni(t.dni);
     setPassword(t.password || '');
+    setShowModalPassword(false);
     const perms = t.permissions || {};
     setCanAttendance(perms.canAttendance !== false);
     setCanPickups(perms.canPickups !== false);
@@ -148,6 +156,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
           {teachers.map((t) => {
             const isSelfSuperAdmin = t.dni === '44122509';
             const perms = t.permissions || {};
+            const isPasswordVisible = !!visiblePasswords[t.id];
 
             return (
               <div key={t.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors">
@@ -162,9 +171,25 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
                       {isSelfSuperAdmin ? 'Super Admin' : 'Profesora'}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 font-medium">
-                    DNI de Acceso: <span className="font-mono text-slate-700 font-bold">{t.dni}</span>
-                  </p>
+
+                  <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                    <span>DNI: <strong className="font-mono text-slate-700">{t.dni}</strong></span>
+                    <span className="text-slate-300">|</span>
+                    <span className="flex items-center gap-1">
+                      <span>Clave:</span>
+                      <strong className="font-mono text-slate-700">
+                        {isPasswordVisible ? (t.password || '123456') : '••••••••'}
+                      </strong>
+                      <button
+                        type="button"
+                        onClick={() => togglePasswordVisibility(t.id)}
+                        className="p-1 hover:bg-slate-200 rounded-lg text-slate-500 hover:text-purple-700 transition-colors"
+                        title={isPasswordVisible ? 'Ocultar contraseña' : 'Ver contraseña'}
+                      >
+                        {isPasswordVisible ? <EyeOff className="w-3.5 h-3.5 text-purple-600" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </span>
+                  </div>
 
                   {/* Badges de Permisos */}
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -257,14 +282,24 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
                   <Lock className="w-3.5 h-3.5 text-purple-600" />
                   <span>Contraseña de Acceso</span>
                 </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Ej: 123456"
-                  className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[44px]"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type={showModalPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Ej: 123456"
+                    className="w-full px-3.5 py-3 pr-10 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[44px]"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowModalPassword(!showModalPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-lg transition-colors"
+                    title={showModalPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                  >
+                    {showModalPassword ? <EyeOff className="w-4 h-4 text-purple-600" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               {/* Checkboxes de Permisos */}
