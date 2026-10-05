@@ -24,6 +24,8 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
   const [selectedPersonMap, setSelectedPersonMap] = useState<{ [attendanceId: string]: string }>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [pickupFilter, setPickupFilter] = useState<'ALL' | 'PENDING' | 'PICKED_UP' | 'NO_AUTHORIZED'>('ALL');
 
   const fetchPresentStudents = async () => {
     setLoading(true);
@@ -43,6 +45,27 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
   useEffect(() => {
     fetchPresentStudents();
   }, [shift, selectedDate]);
+
+  const allPresentCount = data?.students.length || 0;
+  const pendingCount = data?.students.filter((item) => (!item.pickups || item.pickups.length === 0) && item.student.authorizedPeople && item.student.authorizedPeople.length > 0).length || 0;
+  const pickedUpCount = data?.students.filter((item) => item.pickups && item.pickups.length > 0).length || 0;
+  const noAuthCount = data?.students.filter((item) => (!item.pickups || item.pickups.length === 0) && (!item.student.authorizedPeople || item.student.authorizedPeople.length === 0)).length || 0;
+
+  const filteredStudents = data?.students.filter((item) => {
+    const hasPickup = item.pickups && item.pickups.length > 0;
+    const hasAuthorized = item.student.authorizedPeople && item.student.authorizedPeople.length > 0;
+
+    if (pickupFilter === 'PENDING' && (hasPickup || !hasAuthorized)) return false;
+    if (pickupFilter === 'PICKED_UP' && !hasPickup) return false;
+    if (pickupFilter === 'NO_AUTHORIZED' && (hasPickup || hasAuthorized)) return false;
+
+    if (search.trim()) {
+      const fullName = `${item.student.firstName} ${item.student.lastName}`.toLowerCase();
+      return fullName.includes(search.trim().toLowerCase());
+    }
+
+    return true;
+  }) || [];
 
   const handleRegisterPickup = async (attendanceId: string) => {
     const authorizedPersonId = selectedPersonMap[attendanceId];
@@ -87,7 +110,7 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
             </div>
             <h2 className="text-xl sm:text-2xl font-black">Control de Retiros</h2>
             <p className="text-purple-100 text-xs sm:text-sm mt-0.5">
-              Alumnas presentes en la fecha seleccionada ({data?.students.length || 0})
+              Alumnas presentes en la fecha seleccionada ({allPresentCount})
             </p>
           </div>
 
@@ -136,6 +159,69 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
         </div>
       </div>
 
+      {/* Barra de Filtros Rápida por Estado y Buscador */}
+      <div className="bg-white p-3.5 sm:p-4 rounded-3xl border border-slate-200 shadow-xs space-y-3">
+        {/* Buscador de Alumnas Presentes */}
+        <div className="relative">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar alumna presente por nombre..."
+            className="w-full px-4 py-2.5 pl-10 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-purple-600"
+          />
+          <UserCheck className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        </div>
+
+        {/* Píldoras de Filtro Rápido */}
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
+          <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mr-1">Filtrar:</span>
+          <button
+            onClick={() => setPickupFilter('ALL')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 ${
+              pickupFilter === 'ALL'
+                ? 'bg-purple-900 text-white shadow-xs'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            Todas ({allPresentCount})
+          </button>
+          <button
+            onClick={() => setPickupFilter('PENDING')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95 ${
+              pickupFilter === 'PENDING'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/60'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>En clase ({pendingCount})</span>
+          </button>
+          <button
+            onClick={() => setPickupFilter('PICKED_UP')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95 ${
+              pickupFilter === 'PICKED_UP'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/60'
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Ya Retiradas ({pickedUpCount})</span>
+          </button>
+          <button
+            onClick={() => setPickupFilter('NO_AUTHORIZED')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95 ${
+              pickupFilter === 'NO_AUTHORIZED'
+                ? 'bg-teal-700 text-white shadow-xs'
+                : 'bg-teal-50 text-teal-800 hover:bg-teal-100 border border-teal-200/60'
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
+            <span>Presente y Listo ({noAuthCount})</span>
+          </button>
+        </div>
+      </div>
+
       {error && (
         <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
           {error}
@@ -153,9 +239,15 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
             Primero andá a <strong>"Asistencia"</strong> y marcá Presentes a las alumnas que asistieron.
           </p>
         </div>
+      ) : filteredStudents.length === 0 ? (
+        <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 shadow-xs">
+          <p className="text-slate-500 font-bold text-xs sm:text-sm">
+            No hay alumnas que coincidan con los filtros seleccionados.
+          </p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-          {data?.students.map((item) => {
+          {filteredStudents.map((item) => {
             const { student, attendanceId, pickups, isMakeup, makeupShift } = item;
             const hasPickup = pickups && pickups.length > 0;
             const lastPickup = hasPickup ? pickups[pickups.length - 1] : null;

@@ -37,6 +37,8 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   const [searchMakeup, setSearchMakeup] = useState('');
   const [loadingAllStudents, setLoadingAllStudents] = useState(false);
 
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'PENDING'>('ALL');
+
   const fetchAttendance = async () => {
     setLoading(true);
     setError(null);
@@ -92,6 +94,13 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   const presentCount = data?.students.filter((s) => s.status === 'PRESENT').length || 0;
   const absentCount = data?.students.filter((s) => s.status === 'ABSENT').length || 0;
   const pendingCount = data?.students.filter((s) => !s.status).length || 0;
+
+  const filteredStudents = data?.students.filter((s) => {
+    if (statusFilter === 'PRESENT' && s.status !== 'PRESENT') return false;
+    if (statusFilter === 'ABSENT' && s.status !== 'ABSENT') return false;
+    if (statusFilter === 'PENDING' && s.status !== null) return false;
+    return true;
+  }) || [];
 
   const makeupStudentsList = allStudents.filter(
     (s) =>
@@ -161,20 +170,43 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
           </div>
         </div>
 
-        {/* Tarjetas Contador */}
+        {/* Tarjetas Contador Interactivas */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-1">
-          <div className="bg-white/15 backdrop-blur-md rounded-2xl p-2.5 text-center border border-white/10">
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'PRESENT' ? 'ALL' : 'PRESENT')}
+            className={`rounded-2xl p-2.5 text-center transition-all cursor-pointer border ${
+              statusFilter === 'PRESENT'
+                ? 'bg-emerald-500 text-white border-white shadow-lg scale-102 font-bold'
+                : 'bg-white/15 backdrop-blur-md text-white border-white/10 hover:bg-white/25'
+            }`}
+          >
             <p className="text-xl sm:text-2xl font-black">{presentCount}</p>
-            <p className="text-[10px] sm:text-xs text-emerald-200 font-extrabold uppercase tracking-wider">Presentes</p>
-          </div>
-          <div className="bg-white/15 backdrop-blur-md rounded-2xl p-2.5 text-center border border-white/10">
+            <p className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-emerald-200">Presentes</p>
+          </button>
+
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'ABSENT' ? 'ALL' : 'ABSENT')}
+            className={`rounded-2xl p-2.5 text-center transition-all cursor-pointer border ${
+              statusFilter === 'ABSENT'
+                ? 'bg-rose-500 text-white border-white shadow-lg scale-102 font-bold'
+                : 'bg-white/15 backdrop-blur-md text-white border-white/10 hover:bg-white/25'
+            }`}
+          >
             <p className="text-xl sm:text-2xl font-black">{absentCount}</p>
-            <p className="text-[10px] sm:text-xs text-rose-200 font-extrabold uppercase tracking-wider">Ausentes</p>
-          </div>
-          <div className="bg-white/15 backdrop-blur-md rounded-2xl p-2.5 text-center border border-white/10">
+            <p className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-rose-200">Ausentes</p>
+          </button>
+
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'PENDING' ? 'ALL' : 'PENDING')}
+            className={`rounded-2xl p-2.5 text-center transition-all cursor-pointer border ${
+              statusFilter === 'PENDING'
+                ? 'bg-amber-500 text-white border-white shadow-lg scale-102 font-bold'
+                : 'bg-white/15 backdrop-blur-md text-white border-white/10 hover:bg-white/25'
+            }`}
+          >
             <p className="text-xl sm:text-2xl font-black">{pendingCount}</p>
-            <p className="text-[10px] sm:text-xs text-amber-200 font-extrabold uppercase tracking-wider">Pendientes</p>
-          </div>
+            <p className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-amber-200">Pendientes</p>
+          </button>
         </div>
       </div>
 
@@ -186,9 +218,19 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
       {/* Acciones Superiores */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <h3 className="font-extrabold text-slate-800 text-sm sm:text-base">
-          Alumnas del Turno ({data?.students.length || 0})
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-extrabold text-slate-800 text-sm sm:text-base">
+            Alumnas ({filteredStudents.length} / {data?.students.length || 0})
+          </h3>
+          {statusFilter !== 'ALL' && (
+            <button
+              onClick={() => setStatusFilter('ALL')}
+              className="text-[11px] font-extrabold text-purple-700 hover:underline bg-purple-50 px-2 py-0.5 rounded-lg"
+            >
+              Ver Todas
+            </button>
+          )}
+        </div>
 
         <div className="flex items-center gap-2">
           {/* Botón Alumna de Recuperatorio */}
@@ -224,9 +266,15 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
             No hay alumnas registradas en este turno para la fecha seleccionada.
           </p>
         </div>
+      ) : filteredStudents.length === 0 ? (
+        <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 shadow-xs">
+          <p className="text-slate-500 font-bold text-xs sm:text-sm">
+            No hay alumnas en esta categoría ({statusFilter === 'PRESENT' ? 'Presentes' : statusFilter === 'ABSENT' ? 'Ausentes' : 'Pendientes'}).
+          </p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-3">
-          {data?.students.map((item) => {
+          {filteredStudents.map((item) => {
             const { student, status, isMakeup, makeupShift } = item;
             const isSaving = savingId === student.id;
 
