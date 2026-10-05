@@ -66,8 +66,8 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   });
 });
 
-// Inicialización de servidor si no estamos en entorno Serverless de Vercel
-if (process.env.VERCEL !== '1') {
+// Inicialización de servidor si no estamos en entorno Serverless de Vercel ni en tests
+if (process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
     console.log(`🚀 Servidor backend VULPIARE corriendo en http://localhost:${PORT}`);
     console.log(`📚 Documentación Swagger disponible en http://localhost:${PORT}/api-docs`);
