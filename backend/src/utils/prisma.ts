@@ -4,24 +4,27 @@ declare global {
   var prismaSingleton: PrismaClient | undefined;
 }
 
-const SUPABASE_PROJECT_REF = 'taxecszkxqwtnxiglwbu';
-const DEFAULT_FULL_URL = `postgresql://postgres.${SUPABASE_PROJECT_REF}:Vulpiare2026!Pass@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true`;
+const SUPABASE_PROJECT_REF = process.env.SUPABASE_PROJECT_REF || 'taxecszkxqwtnxiglwbu';
 
 export function sanitizeDatabaseUrl(url?: string): string {
-  if (!url || url.trim() === '') {
-    return DEFAULT_FULL_URL;
+  const targetUrl = url || process.env.DATABASE_URL;
+  if (!targetUrl || targetUrl.trim() === '') {
+    console.warn('⚠️ DATABASE_URL no está configurada en las variables de entorno.');
+    return '';
   }
-  if (url.includes('postgres:') && !url.includes(`postgres.${SUPABASE_PROJECT_REF}:`)) {
-    return url.replace('postgres:', `postgres.${SUPABASE_PROJECT_REF}:`);
+  if (targetUrl.includes('postgres:') && !targetUrl.includes(`postgres.${SUPABASE_PROJECT_REF}:`)) {
+    return targetUrl.replace('postgres:', `postgres.${SUPABASE_PROJECT_REF}:`);
   }
-  return url;
+  return targetUrl;
 }
 
 function sanitizeDatabaseEnvironment() {
   const dbUrl = sanitizeDatabaseUrl(process.env.DATABASE_URL);
-  process.env.DATABASE_URL = dbUrl;
-  if (!process.env.DIRECT_URL) {
-    process.env.DIRECT_URL = dbUrl.replace(':6543/', ':5432/').replace('?pgbouncer=true', '');
+  if (dbUrl) {
+    process.env.DATABASE_URL = dbUrl;
+    if (!process.env.DIRECT_URL) {
+      process.env.DIRECT_URL = dbUrl.replace(':6543/', ':5432/').replace('?pgbouncer=true', '');
+    }
   }
 }
 

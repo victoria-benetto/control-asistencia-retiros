@@ -84,13 +84,15 @@ router.post('/login', async (req: Request, res: Response) => {
       }
 
       const cleanPassword = password.trim();
+      const superAdminPass = process.env.SUPER_ADMIN_PASSWORD || 'Vulpiare2026!';
+      const defaultTeacherPass = process.env.DEFAULT_TEACHER_PASSWORD || '123456';
 
-      // Validación de contraseña única
+      // Validación de contraseña
       const validPassword = adminUser.password
         ? adminUser.password === cleanPassword
         : (adminUser.role === 'SUPER_ADMIN' || adminUser.dni === '44122509')
-          ? cleanPassword === 'Vulpiare2026!'
-          : cleanPassword === '123456';
+          ? cleanPassword === superAdminPass
+          : cleanPassword === defaultTeacherPass;
 
       if (!validPassword) {
         return res.status(401).json({ error: 'Contraseña incorrecta. Por favor verifique e intente nuevamente.' });
