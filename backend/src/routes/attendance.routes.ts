@@ -89,11 +89,24 @@ router.get('/today', async (req: Request, res: Response) => {
       }
     });
 
+    // Buscar profesoras ayudantes / acompañantes para la fecha y turno
+    let assistants: any[] = [];
+    try {
+      assistants = await prisma.shiftAssistant.findMany({
+        where: { date: selectedDate, shift: targetShift },
+        include: { teacher: { select: { id: true, fullName: true, dni: true } } },
+        orderBy: { createdAt: 'asc' },
+      });
+    } catch (e) {
+      assistants = [];
+    }
+
     return res.json({
       date: selectedDate,
       shift: targetShift,
       todayDayName,
       students: result,
+      assistants,
     });
   } catch (error) {
     console.warn('⚠️ Base de datos inaccesible en /attendance/today, usando fallback:', error);
@@ -102,6 +115,7 @@ router.get('/today', async (req: Request, res: Response) => {
       shift: targetShift,
       todayDayName,
       students: [],
+      assistants: [],
     });
   }
 });
@@ -236,6 +250,110 @@ router.get('/history', async (req: Request, res: Response) => {
   } catch (error) {
     console.warn('⚠️ Base de datos inaccesible en /attendance/history, retornando lista vacia:', error);
     return res.json([]);
+  }
+});
+
+/**
+ * @openapi
+ * /api/attendance/teachers:
+ *   get:
+ *     summary: Obtener lista pública de profesores para seleccionar acompañantes
+ *     tags: [Asistencia]
+ */
+router.get('/teachers', async (_req: Request, res: Response) => {
+  try {
+    const teachers = await prisma.adminUser.findMany({
+      select: { id: true, fullName: true, dni: true, role: true },
+      orderBy: { fullName: 'asc' },
+    });
+    return res.json(teachers);
+  } catch (error) {
+    return res.json([
+      { id: 'super-admin-victoria-44122509', fullName: 'Victoria', dni: '44122509', role: 'SUPER_ADMIN' },
+      { id: 'admin-maria-43213538', fullName: 'Profe María', dni: '43213538', role: 'ADMIN' },
+    ]);
+  }
+});
+
+/**
+ * @openapi
+ * /api/attendance/assistants:
+ *   get:
+ *     summary: Obtener profesoras acompañantes por fecha y turno
+ *     tags: [Asistencia]
+ */
+router.get('/assistants', async (req: Request, res: Response) => {
+  const selectedDate = (req.query.date as string) || getTodayDateString();
+  const shift = req.query.shift as string;
+
+  try {
+    const whereCondition: any = { date: selectedDate };
+    if (shift && shift !== 'ALL') {
+      whereCondition.shift = shift;
+    }
+
+    const assistants = await prisma.shiftAssistant.findMany({
+      where: whereCondition,
+      include: { teacher: { select: { id: true, fullName: true, dni: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    return res.json(assistants);
+  } catch (error) {
+    return res.json([]);
+  }
+});
+
+/**
+ * @openapi
+ * /api/attendance/assistants:
+ *   post:
+ *     summary: Asignar profesora acompañante / ayudante a un turno y fecha
+ *     tags: [Asistencia]
+ */
+router.post('/assistants', async (req: Request, res: Response) => {
+  const { date, shift, teacherId } = req.body;
+  if (!date || !shift || !teacherId) {
+    return res.status(400).json({ error: 'date, shift y teacherId son requeridos.' });
+  }
+
+  try {
+    const record = await prisma.shiftAssistant.upsert({
+      where: {
+        date_shift_teacherId: {
+          date: String(date),
+          shift: String(shift),
+          teacherId: String(teacherId),
+        },
+      },
+      update: {},
+      create: {
+        date: String(date),
+        shift: String(shift),
+        teacherId: String(teacherId),
+      },
+      include: { teacher: { select: { id: true, fullName: true, dni: true } } },
+    });
+    return res.json(record);
+  } catch (error) {
+    console.error('Error al guardar profesora ayudante:', error);
+    return res.status(500).json({ error: 'Error al registrar profesora ayudante.' });
+  }
+});
+
+/**
+ * @openapi
+ * /api/attendance/assistants/:id:
+ *   delete:
+ *     summary: Quitar profesora acompañante / ayudante
+ *     tags: [Asistencia]
+ */
+router.delete('/assistants/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    await prisma.shiftAssistant.delete({ where: { id } });
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: 'Error al eliminar profesora ayudante.' });
   }
 });
 

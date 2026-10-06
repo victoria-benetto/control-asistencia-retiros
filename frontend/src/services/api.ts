@@ -1,4 +1,4 @@
-import { LoginResponse, AdminUser, Student, TodayStudentAttendance, AttendanceRecord, PickupRecord } from '../types';
+import { LoginResponse, AdminUser, Student, TodayStudentAttendance, AttendanceRecord, PickupRecord, ShiftAssistant } from '../types';
 
 const API_BASE = '/api';
 
@@ -117,7 +117,7 @@ export async function getShifts(): Promise<string[]> {
 }
 
 // Asistencia
-export async function getTodayAttendance(shift?: string, date?: string): Promise<{ date: string; shift: string; todayDayName: string; students: TodayStudentAttendance[] }> {
+export async function getTodayAttendance(shift?: string, date?: string): Promise<{ date: string; shift: string; todayDayName: string; students: TodayStudentAttendance[]; assistants?: ShiftAssistant[] }> {
   const params = new URLSearchParams();
   if (shift) params.append('shift', shift);
   if (date) params.append('date', date);
@@ -149,6 +149,36 @@ export async function savePickup(data: { attendanceId: string; authorizedPersonI
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
+  });
+  return parseResponse(res);
+}
+
+// Profesoras Acompañantes / Ayudantes
+export async function getPublicTeachers(): Promise<AdminUser[]> {
+  const res = await fetch(`${API_BASE}/attendance/teachers`);
+  return parseResponse(res);
+}
+
+export async function getShiftAssistants(date?: string, shift?: string): Promise<ShiftAssistant[]> {
+  const params = new URLSearchParams();
+  if (date) params.append('date', date);
+  if (shift) params.append('shift', shift);
+  const res = await fetch(`${API_BASE}/attendance/assistants?${params.toString()}`);
+  return parseResponse(res);
+}
+
+export async function addShiftAssistant(date: string, shift: string, teacherId: string): Promise<ShiftAssistant> {
+  const res = await fetch(`${API_BASE}/attendance/assistants`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date, shift, teacherId }),
+  });
+  return parseResponse(res);
+}
+
+export async function removeShiftAssistant(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/attendance/assistants/${id}`, {
+    method: 'DELETE',
   });
   return parseResponse(res);
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogIn, ArrowRight, Lock, UserCheck, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { LogIn, ArrowRight, Lock, UserCheck, ShieldCheck, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { loginWithDNI } from '../services/api';
 import { LoginResponse } from '../types';
 
@@ -12,6 +12,7 @@ type Step = 'DNI' | 'DUAL_ROLE' | 'PASSWORD';
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [dni, setDni] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState<Step>('DNI');
   const [roleChoice, setRoleChoice] = useState<'ADMIN' | 'STUDENT' | undefined>(undefined);
   const [adminName, setAdminName] = useState('');
@@ -224,17 +225,25 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 <div className="relative">
                   <input
                     id="password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
                       if (error) setError(null);
                     }}
                     placeholder="Ingresá tu contraseña..."
-                    className="w-full px-4 py-3.5 pl-11 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 font-mono text-base font-bold focus:outline-none focus:ring-2 focus:ring-purple-600 focus:bg-white transition-all min-h-[48px]"
+                    className="w-full px-4 py-3.5 pl-11 pr-11 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 font-mono text-base font-bold focus:outline-none focus:ring-2 focus:ring-purple-600 focus:bg-white transition-all min-h-[48px]"
                     autoFocus
                   />
                   <Lock className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-purple-600 transition-colors focus:outline-none"
+                    title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
                 </div>
               </div>
 

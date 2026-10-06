@@ -81,6 +81,19 @@ export interface TodayStudentAttendance {
   pickups: PickupRecord[];
 }
 
+export interface ShiftAssistant {
+  id: string;
+  date: string;
+  shift: string;
+  teacherId: string;
+  createdAt?: string;
+  teacher: {
+    id: string;
+    fullName: string;
+    dni: string;
+  };
+}
+
 export interface LoginResponse {
   type: 'ADMIN' | 'PARENT' | 'PASSWORD_REQUIRED' | 'DUAL_ROLE_REQUIRED';
   user?: AdminUser;

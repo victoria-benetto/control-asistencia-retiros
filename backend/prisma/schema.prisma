@@ -30,6 +30,7 @@ model AdminUser {
   updatedAt        DateTime           @updatedAt
   AttendanceRecord AttendanceRecord[]
   PickupRecord     PickupRecord[]
+  ShiftAssistant   ShiftAssistant[]
 }
 
 model Student {
@@ -87,4 +88,15 @@ model PickupRecord {
   attendance         AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
   authorizedPerson   AuthorizedPerson @relation(fields: [authorizedPersonId], references: [id], onDelete: Cascade)
   recordedBy         AdminUser?       @relation(fields: [recordedByAdminId], references: [id], onDelete: SetNull)
+}
+
+model ShiftAssistant {
+  id        String    @id @default(uuid())
+  date      String    // Formato YYYY-MM-DD
+  shift     String
+  teacherId String
+  createdAt DateTime  @default(now())
+  teacher   AdminUser @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([date, shift, teacherId])
 }

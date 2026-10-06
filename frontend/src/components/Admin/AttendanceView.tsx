@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, Clock, RefreshCw, UserCheck, Plus, Search, X, Calendar } from 'lucide-react';
-import { getTodayAttendance, saveAttendance, getStudents } from '../../services/api';
-import { TodayStudentAttendance, AdminUser, Student, OFFICIAL_SHIFTS } from '../../types';
+import { CheckCircle2, XCircle, Clock, RefreshCw, UserCheck, Plus, Search, X, Calendar, UserPlus } from 'lucide-react';
+import { getTodayAttendance, saveAttendance, getStudents, getPublicTeachers, getShiftAssistants, addShiftAssistant, removeShiftAssistant } from '../../services/api';
+import { TodayStudentAttendance, AdminUser, Student, OFFICIAL_SHIFTS, ShiftAssistant } from '../../types';
 
 interface AttendanceViewProps {
   shift: string;
@@ -26,7 +26,8 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   };
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayISO());
-  const [data, setData] = useState<{ date: string; shift: string; todayDayName: string; students: TodayStudentAttendance[] } | null>(null);
+  const [data, setData] = useState<{ date: string; shift: string; todayDayName: string; students: TodayStudentAttendance[]; assistants?: ShiftAssistant[] } | null>(null);
+  const [assistants, setAssistants] = useState<ShiftAssistant[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +38,11 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   const [searchMakeup, setSearchMakeup] = useState('');
   const [loadingAllStudents, setLoadingAllStudents] = useState(false);
 
+  // Modal de Profesora Acompañante
+  const [assistantModalOpen, setAssistantModalOpen] = useState(false);
+  const [teachersList, setTeachersList] = useState<AdminUser[]>([]);
+  const [loadingTeachers, setLoadingTeachers] = useState(false);
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'PENDING'>('ALL');
 
@@ -46,6 +52,12 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
     try {
       const res = await getTodayAttendance(shift, selectedDate);
       setData(res);
+      if (res.assistants) {
+        setAssistants(res.assistants);
+      } else {
+        const astList = await getShiftAssistants(selectedDate, shift);
+        setAssistants(astList);
+      }
     } catch (err: any) {
       setError('Error al cargar la lista de asistencia.');
     } finally {
@@ -90,6 +102,39 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   const handleSelectMakeupStudent = async (student: Student) => {
     setMakeupModalOpen(false);
     await handleToggleAttendance(student.id, null, 'PRESENT', true);
+  };
+
+  const openAssistantModal = async () => {
+    setAssistantModalOpen(true);
+    setLoadingTeachers(true);
+    try {
+      const teachers = await getPublicTeachers();
+      setTeachersList(teachers);
+    } catch (e) {
+      alert('Error al cargar lista de profesoras.');
+    } finally {
+      setLoadingTeachers(false);
+    }
+  };
+
+  const handleSelectAssistantTeacher = async (teacher: AdminUser) => {
+    setAssistantModalOpen(false);
+    try {
+      await addShiftAssistant(selectedDate, shift, teacher.id);
+      const updatedAssistants = await getShiftAssistants(selectedDate, shift);
+      setAssistants(updatedAssistants);
+    } catch (e) {
+      alert('Error al agregar profesora acompañante.');
+    }
+  };
+
+  const handleRemoveAssistantTeacher = async (assistantId: string) => {
+    try {
+      await removeShiftAssistant(assistantId);
+      setAssistants(prev => prev.filter(a => a.id !== assistantId));
+    } catch (e) {
+      alert('Error al quitar profesora acompañante.');
+    }
   };
 
   const presentCount = data?.students.filter((s) => s.status === 'PRESENT').length || 0;
@@ -144,10 +189,10 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
         {/* CONTROLES MOBILE-FIRST (De arriba a abajo: Lupita -> Fecha -> Turno -> Filtrar) */}
         <div className="space-y-3 pt-2 border-t border-white/20">
-          {/* 1️⃣ Lupita de Búsqueda */}
+          {/* Lupita de Búsqueda */}
           <div>
             <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
-              1. Lupita de Búsqueda
+              Buscar Alumna
             </label>
             <div className="relative">
               <input
@@ -161,11 +206,11 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
             </div>
           </div>
 
-          {/* 2️⃣ Selección Fecha & 3️⃣ Selección Turno */}
+          {/* Selección Fecha & Selección Turno */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
-                2. Selección Fecha
+                Fecha
               </label>
               <div className="relative">
                 <input
@@ -180,7 +225,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
             <div>
               <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
-                3. Selección Turno
+                Turno
               </label>
               <select
                 value={shift}
@@ -196,10 +241,10 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
             </div>
           </div>
 
-          {/* 4️⃣ Parte de Filtrar (Filtros por Estado) */}
+          {/* Parte de Filtrar (Filtros por Estado) */}
           <div className="pt-1">
             <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1.5">
-              4. Parte de Filtrar
+              Filtrar por Estado
             </label>
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <button
@@ -264,7 +309,16 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Botón Profesora Acompañante */}
+          <button
+            onClick={openAssistantModal}
+            className="px-3 py-2 bg-pink-100 hover:bg-pink-200 active:scale-95 text-pink-900 rounded-2xl text-xs font-extrabold transition-all flex items-center gap-1.5 min-h-[38px] border border-pink-200 shadow-xs"
+          >
+            <UserPlus className="w-4 h-4 text-pink-700" />
+            <span>Profesora Acompañante</span>
+          </button>
+
           {/* Botón Alumna de Recuperatorio */}
           <button
             onClick={openMakeupModal}
@@ -285,6 +339,30 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* Lista de Profesoras Acompañantes / Ayudantes Registradas */}
+      {assistants.length > 0 && (
+        <div className="bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-200 p-3.5 rounded-2xl flex flex-wrap items-center gap-2 shadow-xs">
+          <span className="text-xs font-extrabold text-pink-900 flex items-center gap-1">
+            👩‍🏫 Profesoras Acompañantes en esta clase:
+          </span>
+          {assistants.map((ast) => (
+            <span
+              key={ast.id}
+              className="inline-flex items-center gap-1.5 bg-white px-3 py-1 rounded-xl text-xs font-bold text-slate-800 border border-pink-200 shadow-2xs"
+            >
+              <span>{ast.teacher.fullName}</span>
+              <button
+                onClick={() => handleRemoveAssistantTeacher(ast.id)}
+                className="p-0.5 text-slate-400 hover:text-rose-600 transition-colors rounded-full"
+                title="Quitar profesora acompañante"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Lista de Alumnas */}
       {loading && !data ? (
@@ -446,6 +524,73 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                       </button>
                     </div>
                   ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Agregar Profesora Acompañante */}
+      {assistantModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-lg p-6 relative animate-fadeIn">
+            <button
+              onClick={() => setAssistantModalOpen(false)}
+              className="absolute top-5 right-5 p-2 rounded-2xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-lg font-black text-slate-900 mb-1 flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-pink-600" />
+              <span>Agregar Profesora Acompañante / Ayudante</span>
+            </h3>
+            <p className="text-xs text-slate-500 font-medium mb-4">
+              Seleccioná una profesora para registrar que acompañó o ayudó en esta clase ({shift}).
+            </p>
+
+            {loadingTeachers ? (
+              <p className="text-center py-6 text-xs text-slate-500 font-bold">Cargando profesoras...</p>
+            ) : (
+              <div className="max-h-[300px] overflow-y-auto divide-y divide-slate-100 rounded-2xl border border-slate-100">
+                {teachersList.length === 0 ? (
+                  <p className="p-4 text-center text-xs text-slate-400 font-semibold">
+                    No hay profesoras registradas.
+                  </p>
+                ) : (
+                  teachersList.map((tc) => {
+                    const isAlreadyAdded = assistants.some(a => a.teacherId === tc.id);
+                    return (
+                      <div
+                        key={tc.id}
+                        className="p-3.5 flex items-center justify-between hover:bg-pink-50/50 transition-colors"
+                      >
+                        <div>
+                          <p className="font-extrabold text-slate-900 text-xs">
+                            {tc.fullName}
+                          </p>
+                          <p className="text-[11px] text-slate-400 font-medium">
+                            DNI: {tc.dni} {tc.role === 'SUPER_ADMIN' ? ' (Super Admin)' : ''}
+                          </p>
+                        </div>
+
+                        {isAlreadyAdded ? (
+                          <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-xl">
+                            Agregada
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleSelectAssistantTeacher(tc)}
+                            className="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Asignar</span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             )}

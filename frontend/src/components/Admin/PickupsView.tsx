@@ -127,10 +127,10 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
 
         {/* CONTROLES MOBILE-FIRST (De arriba a abajo: Lupita -> Fecha -> Turno -> Filtrar) */}
         <div className="space-y-3 pt-2 border-t border-white/20">
-          {/* 1️⃣ Lupita de Búsqueda */}
+          {/* Lupita de Búsqueda */}
           <div>
             <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
-              1. Lupita de Búsqueda
+              Buscar Alumna Presente
             </label>
             <div className="relative">
               <input
@@ -144,11 +144,11 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
             </div>
           </div>
 
-          {/* 2️⃣ Selección Fecha & 3️⃣ Selección Turno */}
+          {/* Selección Fecha & Selección Turno */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
-                2. Selección Fecha
+                Fecha
               </label>
               <div className="relative">
                 <input
@@ -163,7 +163,7 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
 
             <div>
               <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
-                3. Selección Turno
+                Turno
               </label>
               <select
                 value={shift}

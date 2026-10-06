@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { History, Calendar, CheckCircle2, XCircle, ShieldCheck, Search, RefreshCw, Clock, Layers } from 'lucide-react';
-import { getAttendanceHistory } from '../../services/api';
-import { AttendanceRecord, OFFICIAL_SHIFTS } from '../../types';
+import { History, Calendar, CheckCircle2, XCircle, ShieldCheck, Search, RefreshCw, Clock, Layers, UserCheck } from 'lucide-react';
+import { getAttendanceHistory, getShiftAssistants } from '../../services/api';
+import { AttendanceRecord, OFFICIAL_SHIFTS, ShiftAssistant } from '../../types';
 
 interface HistoryViewProps {
   shift: string;
@@ -19,6 +19,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift: initialShift, o
   };
 
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [assistants, setAssistants] = useState<ShiftAssistant[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedDate, setSelectedDate] = useState<string>(getTodayISO());
@@ -33,6 +34,12 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift: initialShift, o
         selectedShift === 'ALL' ? undefined : selectedShift
       );
       setRecords(data);
+
+      const astData = await getShiftAssistants(
+        selectedDate || undefined,
+        selectedShift === 'ALL' ? undefined : selectedShift
+      );
+      setAssistants(astData);
     } catch (err) {
       alert('Error al consultar historial.');
     } finally {
@@ -127,10 +134,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift: initialShift, o
 
       {/* DISPOSICIÓN MOBILE PRIMARIA (De arriba a abajo estricto) */}
       <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
-        {/* 1️⃣ Lupita de Búsqueda */}
+        {/* Lupita de Búsqueda */}
         <div>
           <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">
-            1. Lupita de Búsqueda
+            Buscar Alumna
           </label>
           <div className="relative">
             <input
@@ -144,10 +151,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift: initialShift, o
           </div>
         </div>
 
-        {/* 2️⃣ Selección Fecha */}
+        {/* Selección Fecha */}
         <div>
           <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">
-            2. Selección Fecha
+            Fecha
           </label>
           <div className="relative">
             <input
@@ -160,10 +167,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift: initialShift, o
           </div>
         </div>
 
-        {/* 3️⃣ Selección Turno */}
+        {/* Selección Turno */}
         <div>
           <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">
-            3. Selección Turno
+            Turno
           </label>
           <div className="relative">
             <select
@@ -271,6 +278,24 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift: initialShift, o
                     </span>
                   </div>
                 </div>
+
+                {/* Profesoras Acompañantes en esta Fecha y Turno */}
+                {(() => {
+                  const shiftAsts = assistants.filter((a) => a.shift === shiftName);
+                  if (shiftAsts.length === 0) return null;
+                  return (
+                    <div className="bg-pink-50/80 border-b border-pink-100 px-4 py-2.5 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="font-extrabold text-pink-900 flex items-center gap-1">
+                        👩‍🏫 Profesoras Acompañantes / Ayudantes:
+                      </span>
+                      {shiftAsts.map((ast) => (
+                        <span key={ast.id} className="bg-white px-2.5 py-0.5 rounded-lg text-slate-800 font-extrabold border border-pink-200 text-[11px] shadow-2xs">
+                          {ast.teacher.fullName}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 {/* Lista de Alumnas en Orden Alfabético */}
                 <div className="divide-y divide-slate-100">
