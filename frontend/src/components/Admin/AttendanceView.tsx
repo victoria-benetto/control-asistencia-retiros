@@ -37,6 +37,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   const [searchMakeup, setSearchMakeup] = useState('');
   const [loadingAllStudents, setLoadingAllStudents] = useState(false);
 
+  const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'PENDING'>('ALL');
 
   const fetchAttendance = async () => {
@@ -99,6 +100,12 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
     if (statusFilter === 'PRESENT' && s.status !== 'PRESENT') return false;
     if (statusFilter === 'ABSENT' && s.status !== 'ABSENT') return false;
     if (statusFilter === 'PENDING' && s.status !== null) return false;
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const fullName = `${s.student.firstName} ${s.student.lastName}`.toLowerCase();
+      return fullName.includes(q) || s.student.dni.includes(q);
+    }
     return true;
   }) || [];
 
@@ -135,78 +142,103 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
           </button>
         </div>
 
-        {/* Seleccionador de Fecha y Turno */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/20">
+        {/* CONTROLES MOBILE-FIRST (De arriba a abajo: Lupita -> Fecha -> Turno -> Filtrar) */}
+        <div className="space-y-3 pt-2 border-t border-white/20">
+          {/* 1️⃣ Lupita de Búsqueda */}
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
-              Seleccionar Fecha
+            <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
+              1. Lupita de Búsqueda
             </label>
             <div className="relative">
               <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por nombre de alumna o DNI..."
                 className="w-full px-3.5 py-2.5 pl-10 rounded-2xl bg-white text-slate-900 text-xs font-bold focus:outline-none shadow-sm min-h-[42px]"
               />
-              <Calendar className="w-4 h-4 text-purple-600 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-purple-600 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
 
-          <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
-              Seleccionar Turno
-            </label>
-            <select
-              value={shift}
-              onChange={(e) => onShiftChange && onShiftChange(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-white text-slate-900 text-xs font-bold focus:outline-none shadow-sm min-h-[42px]"
-            >
-              {OFFICIAL_SHIFTS.map((sh) => (
-                <option key={sh} value={sh}>
-                  {sh}
-                </option>
-              ))}
-            </select>
+          {/* 2️⃣ Selección Fecha & 3️⃣ Selección Turno */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
+                2. Selección Fecha
+              </label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 pl-10 rounded-2xl bg-white text-slate-900 text-xs font-bold focus:outline-none shadow-sm min-h-[42px]"
+                />
+                <Calendar className="w-4 h-4 text-purple-600 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
+                3. Selección Turno
+              </label>
+              <select
+                value={shift}
+                onChange={(e) => onShiftChange && onShiftChange(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-2xl bg-white text-slate-900 text-xs font-bold focus:outline-none shadow-sm cursor-pointer min-h-[42px]"
+              >
+                {OFFICIAL_SHIFTS.map((sh) => (
+                  <option key={sh} value={sh}>
+                    {sh}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
 
-        {/* Tarjetas Contador Interactivas */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-1">
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'PRESENT' ? 'ALL' : 'PRESENT')}
-            className={`rounded-2xl p-2.5 text-center transition-all cursor-pointer border ${
-              statusFilter === 'PRESENT'
-                ? 'bg-emerald-500 text-white border-white shadow-lg scale-102 font-bold'
-                : 'bg-white/15 backdrop-blur-md text-white border-white/10 hover:bg-white/25'
-            }`}
-          >
-            <p className="text-xl sm:text-2xl font-black">{presentCount}</p>
-            <p className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-emerald-200">Presentes</p>
-          </button>
+          {/* 4️⃣ Parte de Filtrar (Filtros por Estado) */}
+          <div className="pt-1">
+            <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1.5">
+              4. Parte de Filtrar
+            </label>
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <button
+                onClick={() => setStatusFilter(statusFilter === 'PRESENT' ? 'ALL' : 'PRESENT')}
+                className={`rounded-2xl p-2 text-center transition-all cursor-pointer border ${
+                  statusFilter === 'PRESENT'
+                    ? 'bg-emerald-500 text-white border-white shadow-lg font-bold'
+                    : 'bg-white/15 backdrop-blur-md text-white border-white/10 hover:bg-white/25'
+                }`}
+              >
+                <p className="text-lg sm:text-xl font-black">{presentCount}</p>
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-200">Presentes</p>
+              </button>
 
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'ABSENT' ? 'ALL' : 'ABSENT')}
-            className={`rounded-2xl p-2.5 text-center transition-all cursor-pointer border ${
-              statusFilter === 'ABSENT'
-                ? 'bg-rose-500 text-white border-white shadow-lg scale-102 font-bold'
-                : 'bg-white/15 backdrop-blur-md text-white border-white/10 hover:bg-white/25'
-            }`}
-          >
-            <p className="text-xl sm:text-2xl font-black">{absentCount}</p>
-            <p className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-rose-200">Ausentes</p>
-          </button>
+              <button
+                onClick={() => setStatusFilter(statusFilter === 'ABSENT' ? 'ALL' : 'ABSENT')}
+                className={`rounded-2xl p-2 text-center transition-all cursor-pointer border ${
+                  statusFilter === 'ABSENT'
+                    ? 'bg-rose-500 text-white border-white shadow-lg font-bold'
+                    : 'bg-white/15 backdrop-blur-md text-white border-white/10 hover:bg-white/25'
+                }`}
+              >
+                <p className="text-lg sm:text-xl font-black">{absentCount}</p>
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-rose-200">Ausentes</p>
+              </button>
 
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'PENDING' ? 'ALL' : 'PENDING')}
-            className={`rounded-2xl p-2.5 text-center transition-all cursor-pointer border ${
-              statusFilter === 'PENDING'
-                ? 'bg-amber-500 text-white border-white shadow-lg scale-102 font-bold'
-                : 'bg-white/15 backdrop-blur-md text-white border-white/10 hover:bg-white/25'
-            }`}
-          >
-            <p className="text-xl sm:text-2xl font-black">{pendingCount}</p>
-            <p className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-amber-200">Pendientes</p>
-          </button>
+              <button
+                onClick={() => setStatusFilter(statusFilter === 'PENDING' ? 'ALL' : 'PENDING')}
+                className={`rounded-2xl p-2 text-center transition-all cursor-pointer border ${
+                  statusFilter === 'PENDING'
+                    ? 'bg-amber-500 text-white border-white shadow-lg font-bold'
+                    : 'bg-white/15 backdrop-blur-md text-white border-white/10 hover:bg-white/25'
+                }`}
+              >
+                <p className="text-lg sm:text-xl font-black">{pendingCount}</p>
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-200">Pendientes</p>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

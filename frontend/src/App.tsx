@@ -97,7 +97,12 @@ export function App() {
             />
           )}
 
-          {activeTab === 'history' && <HistoryView shift={selectedShift} />}
+          {activeTab === 'history' && (
+            <HistoryView
+              shift={selectedShift}
+              onShiftChange={(newShift) => setSelectedShift(newShift)}
+            />
+          )}
 
           {/* Módulos Exclusivos Super Admin */}
           {activeTab === 'students' && isSuperAdmin && (

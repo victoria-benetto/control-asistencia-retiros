@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserCheck, Clock, CheckCircle2, ShieldCheck, AlertCircle, RefreshCw, Calendar } from 'lucide-react';
+import { UserCheck, Clock, CheckCircle2, ShieldCheck, AlertCircle, RefreshCw, Calendar, Search } from 'lucide-react';
 import { getTodayAttendance, savePickup } from '../../services/api';
 import { TodayStudentAttendance, AdminUser, OFFICIAL_SHIFTS } from '../../types';
 
@@ -61,7 +61,9 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
 
     if (search.trim()) {
       const fullName = `${item.student.firstName} ${item.student.lastName}`.toLowerCase();
-      return fullName.includes(search.trim().toLowerCase());
+      const dni = item.student.dni;
+      const q = search.trim().toLowerCase();
+      return fullName.includes(q) || dni.includes(q);
     }
 
     return true;
@@ -123,104 +125,104 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
           </button>
         </div>
 
-        {/* Seleccionador de Fecha y Turno */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/20">
+        {/* CONTROLES MOBILE-FIRST (De arriba a abajo: Lupita -> Fecha -> Turno -> Filtrar) */}
+        <div className="space-y-3 pt-2 border-t border-white/20">
+          {/* 1️⃣ Lupita de Búsqueda */}
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
-              Seleccionar Fecha
+            <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
+              1. Lupita de Búsqueda
             </label>
             <div className="relative">
               <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar alumna presente por nombre o DNI..."
                 className="w-full px-3.5 py-2.5 pl-10 rounded-2xl bg-white text-slate-900 text-xs font-bold focus:outline-none shadow-sm min-h-[42px]"
               />
-              <Calendar className="w-4 h-4 text-purple-600 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-purple-600 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
 
-          <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
-              Seleccionar Turno
+          {/* 2️⃣ Selección Fecha & 3️⃣ Selección Turno */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
+                2. Selección Fecha
+              </label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 pl-10 rounded-2xl bg-white text-slate-900 text-xs font-bold focus:outline-none shadow-sm min-h-[42px]"
+                />
+                <Calendar className="w-4 h-4 text-purple-600 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1">
+                3. Selección Turno
+              </label>
+              <select
+                value={shift}
+                onChange={(e) => onShiftChange && onShiftChange(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-2xl bg-white text-slate-900 text-xs font-bold focus:outline-none shadow-sm cursor-pointer min-h-[42px]"
+              >
+                {OFFICIAL_SHIFTS.map((sh) => (
+                  <option key={sh} value={sh}>
+                    {sh}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* 4️⃣ Parte de Filtrar (Filtros por Estado de Retiro) */}
+          <div className="pt-1">
+            <label className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-200 mb-1.5">
+              4. Parte de Filtrar
             </label>
-            <select
-              value={shift}
-              onChange={(e) => onShiftChange && onShiftChange(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-white text-slate-900 text-xs font-bold focus:outline-none shadow-sm min-h-[42px]"
-            >
-              {OFFICIAL_SHIFTS.map((sh) => (
-                <option key={sh} value={sh}>
-                  {sh}
-                </option>
-              ))}
-            </select>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setPickupFilter('ALL')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 ${
+                  pickupFilter === 'ALL'
+                    ? 'bg-white text-purple-950 font-black shadow-xs'
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                }`}
+              >
+                Todas ({allPresentCount})
+              </button>
+              <button
+                onClick={() => setPickupFilter('PENDING')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95 ${
+                  pickupFilter === 'PENDING'
+                    ? 'bg-amber-500 text-white font-black shadow-xs'
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>En clase ({pendingCount})</span>
+              </button>
+              <button
+                onClick={() => setPickupFilter('PICKED_UP')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95 ${
+                  pickupFilter === 'PICKED_UP'
+                    ? 'bg-emerald-500 text-white font-black shadow-xs'
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Retiradas ({pickedUpCount})</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Barra de Filtros Rápida por Estado y Buscador */}
-      <div className="bg-white p-3.5 sm:p-4 rounded-3xl border border-slate-200 shadow-xs space-y-3">
-        {/* Buscador de Alumnas Presentes */}
-        <div className="relative">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar alumna presente por nombre..."
-            className="w-full px-4 py-2.5 pl-10 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-purple-600"
-          />
-          <UserCheck className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-        </div>
 
-        {/* Píldoras de Filtro Rápido */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
-          <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mr-1">Filtrar:</span>
-          <button
-            onClick={() => setPickupFilter('ALL')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 ${
-              pickupFilter === 'ALL'
-                ? 'bg-purple-900 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-          >
-            Todas ({allPresentCount})
-          </button>
-          <button
-            onClick={() => setPickupFilter('PENDING')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95 ${
-              pickupFilter === 'PENDING'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/60'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>En clase ({pendingCount})</span>
-          </button>
-          <button
-            onClick={() => setPickupFilter('PICKED_UP')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95 ${
-              pickupFilter === 'PICKED_UP'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/60'
-            }`}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Ya Retiradas ({pickedUpCount})</span>
-          </button>
-          <button
-            onClick={() => setPickupFilter('NO_AUTHORIZED')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95 ${
-              pickupFilter === 'NO_AUTHORIZED'
-                ? 'bg-teal-700 text-white shadow-xs'
-                : 'bg-teal-50 text-teal-800 hover:bg-teal-100 border border-teal-200/60'
-            }`}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
-            <span>Presente y Listo ({noAuthCount})</span>
-          </button>
-        </div>
-      </div>
 
       {error && (
         <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">

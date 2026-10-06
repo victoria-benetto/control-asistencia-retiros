@@ -207,8 +207,12 @@ router.get('/history', async (req: Request, res: Response) => {
     if (date) {
       whereCondition.date = String(date);
     }
-    if (shift) {
-      whereCondition.student = { shift: String(shift) };
+    if (shift && String(shift) !== 'ALL' && String(shift).trim() !== '') {
+      const shiftStr = String(shift).trim();
+      whereCondition.OR = [
+        { student: { shift: shiftStr } },
+        { makeupShift: shiftStr },
+      ];
     }
 
     const records = await prisma.attendanceRecord.findMany({
