@@ -63,6 +63,7 @@ model AttendanceRecord {
   id                String           @id @default(uuid())
   studentId         String
   date              String           // Formato YYYY-MM-DD
+  shift             String           @default("") // Turno específico de la clase
   status            AttendanceStatus
   isMakeup          Boolean          @default(false)
   makeupShift       String?
@@ -73,7 +74,7 @@ model AttendanceRecord {
   recordedBy        AdminUser?       @relation(fields: [recordedByAdminId], references: [id], onDelete: SetNull)
   pickups           PickupRecord[]
 
-  @@unique([studentId, date])
+  @@unique([studentId, date, shift])
 }
 
 model PickupRecord {

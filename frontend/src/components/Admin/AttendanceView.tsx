@@ -77,7 +77,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   ) => {
     setSavingId(studentId);
     try {
-      await saveAttendance(studentId, targetStatus, user.id, selectedDate, isMakeup, shift);
+      await saveAttendance(studentId, targetStatus, user.id, selectedDate, isMakeup, shift, shift);
       await fetchAttendance();
     } catch (err) {
       alert('Error al guardar asistencia.');

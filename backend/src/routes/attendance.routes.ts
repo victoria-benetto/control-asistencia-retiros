@@ -37,9 +37,16 @@ router.get('/today', async (req: Request, res: Response) => {
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
 
-    // Registros de asistencia existentes para la fecha seleccionada
+    // Registros de asistencia existentes específicamente para la fecha Y TURNO seleccionados
     const existingAttendances = await prisma.attendanceRecord.findMany({
-      where: { date: selectedDate },
+      where: {
+        date: selectedDate,
+        OR: [
+          { shift: targetShift },
+          { makeupShift: targetShift },
+          { shift: '' },
+        ],
+      },
       include: {
         student: { include: { authorizedPeople: true } },
         recordedBy: { select: { fullName: true, dni: true } },
@@ -54,7 +61,9 @@ router.get('/today', async (req: Request, res: Response) => {
 
     const attendanceMap = new Map();
     existingAttendances.forEach(record => {
-      attendanceMap.set(record.studentId, record);
+      if (!record.shift || record.shift === targetShift || (record.isMakeup && record.makeupShift === targetShift)) {
+        attendanceMap.set(record.studentId, record);
+      }
     });
 
     // Construir lista del turno
@@ -72,8 +81,13 @@ router.get('/today', async (req: Request, res: Response) => {
       };
     });
 
-    // Agregar alumnas de recuperatorio (de otros turnos que asistieron en esta fecha y turno)
-    const makeupRecords = existingAttendances.filter(record => record.isMakeup && record.student && record.student.shift !== targetShift);
+    // Agregar alumnas de recuperatorio que asistieron en esta fecha Y TURNO
+    const makeupRecords = existingAttendances.filter(record =>
+      record.isMakeup &&
+      record.student &&
+      (record.makeupShift === targetShift || record.shift === targetShift)
+    );
+
     makeupRecords.forEach(record => {
       if (!result.some(r => r.student.id === record.studentId)) {
         result.push({
@@ -124,7 +138,7 @@ router.get('/today', async (req: Request, res: Response) => {
  * @openapi
  * /api/attendance:
  *   post:
- *     summary: Registrar o actualizar la asistencia (Soporta recuperatorio y makeupShift)
+ *     summary: Registrar o actualizar la asistencia por turno (Soporta múltiples asistencias por día en distintos turnos)
  *     tags: [Asistencia]
  *     requestBody:
  *       required: true
@@ -145,6 +159,8 @@ router.get('/today', async (req: Request, res: Response) => {
  *                 type: boolean
  *               makeupShift:
  *                 type: string
+ *               shift:
+ *                 type: string
  *               recordedByAdminId:
  *                 type: string
  *     responses:
@@ -153,32 +169,37 @@ router.get('/today', async (req: Request, res: Response) => {
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { studentId, status, date, isMakeup, makeupShift, recordedByAdminId } = req.body;
+    const { studentId, status, date, isMakeup, makeupShift, shift, recordedByAdminId } = req.body;
     const targetDate = date || getTodayDateString();
 
     if (!studentId || !['PRESENT', 'ABSENT'].includes(status)) {
       return res.status(400).json({ error: 'studentId y estado válido (PRESENT/ABSENT) son requeridos.' });
     }
 
+    const student = await prisma.student.findUnique({ where: { id: studentId } });
+    const targetShift = shift || (isMakeup ? makeupShift : student?.shift) || '';
+
     const record = await prisma.attendanceRecord.upsert({
       where: {
-        studentId_date: {
+        studentId_date_shift: {
           studentId,
           date: targetDate,
+          shift: targetShift,
         },
       },
       update: {
         status,
         isMakeup: Boolean(isMakeup),
-        makeupShift: isMakeup ? makeupShift || null : null,
+        makeupShift: isMakeup ? makeupShift || targetShift : null,
         recordedByAdminId: recordedByAdminId || null,
       },
       create: {
         studentId,
         date: targetDate,
+        shift: targetShift,
         status,
         isMakeup: Boolean(isMakeup),
-        makeupShift: isMakeup ? makeupShift || null : null,
+        makeupShift: isMakeup ? makeupShift || targetShift : null,
         recordedByAdminId: recordedByAdminId || null,
       },
       include: {
