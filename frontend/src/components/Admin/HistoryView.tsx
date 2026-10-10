@@ -188,10 +188,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift: initialShift, o
           </div>
         </div>
 
-        {/* 4️⃣ Parte de Filtrar (Filtros Rápidos por Estado) */}
+        {/* Filtros Rápidos por Estado */}
         <div className="pt-2 border-t border-slate-100">
           <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-2">
-            4. Parte de Filtrar
+            Filtrar por Asistencia
           </label>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -322,18 +322,32 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift: initialShift, o
                             <span className="text-xs text-slate-500 font-medium">
                               (DNI: {student?.dni})
                             </span>
-                            {rec.isMakeup && (
-                              <span className="bg-purple-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                Recuperatorio
-                              </span>
-                            )}
+                            {(() => {
+                              const isActuallyMakeup =
+                                Boolean(rec.isMakeup) &&
+                                Boolean(student && (rec.makeupShift || shiftName || rec.shift) !== student.shift);
+                              return (
+                                isActuallyMakeup && (
+                                  <span className="bg-purple-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                    Recuperatorio
+                                  </span>
+                                )
+                              );
+                            })()}
                           </div>
 
-                          {rec.isMakeup && (
-                            <p className="text-xs text-purple-800 font-extrabold mt-1 bg-purple-50 px-2.5 py-1 rounded-xl border border-purple-200 inline-block">
-                              🔄 Alumna recuperando clase en: <span className="underline">{rec.makeupShift || shiftName}</span> (Turno habitual: {student?.shift})
-                            </p>
-                          )}
+                          {(() => {
+                            const isActuallyMakeup =
+                              Boolean(rec.isMakeup) &&
+                              Boolean(student && (rec.makeupShift || shiftName || rec.shift) !== student.shift);
+                            return (
+                              isActuallyMakeup && (
+                                <p className="text-xs text-purple-800 font-extrabold mt-1 bg-purple-50 px-2.5 py-1 rounded-xl border border-purple-200 inline-block">
+                                  🔄 Alumna recuperando clase en: <span className="underline">{rec.makeupShift || shiftName}</span> (Turno habitual: {student?.shift})
+                                </p>
+                              )
+                            );
+                          })()}
 
                           <div className="flex items-center gap-3 text-xs font-medium text-slate-500 pt-0.5">
                             <span>

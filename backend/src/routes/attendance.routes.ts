@@ -30,9 +30,12 @@ router.get('/today', async (req: Request, res: Response) => {
   const targetShift = (req.query.shift as string) || OFFICIAL_SHIFTS[0];
 
   try {
-    // Alumnas registradas en este turno
+    // Alumnas registradas en este turno (únicamente con estado ACTIVE)
     const studentsInShift = await prisma.student.findMany({
-      where: { shift: targetShift },
+      where: {
+        shift: targetShift,
+        status: 'ACTIVE',
+      },
       include: { authorizedPeople: true },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
@@ -66,25 +69,26 @@ router.get('/today', async (req: Request, res: Response) => {
       }
     });
 
-    // Construir lista del turno
+    // Construir lista del turno habitual (NUNCA son recuperatorio en su propio turno)
     const result = studentsInShift.map(student => {
       const record = attendanceMap.get(student.id);
       return {
         student,
         attendanceId: record?.id || null,
         status: record?.status || null,
-        isMakeup: record?.isMakeup || false,
-        makeupShift: record?.makeupShift || null,
+        isMakeup: false, // En su propio turno habitual NUNCA es recuperatorio
+        makeupShift: null,
         date: selectedDate,
         recordedBy: record?.recordedBy || null,
         pickups: record?.pickups || [],
       };
     });
 
-    // Agregar alumnas de recuperatorio que asistieron en esta fecha Y TURNO
+    // Agregar alumnas de recuperatorio que asistieron en esta fecha Y TURNO (de otro turno habitual)
     const makeupRecords = existingAttendances.filter(record =>
       record.isMakeup &&
       record.student &&
+      record.student.shift !== targetShift &&
       (record.makeupShift === targetShift || record.shift === targetShift)
     );
 
@@ -179,6 +183,10 @@ router.post('/', async (req: Request, res: Response) => {
     const student = await prisma.student.findUnique({ where: { id: studentId } });
     const targetShift = shift || (isMakeup ? makeupShift : student?.shift) || '';
 
+    // Solo es recuperatorio si asiste a un turno DISTINTO a su turno habitual
+    const isActuallyMakeup = Boolean(isMakeup) && Boolean(student && student.shift !== targetShift);
+    const finalMakeupShift = isActuallyMakeup ? (makeupShift || targetShift) : null;
+
     const record = await prisma.attendanceRecord.upsert({
       where: {
         studentId_date_shift: {
@@ -189,8 +197,8 @@ router.post('/', async (req: Request, res: Response) => {
       },
       update: {
         status,
-        isMakeup: Boolean(isMakeup),
-        makeupShift: isMakeup ? makeupShift || targetShift : null,
+        isMakeup: isActuallyMakeup,
+        makeupShift: finalMakeupShift,
         recordedByAdminId: recordedByAdminId || null,
       },
       create: {
@@ -198,8 +206,8 @@ router.post('/', async (req: Request, res: Response) => {
         date: targetDate,
         shift: targetShift,
         status,
-        isMakeup: Boolean(isMakeup),
-        makeupShift: isMakeup ? makeupShift || targetShift : null,
+        isMakeup: isActuallyMakeup,
+        makeupShift: finalMakeupShift,
         recordedByAdminId: recordedByAdminId || null,
       },
       include: {
@@ -267,7 +275,19 @@ router.get('/history', async (req: Request, res: Response) => {
       orderBy: [{ date: 'desc' }, { student: { lastName: 'asc' } }],
     });
 
-    return res.json(records);
+    // Normalizar isMakeup: si el turno es el turno habitual del estudiante, NUNCA es recuperatorio
+    const sanitizedRecords = records.map((record) => {
+      const isActualMakeup =
+        Boolean(record.isMakeup) &&
+        Boolean(record.student && (record.makeupShift || record.shift) !== record.student.shift);
+      return {
+        ...record,
+        isMakeup: isActualMakeup,
+        makeupShift: isActualMakeup ? record.makeupShift || record.shift : null,
+      };
+    });
+
+    return res.json(sanitizedRecords);
   } catch (error) {
     console.warn('⚠️ Base de datos inaccesible en /attendance/history, retornando lista vacia:', error);
     return res.json([]);

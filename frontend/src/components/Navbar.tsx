@@ -127,7 +127,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <Users className="w-4 h-4" />
-                <span>ABM Alumnas</span>
+                <span>Alumnas</span>
               </button>
             )}
 

@@ -27,13 +27,19 @@ export const OFFICIAL_SHIFTS = [
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { shift } = req.query;
-    const whereCondition = shift ? { shift: String(shift) } : {};
+    const { shift, status } = req.query;
+    const whereCondition: any = {};
+    if (shift) whereCondition.shift = String(shift);
+    if (status) whereCondition.status = String(status);
 
     const students = await prisma.student.findMany({
       where: whereCondition,
       include: {
         authorizedPeople: true,
+        attendances: {
+          where: { status: 'PRESENT' },
+          select: { date: true, status: true, shift: true },
+        },
       },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });

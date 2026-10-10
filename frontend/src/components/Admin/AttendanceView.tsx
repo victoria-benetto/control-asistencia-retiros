@@ -157,6 +157,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   const makeupStudentsList = allStudents.filter(
     (s) =>
       s.shift !== shift &&
+      (s.status === 'ACTIVE' || !s.status) &&
       (s.firstName.toLowerCase().includes(searchMakeup.toLowerCase()) ||
         s.lastName.toLowerCase().includes(searchMakeup.toLowerCase()) ||
         s.dni.includes(searchMakeup))
@@ -386,13 +387,14 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
         <div className="grid grid-cols-1 gap-3">
           {filteredStudents.map((item) => {
             const { student, status, isMakeup, makeupShift } = item;
+            const isActuallyMakeup = Boolean(isMakeup) && Boolean(student && student.shift !== shift);
             const isSaving = savingId === student.id;
 
             return (
               <div
                 key={student.id}
                 className={`bg-white rounded-3xl p-4 sm:p-5 border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
-                  isMakeup ? 'border-purple-300 bg-purple-50/30' : 'border-slate-200'
+                  isActuallyMakeup ? 'border-purple-300 bg-purple-50/30' : 'border-slate-200'
                 }`}
               >
                 {/* Info Alumna */}
@@ -405,7 +407,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                       <h4 className="font-black text-slate-900 text-base leading-tight">
                         {student.firstName} {student.lastName}
                       </h4>
-                      {isMakeup && (
+                      {isActuallyMakeup && (
                         <span className="bg-purple-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
                           Recuperatorio
                         </span>
@@ -414,7 +416,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                     <p className="text-xs text-slate-400 font-medium">
                       DNI: <span className="font-mono text-slate-700 font-bold">{student.dni}</span>
                     </p>
-                    {isMakeup && (
+                    {isActuallyMakeup && (
                       <p className="text-xs text-purple-800 font-extrabold mt-1 bg-purple-100/80 px-2.5 py-1 rounded-xl border border-purple-200">
                         🔄 La alumna recupera una clase en el turno: <span className="underline">{makeupShift || shift}</span> (Turno habitual: {student.shift})
                       </p>
@@ -430,7 +432,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                 {/* Botones de Marcación */}
                 <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
                   <button
-                    onClick={() => handleToggleAttendance(student.id, status, 'PRESENT', !!isMakeup)}
+                    onClick={() => handleToggleAttendance(student.id, status, 'PRESENT', isActuallyMakeup)}
                     disabled={isSaving}
                     className={`py-3 px-4 rounded-2xl font-extrabold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all min-h-[48px] active:scale-95 ${
                       status === 'PRESENT'
@@ -443,7 +445,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                   </button>
 
                   <button
-                    onClick={() => handleToggleAttendance(student.id, status, 'ABSENT', !!isMakeup)}
+                    onClick={() => handleToggleAttendance(student.id, status, 'ABSENT', isActuallyMakeup)}
                     disabled={isSaving}
                     className={`py-3 px-4 rounded-2xl font-extrabold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all min-h-[48px] active:scale-95 ${
                       status === 'ABSENT'

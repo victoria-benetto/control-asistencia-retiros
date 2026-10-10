@@ -72,8 +72,12 @@ export async function deleteTeacher(userDni: string, id: string): Promise<void> 
 }
 
 // Alumnas
-export async function getStudents(shift?: string): Promise<Student[]> {
-  const url = shift ? `${API_BASE}/students?shift=${encodeURIComponent(shift)}` : `${API_BASE}/students`;
+export async function getStudents(shift?: string, status?: string): Promise<Student[]> {
+  const params = new URLSearchParams();
+  if (shift) params.append('shift', shift);
+  if (status) params.append('status', status);
+  const queryString = params.toString();
+  const url = queryString ? `${API_BASE}/students?${queryString}` : `${API_BASE}/students`;
   const res = await fetch(url);
   return parseResponse(res);
 }

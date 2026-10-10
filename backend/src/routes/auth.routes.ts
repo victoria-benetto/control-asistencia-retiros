@@ -129,6 +129,8 @@ router.post('/login', async (req: Request, res: Response) => {
           lastName: student.lastName,
           dni: student.dni,
           shift: student.shift,
+          status: student.status,
+          notes: student.notes,
           authorizedPeople: student.authorizedPeople,
           attendances: student.attendances,
         },

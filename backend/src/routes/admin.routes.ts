@@ -199,7 +199,7 @@ router.delete('/teachers/:id', requireSuperAdmin, async (req: Request, res: Resp
  */
 router.post('/students', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, dni, shift, notes, authorizedPeople } = req.body;
+    const { firstName, lastName, dni, shift, status, notes, authorizedPeople } = req.body;
     if (!firstName || !lastName || !dni || !shift) {
       return res.status(400).json({ error: 'Nombre, Apellido, DNI y Turno son requeridos.' });
     }
@@ -209,6 +209,10 @@ router.post('/students', requireSuperAdmin, async (req: Request, res: Response) 
     if (existing) {
       return res.status(400).json({ error: 'Ya existe una alumna registrada con este DNI.' });
     }
+
+    const validStatus = ['ACTIVE', 'TEMPORARILY_INACTIVE', 'INACTIVE'].includes(status)
+      ? status
+      : 'ACTIVE';
 
     // Filtrar únicamente personas autorizadas con nombre y DNI válidos
     const validPeople = Array.isArray(authorizedPeople)
@@ -228,12 +232,19 @@ router.post('/students', requireSuperAdmin, async (req: Request, res: Response) 
         lastName: lastName.trim(),
         dni: cleanDni,
         shift: shift.trim(),
+        status: validStatus,
         notes: notes ? notes.trim() : '',
         authorizedPeople: {
           create: validPeople,
         },
       },
-      include: { authorizedPeople: true },
+      include: {
+        authorizedPeople: true,
+        attendances: {
+          where: { status: 'PRESENT' },
+          select: { date: true, status: true, shift: true },
+        },
+      },
     });
 
     return res.status(201).json(student);
@@ -258,7 +269,7 @@ router.post('/students', requireSuperAdmin, async (req: Request, res: Response) 
 router.put('/students/:id', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, dni, shift, notes, authorizedPeople } = req.body;
+    const { firstName, lastName, dni, shift, status, notes, authorizedPeople } = req.body;
 
     const student = await prisma.student.findUnique({ where: { id } });
     if (!student) {
@@ -269,6 +280,9 @@ router.put('/students/:id', requireSuperAdmin, async (req: Request, res: Respons
     if (firstName) updateData.firstName = firstName.trim();
     if (lastName) updateData.lastName = lastName.trim();
     if (shift) updateData.shift = shift.trim();
+    if (status && ['ACTIVE', 'TEMPORARILY_INACTIVE', 'INACTIVE'].includes(status)) {
+      updateData.status = status;
+    }
     if (notes !== undefined) updateData.notes = notes.trim();
 
     if (dni && typeof dni === 'string' && dni.trim() !== '' && dni.trim() !== student.dni) {
@@ -306,7 +320,13 @@ router.put('/students/:id', requireSuperAdmin, async (req: Request, res: Respons
 
     const updatedStudent = await prisma.student.findUnique({
       where: { id },
-      include: { authorizedPeople: true },
+      include: {
+        authorizedPeople: true,
+        attendances: {
+          where: { status: 'PRESENT' },
+          select: { date: true, status: true, shift: true },
+        },
+      },
     });
 
     return res.json(updatedStudent);

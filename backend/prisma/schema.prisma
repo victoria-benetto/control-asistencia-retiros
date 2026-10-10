@@ -19,6 +19,12 @@ enum AttendanceStatus {
   ABSENT
 }
 
+enum StudentStatus {
+  ACTIVE
+  TEMPORARILY_INACTIVE
+  INACTIVE
+}
+
 model AdminUser {
   id               String             @id @default(uuid())
   dni              String             @unique
@@ -39,6 +45,7 @@ model Student {
   lastName         String
   dni              String             @unique
   shift            String             @default("Lunes, miércoles y viernes de 16:45 a 18")
+  status           StudentStatus      @default(ACTIVE)
   notes            String?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt

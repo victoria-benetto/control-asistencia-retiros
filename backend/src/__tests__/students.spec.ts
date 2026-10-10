@@ -50,4 +50,57 @@ describe('Student ABM Integration Tests & Bug Regressions', () => {
     expect(res.status).toBe(403);
     expect(res.body.error).toContain('Acceso denegado');
   });
+
+  it('SuperAdmin can manage student statuses (ACTIVE, TEMPORARILY_INACTIVE, INACTIVE)', async () => {
+    const testDni = `98${Date.now().toString().slice(-6)}`;
+    const createRes = await request(app)
+      .post('/api/admin/students')
+      .set('x-user-dni', '44122509')
+      .send({
+        firstName: 'Status',
+        lastName: 'TestStudent',
+        dni: testDni,
+        shift: 'Lunes y miércoles de 8 a 10',
+        status: 'TEMPORARILY_INACTIVE',
+      });
+
+    expect(createRes.status).toBe(201);
+    expect(createRes.body.status).toBe('TEMPORARILY_INACTIVE');
+    const studentId = createRes.body.id;
+
+    try {
+      // Update status to INACTIVE
+      const updateRes1 = await request(app)
+        .put(`/api/admin/students/${studentId}`)
+        .set('x-user-dni', '44122509')
+        .send({ status: 'INACTIVE' });
+
+      expect(updateRes1.status).toBe(200);
+      expect(updateRes1.body.status).toBe('INACTIVE');
+
+      // Update status back to ACTIVE
+      const updateRes2 = await request(app)
+        .put(`/api/admin/students/${studentId}`)
+        .set('x-user-dni', '44122509')
+        .send({ status: 'ACTIVE' });
+
+      expect(updateRes2.status).toBe(200);
+      expect(updateRes2.body.status).toBe('ACTIVE');
+
+      // Verify GET /api/students?status=ACTIVE includes student
+      const listRes = await request(app)
+        .get('/api/students')
+        .query({ status: 'ACTIVE' });
+
+      expect(listRes.status).toBe(200);
+      const found = listRes.body.find((s: any) => s.id === studentId);
+      expect(found).toBeDefined();
+      expect(found.status).toBe('ACTIVE');
+      expect(Array.isArray(found.attendances)).toBe(true);
+    } finally {
+      if (studentId) {
+        await request(app).delete(`/api/admin/students/${studentId}`).set('x-user-dni', '44122509');
+      }
+    }
+  });
 });

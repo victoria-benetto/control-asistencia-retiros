@@ -80,4 +80,102 @@ describe('Attendance & Pickup Flow Integration Tests', () => {
     expect(res2.body.status).toBe('ABSENT');
     expect(res2.body.id).not.toBe(res1.body.id); // Distinct attendance records created for distinct shifts!
   });
+
+  it('Enforces that attendance in habitual shift is never recorded or returned as makeup', async () => {
+    const testShift = 'Lunes y miércoles de 8 a 10';
+    const testDni = `88${Date.now().toString().slice(-6)}`;
+    const testDate = '2026-10-10';
+
+    // Create a student with habitual shift = testShift
+    const studentRes = await request(app)
+      .post('/api/admin/students')
+      .set('x-user-dni', '44122509')
+      .send({
+        firstName: 'Elena',
+        lastName: 'HabitualShiftTest',
+        dni: testDni,
+        shift: testShift,
+        status: 'ACTIVE',
+      });
+    const studentId = studentRes.body.id;
+
+    try {
+      // Mark attendance in HER OWN habitual shift, but passing isMakeup: true
+      const attRes = await request(app)
+        .post('/api/attendance')
+        .send({
+          studentId,
+          status: 'ABSENT',
+          date: testDate,
+          shift: testShift,
+          isMakeup: true,
+          makeupShift: testShift,
+        });
+
+      expect(attRes.status).toBe(200);
+      expect(attRes.body.isMakeup).toBe(false); // Cleanly forced to false!
+      expect(attRes.body.makeupShift).toBeNull();
+
+      // Verify GET /today in testShift returns isMakeup: false
+      const todayRes = await request(app)
+        .get('/api/attendance/today')
+        .query({ shift: testShift, date: testDate });
+
+      const studentInToday = todayRes.body.students.find((s: any) => s.student.id === studentId);
+      expect(studentInToday).toBeDefined();
+      expect(studentInToday.isMakeup).toBe(false);
+      expect(studentInToday.makeupShift).toBeNull();
+    } finally {
+      if (studentId) {
+        await request(app).delete(`/api/admin/students/${studentId}`).set('x-user-dni', '44122509');
+      }
+    }
+  });
+
+  it('Inactive and temporarily inactive students do not appear in shift attendance', async () => {
+    const testShift = 'Lunes y miércoles de 8 a 10';
+    const testDni1 = `87${Date.now().toString().slice(-6)}`;
+    const testDni2 = `86${Date.now().toString().slice(-6)}`;
+
+    // Create an inactive student
+    const s1Res = await request(app)
+      .post('/api/admin/students')
+      .set('x-user-dni', '44122509')
+      .send({
+        firstName: 'Inactiva',
+        lastName: 'Test',
+        dni: testDni1,
+        shift: testShift,
+        status: 'INACTIVE',
+      });
+
+    // Create a temporarily inactive student
+    const s2Res = await request(app)
+      .post('/api/admin/students')
+      .set('x-user-dni', '44122509')
+      .send({
+        firstName: 'Temporal',
+        lastName: 'Test',
+        dni: testDni2,
+        shift: testShift,
+        status: 'TEMPORARILY_INACTIVE',
+      });
+
+    try {
+      const todayRes = await request(app)
+        .get('/api/attendance/today')
+        .query({ shift: testShift });
+
+      const studentIds = todayRes.body.students.map((s: any) => s.student.id);
+      expect(studentIds).not.toContain(s1Res.body.id);
+      expect(studentIds).not.toContain(s2Res.body.id);
+    } finally {
+      if (s1Res.body.id) {
+        await request(app).delete(`/api/admin/students/${s1Res.body.id}`).set('x-user-dni', '44122509');
+      }
+      if (s2Res.body.id) {
+        await request(app).delete(`/api/admin/students/${s2Res.body.id}`).set('x-user-dni', '44122509');
+      }
+    }
+  });
 });

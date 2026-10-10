@@ -76,9 +76,27 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
         {/* Tarjeta Alumna */}
         <div className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-100 shadow-xl relative overflow-hidden">
           <div className="flex flex-col gap-1 border-b border-slate-100 pb-5 mb-5">
-            <span className="inline-block bg-purple-100 text-purple-900 text-xs font-extrabold px-3 py-1 rounded-full w-fit">
-              Turno {student.shift}
-            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-block bg-purple-100 text-purple-900 text-xs font-extrabold px-3 py-1 rounded-full w-fit">
+                Turno {student.shift}
+              </span>
+              <span
+                className={`inline-block text-xs font-extrabold px-3 py-1 rounded-full border ${
+                  student.status === 'INACTIVE'
+                    ? 'bg-rose-100 text-rose-800 border-rose-200'
+                    : student.status === 'TEMPORARILY_INACTIVE'
+                    ? 'bg-amber-100 text-amber-800 border-amber-200'
+                    : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                }`}
+              >
+                Estado alumna:{' '}
+                {student.status === 'INACTIVE'
+                  ? 'Inactiva'
+                  : student.status === 'TEMPORARILY_INACTIVE'
+                  ? 'Inactiva temporal'
+                  : 'Activa'}
+              </span>
+            </div>
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
               {student.firstName} {student.lastName}
             </h2>
@@ -127,9 +145,9 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
                         <span className="block text-[11px] text-emerald-800 font-semibold">
                           Docente a cargo: <strong>{todayRecord.recordedBy?.fullName || 'Profesora'}</strong>
                         </span>
-                        {todayRecord.isMakeup && (
+                        {todayRecord.isMakeup && todayRecord.makeupShift && todayRecord.makeupShift !== student.shift && (
                           <span className="block text-[11px] text-purple-900 font-extrabold mt-1">
-                            🔄 La alumna recupera una clase en el turno: {todayRecord.makeupShift || student.shift}
+                            🔄 La alumna recupera una clase en el turno: {todayRecord.makeupShift}
                           </span>
                         )}
                       </p>

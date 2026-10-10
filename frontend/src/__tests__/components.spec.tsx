@@ -110,8 +110,9 @@ describe('Frontend Component Unit & Integration Tests', () => {
       attendances: [
         {
           id: 'att-1',
+          studentId: 's-1',
           date: todayStr,
-          status: 'PRESENTE',
+          status: 'PRESENT',
           timeIn: '17:05',
           isMakeup: false,
         },

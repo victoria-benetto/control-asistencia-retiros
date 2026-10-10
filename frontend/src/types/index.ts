@@ -31,14 +31,18 @@ export interface AuthorizedPerson {
   phone?: string;
 }
 
+export type StudentStatus = 'ACTIVE' | 'TEMPORARILY_INACTIVE' | 'INACTIVE';
+
 export interface Student {
   id: string;
   firstName: string;
   lastName: string;
   dni: string;
   shift: string;
+  status?: StudentStatus;
   notes?: string;
   authorizedPeople: AuthorizedPerson[];
+  attendances?: AttendanceRecord[];
 }
 
 export interface PickupRecord {
@@ -56,8 +60,9 @@ export interface PickupRecord {
 
 export interface AttendanceRecord {
   id: string;
-  studentId: string;
+  studentId?: string;
   date: string;
+  shift?: string;
   status: 'PRESENT' | 'ABSENT';
   isMakeup?: boolean;
   makeupShift?: string;
