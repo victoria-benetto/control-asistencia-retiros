@@ -36,7 +36,7 @@ describe('Unified Auth & Access Flow Integration Tests', () => {
     // 1. Without password
     const resNoPass = await request(app)
       .post('/api/auth/login')
-      .send({ dni: '43213538' });
+      .send({ dni: '43213538', roleChoice: 'ADMIN' });
 
     expect(resNoPass.status).toBe(200);
     expect(resNoPass.body.type).toBe('PASSWORD_REQUIRED');
@@ -44,7 +44,7 @@ describe('Unified Auth & Access Flow Integration Tests', () => {
     // 2. Correct default password
     const resCorrectPass = await request(app)
       .post('/api/auth/login')
-      .send({ dni: '43213538', password: '123456' });
+      .send({ dni: '43213538', password: '123456', roleChoice: 'ADMIN' });
 
     expect(resCorrectPass.status).toBe(200);
     expect(resCorrectPass.body.type).toBe('ADMIN');

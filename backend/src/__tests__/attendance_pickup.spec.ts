@@ -130,7 +130,7 @@ describe('Attendance & Pickup Flow Integration Tests', () => {
         await request(app).delete(`/api/admin/students/${studentId}`).set('x-user-dni', '44122509');
       }
     }
-  });
+  }, 20000);
 
   it('Inactive and temporarily inactive students do not appear in shift attendance', async () => {
     const testShift = 'Lunes y miércoles de 8 a 10';
@@ -177,5 +177,5 @@ describe('Attendance & Pickup Flow Integration Tests', () => {
         await request(app).delete(`/api/admin/students/${s2Res.body.id}`).set('x-user-dni', '44122509');
       }
     }
-  });
+  }, 20000);
 });

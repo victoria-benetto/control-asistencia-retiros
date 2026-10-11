@@ -462,8 +462,13 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
 
       {/* Modal Alta / Edición de Alumna */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-2xl my-8 p-6 sm:p-8 relative animate-fadeIn">
+        <div
+          className="fixed inset-x-0 bottom-0 top-16 md:top-[112px] z-40 bg-slate-900/40 backdrop-blur-sm flex items-start justify-center p-3 sm:p-6 overflow-y-auto pb-28 md:pb-10"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setModalOpen(false);
+          }}
+        >
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-2xl my-3 sm:my-6 p-6 sm:p-8 relative animate-fadeIn">
             <button
               onClick={() => setModalOpen(false)}
               className="absolute top-5 right-5 p-2 rounded-2xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
