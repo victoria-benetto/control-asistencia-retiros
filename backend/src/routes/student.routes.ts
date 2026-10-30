@@ -37,8 +37,17 @@ router.get('/', async (req: Request, res: Response) => {
       include: {
         authorizedPeople: true,
         attendances: {
-          where: { status: 'PRESENT' },
-          select: { date: true, status: true, shift: true },
+          orderBy: { date: 'desc' },
+          select: {
+            id: true,
+            date: true,
+            status: true,
+            shift: true,
+            isMakeup: true,
+            makeupShift: true,
+            createdAt: true,
+            recordedBy: { select: { fullName: true } },
+          },
         },
       },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],

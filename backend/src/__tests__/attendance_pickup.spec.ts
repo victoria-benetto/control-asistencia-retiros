@@ -178,4 +178,55 @@ describe('Attendance & Pickup Flow Integration Tests', () => {
       }
     }
   }, 20000);
+
+  it('Supports student attendance history and deletion of erroneous attendance records', async () => {
+    const testShift = 'Lunes y miércoles de 8 a 10';
+    const testDni = `99${Date.now().toString().slice(-6)}`;
+    const testDate = '2026-10-29';
+
+    const sRes = await request(app)
+      .post('/api/admin/students')
+      .set('x-user-dni', '44122509')
+      .send({
+        firstName: 'Historial',
+        lastName: 'Test',
+        dni: testDni,
+        shift: testShift,
+        status: 'ACTIVE',
+      });
+    const studentId = sRes.body.id;
+
+    try {
+      // 1. Crear asistencia
+      const attRes = await request(app)
+        .post('/api/attendance')
+        .send({
+          studentId,
+          status: 'PRESENT',
+          date: testDate,
+          shift: testShift,
+        });
+      expect(attRes.status).toBe(200);
+      const recordId = attRes.body.id;
+
+      // 2. Consultar historial de la alumna
+      const historyRes = await request(app).get(`/api/attendance/student/${studentId}`);
+      expect(historyRes.status).toBe(200);
+      expect(Array.isArray(historyRes.body)).toBe(true);
+      expect(historyRes.body.some((r: any) => r.id === recordId && r.date === testDate)).toBe(true);
+
+      // 3. Eliminar asistencia errónea
+      const delRes = await request(app).delete(`/api/attendance/${recordId}`);
+      expect(delRes.status).toBe(200);
+      expect(delRes.body.success).toBe(true);
+
+      // 4. Verificar que ya no figura en el historial
+      const updatedHistoryRes = await request(app).get(`/api/attendance/student/${studentId}`);
+      expect(updatedHistoryRes.body.some((r: any) => r.id === recordId)).toBe(false);
+    } finally {
+      if (studentId) {
+        await request(app).delete(`/api/admin/students/${studentId}`).set('x-user-dni', '44122509');
+      }
+    }
+  }, 20000);
 });

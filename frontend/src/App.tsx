@@ -8,6 +8,7 @@ import { AdminManagement } from './components/Admin/AdminManagement';
 import { HistoryView } from './components/Admin/HistoryView';
 import { ParentPortal } from './components/Parent/ParentPortal';
 import { LoginResponse, AdminUser, Student, AttendanceRecord, OFFICIAL_SHIFTS } from './types';
+import { getDefaultShiftForDate } from './utils/shiftUtils';
 
 const SESSION_STORAGE_KEY = 'vulpiare_session_active';
 
@@ -18,7 +19,7 @@ export function App() {
   >(null);
 
   const [activeTab, setActiveTab] = useState<string>('attendance');
-  const [selectedShift, setSelectedShift] = useState<string>(OFFICIAL_SHIFTS[0]);
+  const [selectedShift, setSelectedShift] = useState<string>(() => getDefaultShiftForDate());
 
   // Restaurar sesión persistente al abrir la aplicación
   useEffect(() => {
@@ -42,6 +43,7 @@ export function App() {
       setCurrentUser(data.user);
       setParentStudent(null);
       setActiveTab('attendance');
+      setSelectedShift(getDefaultShiftForDate());
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ type: 'ADMIN', user: data.user }));
     } else if (data.type === 'PARENT' && data.student) {
       setParentStudent(data.student);

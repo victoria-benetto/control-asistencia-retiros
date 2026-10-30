@@ -242,7 +242,16 @@ router.post('/students', requireSuperAdmin, async (req: Request, res: Response) 
         authorizedPeople: true,
         attendances: {
           where: { status: 'PRESENT' },
-          select: { date: true, status: true, shift: true },
+          select: {
+            id: true,
+            date: true,
+            status: true,
+            shift: true,
+            isMakeup: true,
+            makeupShift: true,
+            createdAt: true,
+            recordedBy: { select: { fullName: true } },
+          },
         },
       },
     });
@@ -324,7 +333,16 @@ router.put('/students/:id', requireSuperAdmin, async (req: Request, res: Respons
         authorizedPeople: true,
         attendances: {
           where: { status: 'PRESENT' },
-          select: { date: true, status: true, shift: true },
+          select: {
+            id: true,
+            date: true,
+            status: true,
+            shift: true,
+            isMakeup: true,
+            makeupShift: true,
+            createdAt: true,
+            recordedBy: { select: { fullName: true } },
+          },
         },
       },
     });

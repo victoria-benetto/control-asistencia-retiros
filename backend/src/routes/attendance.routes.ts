@@ -27,7 +27,7 @@ const router = Router();
 router.get('/today', async (req: Request, res: Response) => {
   const selectedDate = (req.query.date as string) || getTodayDateString();
   const todayDayName = getTodayDayName();
-  const targetShift = (req.query.shift as string) || OFFICIAL_SHIFTS[0];
+  const targetShift = (req.query.shift as string) || (new Date(`${selectedDate}T12:00:00`).getDay() === 2 || new Date(`${selectedDate}T12:00:00`).getDay() === 4 ? 'Martes y Jueves de 16 a 18' : OFFICIAL_SHIFTS[0]);
 
   try {
     // Alumnas registradas en este turno (únicamente con estado ACTIVE)
@@ -77,7 +77,7 @@ router.get('/today', async (req: Request, res: Response) => {
         attendanceId: record?.id || null,
         status: record?.status || null,
         isMakeup: false, // En su propio turno habitual NUNCA es recuperatorio
-        makeupShift: null,
+        makeupShift: null as string | null,
         date: selectedDate,
         recordedBy: record?.recordedBy || null,
         pickups: record?.pickups || [],
@@ -395,6 +395,52 @@ router.delete('/assistants/:id', async (req: Request, res: Response) => {
     return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ error: 'Error al eliminar profesora ayudante.' });
+  }
+});
+
+/**
+ * @openapi
+ * /api/attendance/student/{studentId}:
+ *   get:
+ *     summary: Obtener historial completo de asistencias de una alumna
+ *     tags: [Asistencia]
+ */
+router.get('/student/:studentId', async (req: Request, res: Response) => {
+  const { studentId } = req.params;
+  try {
+    const records = await prisma.attendanceRecord.findMany({
+      where: { studentId },
+      include: {
+        recordedBy: { select: { fullName: true, dni: true } },
+      },
+      orderBy: { date: 'desc' },
+    });
+    return res.json(records);
+  } catch (error) {
+    console.error('Error al obtener asistencias de la alumna:', error);
+    return res.status(500).json({ error: 'Error al obtener asistencias de la alumna.' });
+  }
+});
+
+/**
+ * @openapi
+ * /api/attendance/{id}:
+ *   delete:
+ *     summary: Eliminar registro de asistencia (para corregir marcas erróneas)
+ *     tags: [Asistencia]
+ */
+router.delete('/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const record = await prisma.attendanceRecord.findUnique({ where: { id } });
+    if (!record) {
+      return res.status(404).json({ error: 'Registro de asistencia no encontrado.' });
+    }
+    await prisma.attendanceRecord.delete({ where: { id } });
+    return res.json({ success: true, message: 'Asistencia eliminada exitosamente.' });
+  } catch (error) {
+    console.error('Error al eliminar asistencia:', error);
+    return res.status(500).json({ error: 'Error al eliminar el registro de asistencia.' });
   }
 });
 

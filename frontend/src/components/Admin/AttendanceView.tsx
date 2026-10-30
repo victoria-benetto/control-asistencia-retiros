@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle2, XCircle, Clock, RefreshCw, UserCheck, Plus, Search, X, Calendar, UserPlus } from 'lucide-react';
 import { getTodayAttendance, saveAttendance, getStudents, getPublicTeachers, getShiftAssistants, addShiftAssistant, removeShiftAssistant } from '../../services/api';
 import { TodayStudentAttendance, AdminUser, Student, OFFICIAL_SHIFTS, ShiftAssistant } from '../../types';
+import { getDefaultShiftForDate, isShiftMatchingDay } from '../../utils/shiftUtils';
 
 interface AttendanceViewProps {
   shift: string;
@@ -46,22 +47,63 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'PENDING'>('ALL');
 
-  const fetchAttendance = async () => {
+  // Caché en memoria para cambio instantáneo de turnos (0ms de retraso percibido)
+  const cacheRef = useRef<Map<string, { data: any; assistants: ShiftAssistant[] }>>(new Map());
+  const requestCounterRef = useRef(0);
+
+  // Al montar, si el turno actual no pertenece al día de la fecha seleccionada, auto-seleccionar el turno del día
+  useEffect(() => {
+    if (onShiftChange && !isShiftMatchingDay(shift, selectedDate)) {
+      onShiftChange(getDefaultShiftForDate(selectedDate));
+    }
+  }, []);
+
+  const handleDateChange = (newDate: string) => {
+    setSelectedDate(newDate);
+    if (onShiftChange && !isShiftMatchingDay(shift, newDate)) {
+      const autoShift = getDefaultShiftForDate(newDate);
+      onShiftChange(autoShift);
+    }
+  };
+
+  const fetchAttendance = async (forceFresh = false) => {
+    const currentRequestId = ++requestCounterRef.current;
+    const cacheKey = `${selectedDate}__${shift}`;
+
+    const cached = cacheRef.current.get(cacheKey);
+    if (cached && !forceFresh) {
+      setData(cached.data);
+      setAssistants(cached.assistants);
+      setLoading(false);
+      getTodayAttendance(shift, selectedDate).then((fresh) => {
+        if (requestCounterRef.current === currentRequestId && fresh) {
+          setData(fresh);
+          const astList = fresh.assistants || cached.assistants || [];
+          setAssistants(astList);
+          cacheRef.current.set(cacheKey, { data: fresh, assistants: astList });
+        }
+      }).catch(() => {});
+      return;
+    }
+
+    setData(null);
     setLoading(true);
     setError(null);
     try {
       const res = await getTodayAttendance(shift, selectedDate);
+      if (requestCounterRef.current !== currentRequestId) return;
+      const astList = res.assistants || [];
       setData(res);
-      if (res.assistants) {
-        setAssistants(res.assistants);
-      } else {
-        const astList = await getShiftAssistants(selectedDate, shift);
-        setAssistants(astList);
-      }
+      setAssistants(astList);
+      cacheRef.current.set(cacheKey, { data: res, assistants: astList });
     } catch (err: any) {
-      setError('Error al cargar la lista de asistencia.');
+      if (requestCounterRef.current === currentRequestId) {
+        setError('Error al cargar la lista de asistencia.');
+      }
     } finally {
-      setLoading(false);
+      if (requestCounterRef.current === currentRequestId) {
+        setLoading(false);
+      }
     }
   };
 
@@ -76,10 +118,35 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
     isMakeup: boolean = false
   ) => {
     setSavingId(studentId);
+    const prevData = data;
+    // Actualización optimista inmediata
+    if (data) {
+      const updatedStudents = data.students.map((item) => {
+        if (item.student.id === studentId) {
+          return {
+            ...item,
+            status: targetStatus,
+            isMakeup: isMakeup || item.isMakeup,
+            makeupShift: isMakeup ? (item.makeupShift || shift) : item.makeupShift,
+          };
+        }
+        return item;
+      });
+      const updatedData = { ...data, students: updatedStudents };
+      setData(updatedData);
+      cacheRef.current.set(`${selectedDate}__${shift}`, { data: updatedData, assistants });
+    }
+
     try {
       await saveAttendance(studentId, targetStatus, user.id, selectedDate, isMakeup, shift, shift);
-      await fetchAttendance();
+      // Sincronización en segundo plano sin parpadeos
+      const fresh = await getTodayAttendance(shift, selectedDate);
+      if (fresh) {
+        setData(fresh);
+        cacheRef.current.set(`${selectedDate}__${shift}`, { data: fresh, assistants: fresh.assistants || assistants });
+      }
     } catch (err) {
+      if (prevData) setData(prevData);
       alert('Error al guardar asistencia.');
     } finally {
       setSavingId(null);
@@ -123,6 +190,9 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
       await addShiftAssistant(selectedDate, shift, teacher.id);
       const updatedAssistants = await getShiftAssistants(selectedDate, shift);
       setAssistants(updatedAssistants);
+      if (data) {
+        cacheRef.current.set(`${selectedDate}__${shift}`, { data, assistants: updatedAssistants });
+      }
     } catch (e) {
       alert('Error al agregar profesora acompañante.');
     }
@@ -131,11 +201,21 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   const handleRemoveAssistantTeacher = async (assistantId: string) => {
     try {
       await removeShiftAssistant(assistantId);
-      setAssistants(prev => prev.filter(a => a.id !== assistantId));
+      const updated = assistants.filter(a => a.id !== assistantId);
+      setAssistants(updated);
+      if (data) {
+        cacheRef.current.set(`${selectedDate}__${shift}`, { data, assistants: updated });
+      }
     } catch (e) {
       alert('Error al quitar profesora acompañante.');
     }
   };
+
+  const currentDayLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
 
   const presentCount = data?.students.filter((s) => s.status === 'PRESENT').length || 0;
   const absentCount = data?.students.filter((s) => s.status === 'ABSENT').length || 0;
@@ -169,9 +249,9 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
       <div className="bg-gradient-to-r from-purple-700 via-purple-600 to-pink-600 rounded-3xl p-5 sm:p-6 text-white shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-[11px] font-bold backdrop-blur-sm mb-2">
-              <Clock className="w-3.5 h-3.5" />
-              <span>Control de Asistencia VULPIARE</span>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-[11px] font-bold backdrop-blur-sm mb-2 capitalize">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>{currentDayLabel}</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black">Tomar Asistencia</h2>
             <p className="text-purple-100 text-xs sm:text-sm mt-0.5">
@@ -180,7 +260,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
           </div>
 
           <button
-            onClick={fetchAttendance}
+            onClick={() => fetchAttendance(true)}
             className="self-start sm:self-center px-3.5 py-2 bg-white/15 hover:bg-white/25 active:scale-95 text-white rounded-2xl font-bold text-xs transition-all flex items-center gap-1.5 min-h-[38px]"
           >
             <RefreshCw className="w-4 h-4" />
@@ -217,7 +297,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                 <input
                   type="date"
                   value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  onChange={(e) => handleDateChange(e.target.value)}
                   className="w-full px-3.5 py-2.5 pl-10 rounded-2xl bg-white text-slate-900 text-xs font-bold focus:outline-none shadow-sm min-h-[42px]"
                 />
                 <Calendar className="w-4 h-4 text-purple-600 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -369,7 +449,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
       {loading && !data ? (
         <div className="flex flex-col items-center justify-center min-h-[200px] text-slate-500">
           <RefreshCw className="w-8 h-8 animate-spin text-purple-600 mb-2" />
-          <p className="font-semibold text-xs sm:text-sm">Cargando asistencia...</p>
+          <p className="font-semibold text-xs sm:text-sm">Cargando asistencia ({shift})...</p>
         </div>
       ) : data?.students.length === 0 ? (
         <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-slate-200 shadow-xs">

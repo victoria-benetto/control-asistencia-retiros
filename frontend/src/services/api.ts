@@ -1,32 +1,27 @@
-import { LoginResponse, AdminUser, Student, TodayStudentAttendance, AttendanceRecord, PickupRecord, ShiftAssistant } from '../types';
+import { AdminUser, Student, TodayStudentAttendance, AttendanceRecord, PickupRecord, LoginResponse, ShiftAssistant } from '../types';
 
 const API_BASE = '/api';
 
-async function parseResponse(res: Response): Promise<any> {
-  const text = await res.text();
-  let data: any;
-  try {
-    data = JSON.parse(text);
-  } catch (e) {
-    if (!res.ok) {
-      throw new Error('Error en el servidor Supabase. Por favor intentá ingresar nuevamente.');
-    }
-    throw new Error('Respuesta no válida del servidor.');
-  }
-
+async function parseResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    throw new Error(data.error || 'Error en la base de datos Supabase');
+    let errorMsg = `Error ${res.status}: ${res.statusText}`;
+    try {
+      const data = await res.json();
+      if (data && data.error) errorMsg = data.error;
+    } catch (e) {
+      // Ignorar fallo de parseo JSON
+    }
+    throw new Error(errorMsg);
   }
-
-  return data;
+  return res.json();
 }
 
-export async function loginWithDNI(dni: string, password?: string, roleChoice?: 'ADMIN' | 'STUDENT'): Promise<LoginResponse> {
-  const cleanDni = dni.trim();
+// Autenticación Unificada (Profesores, Super Admin y Padres)
+export async function loginWithDNI(dni: string, password?: string, roleChoice?: string): Promise<LoginResponse> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ dni: cleanDni, password, roleChoice }),
+    body: JSON.stringify({ dni, password, roleChoice }),
   });
   return parseResponse(res);
 }
@@ -144,6 +139,21 @@ export async function getAttendanceHistory(date?: string, shift?: string): Promi
   if (date) params.append('date', date);
   if (shift) params.append('shift', shift);
   const res = await fetch(`${API_BASE}/attendance/history?${params.toString()}`);
+  return parseResponse(res);
+}
+
+export async function getStudentAttendances(studentId: string): Promise<AttendanceRecord[]> {
+  const res = await fetch(`${API_BASE}/attendance/student/${studentId}`);
+  return parseResponse(res);
+}
+
+export async function deleteAttendance(id: string, userDni?: string): Promise<{ success: boolean; message: string }> {
+  const headers: Record<string, string> = {};
+  if (userDni) headers['x-user-dni'] = userDni;
+  const res = await fetch(`${API_BASE}/attendance/${id}`, {
+    method: 'DELETE',
+    headers,
+  });
   return parseResponse(res);
 }
 
