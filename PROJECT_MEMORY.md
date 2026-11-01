@@ -51,9 +51,18 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
    - `PaymentControlView.tsx` y `RegisterPaymentView.tsx` acumulan todos los pagos del mes: cuando la suma alcanza o supera el valor del concepto, la cuota pasa automáticamente a estado "Al día" (saldada con deuda $0).
    - Cada pago conserva su propio método de pago, comprobante y fecha, garantizando métricas precisas de recaudación en Efectivo vs Transferencia.
 
+8. **Acreditación Automática de Excedentes al Mes Siguiente**:
+   - Cuando se ingresa un monto superior a la cuota o deuda pendiente del mes actual, el backend y el frontend distribuyen automáticamente el pago:
+     - El mes actual se salda al 100% (deuda restante $0, estado "Al día").
+     - El monto sobrante (excedente) se guarda y acredita de forma automática para el mes que le sigue (`getNextMonth(currentMonth)`) como saldo a favor / pago correspondiente a ese mes.
+   - En la interfaz de `RegisterPaymentView.tsx`:
+     - Badge dinámico "Pago con Excedente".
+     - Alerta explicativa detallando cuánto cubre el mes corriente y qué monto se acredita para el próximo mes.
+     - Recibo de WhatsApp formateado automáticamente especificando que el mes actual quedó saldado y el excedente acreditado para el mes siguiente.
+
 ---
 
 ## 🧪 Verificación y Estado
 - **Vite & TypeScript Frontend**: Compilación 100% exitosa (`tsc && vite build`).
 - **Backend TypeScript**: Validación estricta sin errores (`tsc --noEmit`).
-- **Tests Vitest Frontend**: 9/9 tests de integración ejecutados y aprobados (incluyendo acumulación de pagos múltiples).
+- **Tests Vitest Frontend**: 10/10 tests de integración ejecutados y aprobados (incluyendo acumulación y acreditación de excedente).

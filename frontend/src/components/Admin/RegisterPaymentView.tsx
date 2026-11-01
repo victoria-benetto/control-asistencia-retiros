@@ -24,6 +24,44 @@ import {
 } from '../../services/api';
 import { Student, PaymentConcept, AdminUser, PaymentMethod, PaymentRecord } from '../../types';
 
+function getNextMonth(monthStr: string): string {
+  const [yearStr, monthNumStr] = (monthStr || '').split('-');
+  let year = parseInt(yearStr, 10);
+  let month = parseInt(monthNumStr, 10);
+  if (isNaN(year) || isNaN(month)) {
+    const now = new Date();
+    year = now.getFullYear();
+    month = now.getMonth() + 1;
+  }
+  if (month === 12) {
+    year += 1;
+    month = 1;
+  } else {
+    month += 1;
+  }
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+const MONTH_NAMES: { [key: string]: string } = {
+  '01': 'Enero',
+  '02': 'Febrero',
+  '03': 'Marzo',
+  '04': 'Abril',
+  '05': 'Mayo',
+  '06': 'Junio',
+  '07': 'Julio',
+  '08': 'Agosto',
+  '09': 'Septiembre',
+  '10': 'Octubre',
+  '11': 'Noviembre',
+  '12': 'Diciembre',
+};
+
+function formatMonthLabel(monthStr: string): string {
+  const [y, m] = (monthStr || '').split('-');
+  return `${MONTH_NAMES[m] || m} ${y}`;
+}
+
 interface RegisterPaymentViewProps {
   user: AdminUser;
   onBack: () => void;
@@ -153,7 +191,7 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
     return contactWithPhone?.phone?.trim() || '';
   }, [selectedStudent]);
 
-  // Cómputo de Pago Parcial y Deuda Restante
+  // Cómputo de Pago Parcial, Deuda Restante y Excedente para el Próximo Mes
   const alreadyPaidThisMonth = useMemo(() => {
     const list = Array.isArray(existingMonthPayments) ? existingMonthPayments : [];
     return list.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
@@ -163,6 +201,13 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
   const totalAfterThisPayment = alreadyPaidThisMonth + amountReceived;
   const isPartialPayment = totalAfterThisPayment < expectedAmount;
   const remainingDebt = isPartialPayment ? expectedAmount - totalAfterThisPayment : 0;
+
+  // Detección de excedente que se acreditará al mes siguiente
+  const neededToCompleteMonth = Math.max(0, expectedAmount - alreadyPaidThisMonth);
+  const surplus = Math.max(0, amountReceived - neededToCompleteMonth);
+  const isSurplus = surplus > 0;
+  const nextMonthKey = useMemo(() => getNextMonth(paymentDate.substring(0, 7)), [paymentDate]);
+  const nextMonthName = useMemo(() => formatMonthLabel(nextMonthKey), [nextMonthKey]);
 
   // Subir imagen del comprobante
   const handleReceiptUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,9 +255,11 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
         operationNumber: paymentMethod === 'TRANSFER' ? operationNumber.trim() || undefined : undefined,
         paymentMethod,
         receiptUrl: paymentMethod === 'TRANSFER' ? receiptBase64 : null,
-        notes: isPartialPayment
-          ? `Pago Parcial (Saldo adeudado: $${remainingDebt.toLocaleString('es-AR')}) ${notes}`.trim()
-          : notes.trim() || undefined,
+        notes: isSurplus
+          ? `Pago con excedente de $${surplus.toLocaleString('es-AR')} acreditado a ${nextMonthName}. ${notes}`.trim()
+          : isPartialPayment
+            ? `Pago Parcial (Saldo adeudado: $${remainingDebt.toLocaleString('es-AR')}) ${notes}`.trim()
+            : notes.trim() || undefined,
         recordedByAdminId: user.id,
         paidAt: new Date(`${paymentDate}T12:00:00`).toISOString(),
       });
@@ -228,6 +275,14 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
           const [y, m, d] = paymentDate.split('-');
           const formattedDate = `${d}/${m}/${y}`;
 
+          const statusNotice = isSurplus
+            ? `\n✨ *Estado:* Cuota del mes totalmente saldada.\n🎉 *Excedente a favor:* $${surplus.toLocaleString('es-AR')} acreditados automáticamente para el mes de ${nextMonthName}.\n`
+            : isPartialPayment
+              ? `\n⚠️ *Pago Parcial registrado* (Monto del concepto: $${expectedAmount.toLocaleString('es-AR')})\n*Total acumulado abonado:* $${totalAfterThisPayment.toLocaleString('es-AR')}\n*Saldo adeudado restante:* $${remainingDebt.toLocaleString('es-AR')}\n`
+              : alreadyPaidThisMonth > 0
+                ? `\n✨ *Estado:* Cuota totalmente saldada ($${totalAfterThisPayment.toLocaleString('es-AR')} abonados en total)\n`
+                : `\n✨ *Estado:* Cuota totalmente al día\n`;
+
           const message =
             `🩰 *VULPIARE Danza y Acrobacia Aérea*\n` +
             `*RECIBO DE PAGO OFICIAL*\n\n` +
@@ -237,9 +292,7 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
             `💳 *Medio de pago:* ${paymentMethod === 'TRANSFER' ? 'Transferencia Bancaria' : 'Efectivo en estudio'}\n` +
             `📅 *Fecha:* ${formattedDate}\n` +
             (operationNumber.trim() ? `🔢 *Nro. Operación:* ${operationNumber.trim()}\n` : '') +
-            (isPartialPayment
-              ? `\n⚠️ *Pago Parcial registrado* (Monto del concepto: $${expectedAmount.toLocaleString('es-AR')})\n*Total acumulado abonado:* $${totalAfterThisPayment.toLocaleString('es-AR')}\n*Saldo adeudado restante:* $${remainingDebt.toLocaleString('es-AR')}\n`
-              : alreadyPaidThisMonth > 0 ? `\n✨ *Estado:* Cuota totalmente saldada ($${totalAfterThisPayment.toLocaleString('es-AR')} abonados en total)\n` : `\n✨ *Estado:* Cuota totalmente al día\n`) +
+            statusNotice +
             `\n¡Muchas gracias por formar parte de VULPIARE! ✨`;
 
           const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
@@ -462,8 +515,13 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
             Monto a Cobrar / Recibido
           </label>
 
-          {/* Badge dinámico de Pago Completo o Pago Parcial */}
-          {isPartialPayment ? (
+          {/* Badge dinámico de Pago Completo, Parcial o con Excedente */}
+          {isSurplus ? (
+            <span className="text-[11px] font-extrabold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Pago con Excedente</span>
+            </span>
+          ) : isPartialPayment ? (
             <span className="text-[11px] font-extrabold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
               <span>Pago Parcial</span>
@@ -520,6 +578,23 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
             <span className="hidden sm:inline">{isEditingAmount ? 'Fijar' : 'Editar'}</span>
           </button>
         </div>
+
+        {/* Notificación de excedente acreditado para el mes que le sigue */}
+        {isSurplus && (
+          <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-900 font-semibold animate-in fade-in duration-200">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-extrabold text-emerald-950">
+                ¡Monto mayor al debido detectado! (${amountReceived.toLocaleString('es-AR')} abonados vs. ${neededToCompleteMonth.toLocaleString('es-AR')} requeridos)
+              </p>
+              <p className="text-[11px] text-emerald-800 mt-1">
+                La cuota de este mes queda <strong>100% saldada</strong>, y el excedente de{' '}
+                <strong className="text-emerald-950 underline font-black">${surplus.toLocaleString('es-AR')}</strong>{' '}
+                se acredita automáticamente como pago a favor para el mes siguiente (<strong>{nextMonthName}</strong>).
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Notificación de deuda si es pago parcial */}
         {isPartialPayment && (

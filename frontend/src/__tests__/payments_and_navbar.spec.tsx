@@ -336,4 +336,47 @@ describe('RegisterPaymentView Component Integration Tests', () => {
       expect(onBack).toHaveBeenCalled();
     });
   });
+
+  it('detects payment surplus and credits excess amount to next month', async () => {
+    const onBack = vi.fn();
+    render(<RegisterPaymentView user={superAdminUser} onBack={onBack} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Registrar Pago/i)).toBeInTheDocument();
+      expect(screen.getByText(/Angelina Acosta/i)).toBeInTheDocument();
+    });
+
+    // Editar monto con excedente: de 22.000 a 30.000 (excedente de 8.000)
+    const editBtn = screen.getByRole('button', { name: /Editar/i });
+    fireEvent.click(editBtn);
+
+    const amountInput = screen.getByDisplayValue('22000');
+    fireEvent.change(amountInput, { target: { value: '30000' } });
+
+    // Debe mostrar badge "Pago con Excedente" y mensaje de crédito para el mes siguiente
+    await waitFor(() => {
+      expect(screen.getByText(/Pago con Excedente/i)).toBeInTheDocument();
+      expect(screen.getByText(/Monto mayor al debido detectado/i)).toBeInTheDocument();
+      expect(screen.getByText(/\$8\.000/i)).toBeInTheDocument();
+    });
+
+    const windowOpenSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const confirmBtn = screen.getByRole('button', { name: /Confirmar y Emitir Recibo/i });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/payments',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"amount":30000'),
+        })
+      );
+      expect(windowOpenSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Excedente'),
+        '_blank'
+      );
+      expect(onBack).toHaveBeenCalled();
+    });
+  });
 });

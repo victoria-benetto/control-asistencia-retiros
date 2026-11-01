@@ -117,6 +117,24 @@ function saveLocalConcepts(concepts: LocalConcept[]) {
   }
 }
 
+function getNextMonth(monthStr: string): string {
+  const [yearStr, monthNumStr] = (monthStr || '').split('-');
+  let year = parseInt(yearStr, 10);
+  let month = parseInt(monthNumStr, 10);
+  if (isNaN(year) || isNaN(month)) {
+    const now = new Date();
+    year = now.getFullYear();
+    month = now.getMonth() + 1;
+  }
+  if (month === 12) {
+    year += 1;
+    month = 1;
+  } else {
+    month += 1;
+  }
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
 // =========================================================================
 // RUTAS ABM DE CONCEPTOS DE PAGO
 // =========================================================================
@@ -307,98 +325,169 @@ router.post('/', async (req: Request, res: Response) => {
     const paymentDate = paidAt ? new Date(paidAt) : new Date();
 
     try {
-      // Consultar pagos previos para este alumno y mes para acumulación correcta
-      const previousPayments = await (prisma as any).paymentRecord.findMany({
-        where: { studentId, month },
-      });
+      // Loop para distribuir el monto: saldar el mes corriente y acreditar automáticamente cualquier excedente al/los meses subsiguientes
+      let remainingToAllocate = parsedAmount;
+      let curMonth = month;
+      let isFirst = true;
+      let primaryRecord: any = null;
+      let loopCount = 0;
 
-      const previousTotal = previousPayments.reduce((acc: number, p: any) => acc + (Number(p.amount) || 0), 0);
-      const totalAfterPayment = previousTotal + parsedAmount;
+      while (remainingToAllocate > 0 && loopCount < 12) {
+        loopCount++;
 
-      const targetExpected = expectedAmount !== undefined
-        ? Number(expectedAmount)
-        : (previousPayments[0]?.expectedAmount || parsedAmount);
+        const prevPayments = await (prisma as any).paymentRecord.findMany({
+          where: { studentId, month: curMonth },
+        });
 
-      const remainingDebt = targetExpected > totalAfterPayment ? targetExpected - totalAfterPayment : 0;
-      const isPartial = remainingDebt > 0;
+        const prevTotal = prevPayments.reduce((acc: number, p: any) => acc + (Number(p.amount) || 0), 0);
+        const curExpected = prevPayments[0]?.expectedAmount
+          ? Number(prevPayments[0].expectedAmount)
+          : (expectedAmount !== undefined ? Number(expectedAmount) : parsedAmount);
 
-      const savedRecord = await (prisma as any).paymentRecord.create({
-        data: {
-          studentId,
-          month,
-          amount: parsedAmount,
-          expectedAmount: targetExpected,
-          remainingDebt,
-          isPartial,
-          concept: concept || (previousPayments[0]?.concept || null),
-          operationNumber: operationNumber || null,
-          paymentMethod,
-          receiptUrl: receiptUrl || null,
-          notes: notes || null,
-          paidAt: paymentDate,
-          recordedByAdminId: recordedByAdminId || null,
-        },
-        include: {
-          student: true,
-          recordedBy: { select: { fullName: true } },
-        },
-      });
+        const needed = Math.max(0, curExpected - prevTotal);
 
-      // Actualizar saldo adeudado y estado en pagos previos del mismo mes para mantener consistencia
-      if (previousPayments.length > 0) {
-        await (prisma as any).paymentRecord.updateMany({
-          where: { studentId, month },
+        if (needed === 0 && prevPayments.length > 0) {
+          // Si el mes ya está 100% saldado, pasar al siguiente mes
+          curMonth = getNextMonth(curMonth);
+          continue;
+        }
+
+        const allocTarget = needed > 0 ? needed : curExpected;
+        const allocAmount = (remainingToAllocate > allocTarget && loopCount < 12)
+          ? allocTarget
+          : remainingToAllocate;
+
+        const newTotal = prevTotal + allocAmount;
+        const curDebt = curExpected > newTotal ? curExpected - newTotal : 0;
+        const curPartial = curDebt > 0;
+
+        const curNotes = isFirst
+          ? (notes || null)
+          : (notes ? `${notes} (Excedente acreditado del pago de ${month})` : `Excedente acreditado del pago de ${month}`);
+
+        const rec = await (prisma as any).paymentRecord.create({
           data: {
-            expectedAmount: targetExpected,
-            remainingDebt,
-            isPartial,
+            studentId,
+            month: curMonth,
+            amount: allocAmount,
+            expectedAmount: curExpected,
+            remainingDebt: curDebt,
+            isPartial: curPartial,
+            concept: concept || (prevPayments[0]?.concept || null),
+            operationNumber: operationNumber || null,
+            paymentMethod,
+            receiptUrl: receiptUrl || null,
+            notes: curNotes,
+            paidAt: paymentDate,
+            recordedByAdminId: recordedByAdminId || null,
+          },
+          include: {
+            student: true,
+            recordedBy: { select: { fullName: true } },
           },
         });
+
+        if (prevPayments.length > 0) {
+          await (prisma as any).paymentRecord.updateMany({
+            where: { studentId, month: curMonth },
+            data: {
+              expectedAmount: curExpected,
+              remainingDebt: curDebt,
+              isPartial: curPartial,
+            },
+          });
+        }
+
+        if (isFirst) {
+          primaryRecord = rec;
+          isFirst = false;
+        } else if (!primaryRecord) {
+          primaryRecord = rec;
+        }
+
+        remainingToAllocate -= allocAmount;
+        curMonth = getNextMonth(curMonth);
       }
 
-      return res.status(200).json(savedRecord);
+      return res.status(200).json(primaryRecord);
     } catch (dbError) {
       console.warn('⚠️ Guardando pago en fallback local:', dbError);
       const list = getLocalPayments();
-      const previousPayments = list.filter((p) => p.studentId === studentId && p.month === month);
-      const previousTotal = previousPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-      const totalAfterPayment = previousTotal + parsedAmount;
-      const targetExpected = expectedAmount !== undefined
-        ? Number(expectedAmount)
-        : (previousPayments[0]?.expectedAmount || parsedAmount);
-      const remainingDebt = targetExpected > totalAfterPayment ? targetExpected - totalAfterPayment : 0;
-      const isPartial = remainingDebt > 0;
+      let remainingToAllocate = parsedAmount;
+      let curMonth = month;
+      let isFirst = true;
+      let primaryRecord: LocalPayment | null = null;
+      let loopCount = 0;
 
-      const record: LocalPayment = {
-        id: 'pay-' + Date.now(),
-        studentId,
-        month,
-        amount: parsedAmount,
-        expectedAmount: targetExpected,
-        remainingDebt,
-        isPartial,
-        concept: concept || (previousPayments[0]?.concept || undefined),
-        operationNumber: operationNumber || undefined,
-        paymentMethod,
-        receiptUrl: receiptUrl || null,
-        notes: notes || null,
-        paidAt: paymentDate.toISOString(),
-        recordedByAdminId: recordedByAdminId || null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      while (remainingToAllocate > 0 && loopCount < 12) {
+        loopCount++;
+        const prevPayments = list.filter((p) => p.studentId === studentId && p.month === curMonth);
+        const prevTotal = prevPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+        const curExpected = prevPayments[0]?.expectedAmount
+          ? Number(prevPayments[0].expectedAmount)
+          : (expectedAmount !== undefined ? Number(expectedAmount) : parsedAmount);
 
-      for (const p of list) {
-        if (p.studentId === studentId && p.month === month) {
-          p.expectedAmount = targetExpected;
-          p.remainingDebt = remainingDebt;
-          p.isPartial = isPartial;
+        const needed = Math.max(0, curExpected - prevTotal);
+
+        if (needed === 0 && prevPayments.length > 0) {
+          curMonth = getNextMonth(curMonth);
+          continue;
         }
-      }
-      list.push(record);
-      saveLocalPayments(list);
 
-      return res.status(200).json(record);
+        const allocTarget = needed > 0 ? needed : curExpected;
+        const allocAmount = (remainingToAllocate > allocTarget && loopCount < 12)
+          ? allocTarget
+          : remainingToAllocate;
+
+        const newTotal = prevTotal + allocAmount;
+        const curDebt = curExpected > newTotal ? curExpected - newTotal : 0;
+        const curPartial = curDebt > 0;
+
+        const curNotes = isFirst
+          ? (notes || null)
+          : (notes ? `${notes} (Excedente acreditado del pago de ${month})` : `Excedente acreditado del pago de ${month}`);
+
+        const record: LocalPayment = {
+          id: 'pay-' + Date.now() + '-' + loopCount,
+          studentId,
+          month: curMonth,
+          amount: allocAmount,
+          expectedAmount: curExpected,
+          remainingDebt: curDebt,
+          isPartial: curPartial,
+          concept: concept || (prevPayments[0]?.concept || undefined),
+          operationNumber: operationNumber || undefined,
+          paymentMethod,
+          receiptUrl: receiptUrl || null,
+          notes: curNotes,
+          paidAt: paymentDate.toISOString(),
+          recordedByAdminId: recordedByAdminId || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        for (const p of list) {
+          if (p.studentId === studentId && p.month === curMonth) {
+            p.expectedAmount = curExpected;
+            p.remainingDebt = curDebt;
+            p.isPartial = curPartial;
+          }
+        }
+        list.push(record);
+
+        if (isFirst) {
+          primaryRecord = record;
+          isFirst = false;
+        } else if (!primaryRecord) {
+          primaryRecord = record;
+        }
+
+        remainingToAllocate -= allocAmount;
+        curMonth = getNextMonth(curMonth);
+      }
+
+      saveLocalPayments(list);
+      return res.status(200).json(primaryRecord);
     }
   } catch (err: any) {
     return res.status(500).json({ error: 'Error al registrar el pago: ' + err.message });
