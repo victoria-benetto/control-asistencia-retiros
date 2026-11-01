@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, ShieldAlert, UserPlus, X, Save, Search, Calendar, Users, Activity, CheckCircle2, History, Phone } from 'lucide-react';
+import { Plus, Trash2, Edit2, ShieldAlert, UserPlus, X, Save, Search, Calendar, Users, Activity, CheckCircle2, History } from 'lucide-react';
 import { getStudents, createStudent, updateStudent, deleteStudent, getShifts, getStudentAttendances, deleteAttendance } from '../../services/api';
 import { Student, AdminUser, StudentStatus, OFFICIAL_SHIFTS } from '../../types';
 
@@ -43,7 +43,6 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
   const [shift, setShift] = useState(OFFICIAL_SHIFTS[0]);
   const [status, setStatus] = useState<StudentStatus>('ACTIVE');
   const [notes, setNotes] = useState('');
-  const [phone, setPhone] = useState('');
   const [authorizedPeople, setAuthorizedPeople] = useState<
     Array<{ fullName: string; dni: string; relationship: string; phone: string }>
   >([]);
@@ -82,7 +81,6 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     setShift(OFFICIAL_SHIFTS[0]);
     setStatus('ACTIVE');
     setNotes('');
-    setPhone('');
     setAuthorizedPeople([
       { fullName: '', dni: '', relationship: 'Mamá', phone: '' },
     ]);
@@ -97,7 +95,6 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     setShift(s.shift);
     setStatus(s.status || 'ACTIVE');
     setNotes(s.notes || '');
-    setPhone(s.phone || '');
     setAuthorizedPeople(
       s.authorizedPeople && s.authorizedPeople.length > 0
         ? s.authorizedPeople.map((p) => ({
@@ -197,7 +194,6 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
           shift,
           status,
           notes,
-          phone: phone.trim() || undefined,
           authorizedPeople: validPeople,
         });
       } else {
@@ -208,7 +204,6 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
           shift,
           status,
           notes,
-          phone: phone.trim() || undefined,
           authorizedPeople: validPeople,
         });
       }
@@ -452,7 +447,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
                     </div>
 
                     <p className="text-xs text-slate-500 font-medium">
-                      DNI Alumna: <span className="font-mono text-slate-700 font-bold">{s.dni}</span>{s.phone && (<span className="ml-2 inline-flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200"><Phone className="w-3 h-3 text-emerald-600" />{s.phone}</span>)}
+                      DNI Alumna: <span className="font-mono text-slate-700 font-bold">{s.dni}</span>
                     </p>
 
                     {/* Contabilizador de Clases Asistidas en el Mes (Super Admin) */}
@@ -730,25 +725,6 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
                     ))}
                   </select>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Teléfono de Contacto (WhatsApp para avisos y recibos de pago)
-                </label>
-                <div className="relative">
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Ej. 11 2345-6789 o +54 9 11 2345-6789"
-                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 pl-9"
-                  />
-                  <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                </div>
-                <p className="text-[11px] text-slate-400 font-medium mt-1">
-                  * Este número se utilizará para comunicar faltas de pago y enviar automáticamente los recibos oficiales por WhatsApp.
-                </p>
               </div>
 
               {/* Estado de la Alumna */}

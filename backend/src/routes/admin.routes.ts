@@ -199,7 +199,7 @@ router.delete('/teachers/:id', requireSuperAdmin, async (req: Request, res: Resp
  */
 router.post('/students', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, dni, shift, status, notes, phone, authorizedPeople } = req.body;
+    const { firstName, lastName, dni, shift, status, notes, authorizedPeople } = req.body;
     if (!firstName || !lastName || !dni || !shift) {
       return res.status(400).json({ error: 'Nombre, Apellido, DNI y Turno son requeridos.' });
     }
@@ -234,7 +234,6 @@ router.post('/students', requireSuperAdmin, async (req: Request, res: Response) 
         shift: shift.trim(),
         status: validStatus,
         notes: notes ? notes.trim() : '',
-        phone: phone ? String(phone).trim() : null,
         authorizedPeople: {
           create: validPeople,
         },
@@ -279,7 +278,7 @@ router.post('/students', requireSuperAdmin, async (req: Request, res: Response) 
 router.put('/students/:id', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, dni, shift, status, notes, phone, authorizedPeople } = req.body;
+    const { firstName, lastName, dni, shift, status, notes, authorizedPeople } = req.body;
 
     const student = await prisma.student.findUnique({ where: { id } });
     if (!student) {
@@ -294,7 +293,6 @@ router.put('/students/:id', requireSuperAdmin, async (req: Request, res: Respons
       updateData.status = status;
     }
     if (notes !== undefined) updateData.notes = notes.trim();
-    if (phone !== undefined) updateData.phone = phone ? String(phone).trim() : null;
 
     if (dni && typeof dni === 'string' && dni.trim() !== '' && dni.trim() !== student.dni) {
       const cleanDni = dni.trim();

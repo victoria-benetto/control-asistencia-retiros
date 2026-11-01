@@ -122,15 +122,9 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
 
   // Teléfono de contacto de la alumna para WhatsApp
   const studentPhone = useMemo(() => {
-    if (!selectedStudent) return '';
-    if (selectedStudent.phone && selectedStudent.phone.trim() !== '') {
-      return selectedStudent.phone.trim();
-    }
-    if (selectedStudent.authorizedPeople && selectedStudent.authorizedPeople.length > 0) {
-      const contactWithPhone = selectedStudent.authorizedPeople.find((p) => p.phone && p.phone.trim() !== '');
-      return contactWithPhone?.phone?.trim() || '';
-    }
-    return '';
+    if (!selectedStudent || !selectedStudent.authorizedPeople) return '';
+    const contactWithPhone = selectedStudent.authorizedPeople.find((p) => p.phone && p.phone.trim() !== '');
+    return contactWithPhone?.phone?.trim() || '';
   }, [selectedStudent]);
 
   // Cómputo de Pago Parcial y Deuda Restante

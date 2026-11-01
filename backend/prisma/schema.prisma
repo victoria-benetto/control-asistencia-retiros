@@ -45,7 +45,6 @@ model Student {
   firstName        String
   lastName         String
   dni              String             @unique
-  phone            String?            // Número de WhatsApp / contacto para avisos de cobro y recibos
   shift            String             @default("Lunes, miércoles y viernes de 16:45 a 18")
   status           StudentStatus      @default(ACTIVE)
   notes            String?

@@ -41,7 +41,6 @@ export interface Student {
   shift: string;
   status?: StudentStatus;
   notes?: string;
-  phone?: string;
   authorizedPeople: AuthorizedPerson[];
   attendances?: AttendanceRecord[];
 }
