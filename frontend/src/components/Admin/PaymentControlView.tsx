@@ -128,7 +128,10 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
       // Teléfono de contacto (de la alumna o de personas autorizadas de su ficha)
       let phone = '';
       let contactName = '';
-      if (student.authorizedPeople && student.authorizedPeople.length > 0) {
+      if (student.phone && student.phone.trim() !== '') {
+        phone = student.phone.trim();
+        contactName = `${student.firstName} ${student.lastName}`;
+      } else if (student.authorizedPeople && student.authorizedPeople.length > 0) {
         const contactWithPhone = student.authorizedPeople.find((p) => p.phone && p.phone.trim() !== '');
         if (contactWithPhone) {
           phone = contactWithPhone.phone!.trim();
