@@ -7,6 +7,7 @@ import adminRoutes from './routes/admin.routes';
 import studentRoutes from './routes/student.routes';
 import attendanceRoutes from './routes/attendance.routes';
 import pickupRoutes from './routes/pickup.routes';
+import paymentRoutes from './routes/payment.routes';
 
 dotenv.config();
 
@@ -15,7 +16,7 @@ const PORT = process.env.PORT || 3001;
 
 // Middlewares
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Documentación Swagger API (Solo para entorno local para prevenir colapsos de assets en Vercel)
 if (process.env.VERCEL !== '1') {
@@ -35,6 +36,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/pickups', pickupRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Endpoint de estado / salud y prueba de base de datos
 app.get('/api/health', async (_req, res) => {

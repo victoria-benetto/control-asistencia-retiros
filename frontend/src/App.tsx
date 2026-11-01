@@ -6,6 +6,9 @@ import { PickupsView } from './components/Admin/PickupsView';
 import { StudentManagement } from './components/Admin/StudentManagement';
 import { AdminManagement } from './components/Admin/AdminManagement';
 import { HistoryView } from './components/Admin/HistoryView';
+import { PaymentControlView } from './components/Admin/PaymentControlView';
+import { RegisterPaymentView } from './components/Admin/RegisterPaymentView';
+import { PaymentConceptsManagement } from './components/Admin/PaymentConceptsManagement';
 import { ParentPortal } from './components/Parent/ParentPortal';
 import { LoginResponse, AdminUser, Student, AttendanceRecord, OFFICIAL_SHIFTS } from './types';
 import { getDefaultShiftForDate } from './utils/shiftUtils';
@@ -20,6 +23,7 @@ export function App() {
 
   const [activeTab, setActiveTab] = useState<string>('attendance');
   const [selectedShift, setSelectedShift] = useState<string>(() => getDefaultShiftForDate());
+  const [selectedPaymentStudentId, setSelectedPaymentStudentId] = useState<string | undefined>(undefined);
 
   // Restaurar sesión persistente al abrir la aplicación
   useEffect(() => {
@@ -106,7 +110,29 @@ export function App() {
             />
           )}
 
-          {/* Módulos Exclusivos Super Admin */}
+          {/* Módulos Exclusivos Super Admin: Pagos y Gestiones */}
+          {activeTab === 'payments' && isSuperAdmin && (
+            <PaymentControlView
+              user={currentUser}
+              onNavigateToRegisterPayment={(studentId) => {
+                setSelectedPaymentStudentId(studentId);
+                setActiveTab('register-payment');
+              }}
+            />
+          )}
+
+          {activeTab === 'register-payment' && isSuperAdmin && (
+            <RegisterPaymentView
+              user={currentUser}
+              preselectedStudentId={selectedPaymentStudentId}
+              onBack={() => setActiveTab('payments')}
+            />
+          )}
+
+          {activeTab === 'payment-concepts' && isSuperAdmin && (
+            <PaymentConceptsManagement user={currentUser} />
+          )}
+
           {activeTab === 'students' && isSuperAdmin && (
             <StudentManagement user={currentUser} />
           )}

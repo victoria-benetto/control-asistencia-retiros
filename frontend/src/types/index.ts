@@ -110,3 +110,39 @@ export interface LoginResponse {
     attendances: AttendanceRecord[];
   };
 }
+
+export type PaymentMethod = 'TRANSFER' | 'CASH';
+
+export interface PaymentConcept {
+  id: string;
+  name: string;
+  amount: number;
+  description?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  studentId: string;
+  month: string; // Formato YYYY-MM
+  amount: number;
+  expectedAmount?: number;
+  remainingDebt?: number;
+  isPartial?: boolean;
+  concept?: string;
+  operationNumber?: string;
+  paymentMethod: PaymentMethod;
+  receiptUrl?: string | null;
+  notes?: string | null;
+  paidAt: string;
+  createdAt?: string;
+  updatedAt?: string;
+  student?: Student;
+  recordedBy?: {
+    id?: string;
+    fullName: string;
+    dni?: string;
+  };
+}

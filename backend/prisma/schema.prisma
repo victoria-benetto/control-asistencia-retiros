@@ -37,6 +37,7 @@ model AdminUser {
   AttendanceRecord AttendanceRecord[]
   PickupRecord     PickupRecord[]
   ShiftAssistant   ShiftAssistant[]
+  PaymentRecord    PaymentRecord[]
 }
 
 model Student {
@@ -51,6 +52,7 @@ model Student {
   updatedAt        DateTime           @updatedAt
   authorizedPeople AuthorizedPerson[]
   attendances      AttendanceRecord[]
+  payments         PaymentRecord[]
 }
 
 model AuthorizedPerson {
@@ -107,4 +109,38 @@ model ShiftAssistant {
   teacher   AdminUser @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   @@unique([date, shift, teacherId])
+}
+
+model PaymentRecord {
+  id                String       @id @default(uuid())
+  studentId         String
+  month             String       // Formato YYYY-MM (ej: "2026-11")
+  amount            Float        // Monto abonado efectivamente
+  expectedAmount    Float?       // Monto debido / esperado
+  remainingDebt     Float?       @default(0) // Deuda restante si hubo pago parcial
+  isPartial         Boolean?     @default(false)
+  concept           String?      // Nombre del concepto abonado
+  operationNumber   String?      // Nro. de comprobante / operación
+  paymentMethod     String       // "TRANSFER" | "CASH"
+  receiptUrl        String?      // Imagen o Base64 del comprobante
+  notes             String?
+  paidAt            DateTime     @default(now())
+  recordedByAdminId String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  student           Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  recordedBy        AdminUser?   @relation(fields: [recordedByAdminId], references: [id], onDelete: SetNull)
+
+  @@unique([studentId, month])
+}
+
+model PaymentConcept {
+  id          String   @id @default(uuid())
+  name        String   // Ej: "Cuota Octubre 2026", "Matrícula Anual", "Clase Suelta", "Pase Libre"
+  amount      Float    // Monto esperado
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

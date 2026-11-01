@@ -1,4 +1,14 @@
-import { AdminUser, Student, TodayStudentAttendance, AttendanceRecord, PickupRecord, LoginResponse, ShiftAssistant } from '../types';
+import {
+  AdminUser,
+  Student,
+  TodayStudentAttendance,
+  AttendanceRecord,
+  PickupRecord,
+  LoginResponse,
+  ShiftAssistant,
+  PaymentRecord,
+  PaymentConcept,
+} from '../types';
 
 const API_BASE = '/api';
 
@@ -192,6 +202,106 @@ export async function addShiftAssistant(date: string, shift: string, teacherId: 
 
 export async function removeShiftAssistant(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/attendance/assistants/${id}`, {
+    method: 'DELETE',
+  });
+  return parseResponse(res);
+}
+
+// =========================================================================
+// ABM Conceptos de Pago (Gestión de Aranceles)
+// =========================================================================
+
+export async function getPaymentConcepts(): Promise<PaymentConcept[]> {
+  const res = await fetch(`${API_BASE}/payments/concepts`);
+  return parseResponse(res);
+}
+
+export async function createPaymentConcept(data: { name: string; amount: number; description?: string }): Promise<PaymentConcept> {
+  const res = await fetch(`${API_BASE}/payments/concepts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return parseResponse(res);
+}
+
+export async function updatePaymentConcept(
+  id: string,
+  data: { name?: string; amount?: number; description?: string; isActive?: boolean }
+): Promise<PaymentConcept> {
+  const res = await fetch(`${API_BASE}/payments/concepts/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return parseResponse(res);
+}
+
+export async function deletePaymentConcept(id: string): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/payments/concepts/${id}`, {
+    method: 'DELETE',
+  });
+  return parseResponse(res);
+}
+
+// =========================================================================
+// Control de Pagos
+// =========================================================================
+
+export async function getPayments(month?: string, studentId?: string): Promise<PaymentRecord[]> {
+  const params = new URLSearchParams();
+  if (month) params.append('month', month);
+  if (studentId) params.append('studentId', studentId);
+  const queryString = params.toString();
+  const url = queryString ? `${API_BASE}/payments?${queryString}` : `${API_BASE}/payments`;
+  const res = await fetch(url);
+  return parseResponse(res);
+}
+
+export async function savePayment(paymentData: {
+  studentId: string;
+  month: string;
+  amount: number;
+  expectedAmount?: number;
+  concept?: string;
+  operationNumber?: string;
+  paymentMethod: 'TRANSFER' | 'CASH';
+  receiptUrl?: string | null;
+  notes?: string | null;
+  recordedByAdminId?: string;
+  paidAt?: string;
+}): Promise<PaymentRecord> {
+  const res = await fetch(`${API_BASE}/payments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(paymentData),
+  });
+  return parseResponse(res);
+}
+
+export async function updatePayment(
+  id: string,
+  paymentData: {
+    amount?: number;
+    expectedAmount?: number;
+    concept?: string;
+    operationNumber?: string;
+    paymentMethod?: 'TRANSFER' | 'CASH';
+    receiptUrl?: string | null;
+    notes?: string | null;
+    paidAt?: string;
+  }
+): Promise<PaymentRecord> {
+  const res = await fetch(`${API_BASE}/payments/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(paymentData),
+  });
+  return parseResponse(res);
+}
+
+export async function deletePayment(id: string): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/payments/${id}`, {
     method: 'DELETE',
   });
   return parseResponse(res);
