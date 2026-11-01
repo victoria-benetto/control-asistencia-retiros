@@ -34,7 +34,13 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 4. **ABM de Conceptos de Pago (`PaymentConceptsManagement.tsx`)**:
    - Vista para crear, listar, editar y eliminar conceptos de pago y sus importes esperados.
 
-5. **Backend, Prisma y Resiliencia**:
+5. **Teléfono de Contacto en Alumnas (Opcional - WhatsApp para Pagos y Avisos)**:
+   - Campo `phone` opcional (`String?`) sincronizado en PostgreSQL Supabase y Prisma (`db push` no destructivo).
+   - Verificado con 80 alumnas intactas en base de datos.
+   - Formulario de alta/edición de `StudentManagement.tsx` con campo opcional.
+   - `PaymentControlView.tsx` y `RegisterPaymentView.tsx` toman prioritariamente el teléfono directo de la alumna o recurren al tutor autorizado.
+
+6. **Backend, Prisma y Resiliencia**:
    - Modelos `PaymentRecord` y `PaymentConcept` en `schema.prisma`.
    - Rutas API en `/api/payments` y `/api/payments/concepts`.
    - Soporte para fallback local ante latencia de red en base de datos.

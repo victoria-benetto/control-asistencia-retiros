@@ -122,7 +122,11 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
 
   // Teléfono de contacto de la alumna para WhatsApp
   const studentPhone = useMemo(() => {
-    if (!selectedStudent || !selectedStudent.authorizedPeople) return '';
+    if (!selectedStudent) return '';
+    if (selectedStudent.phone && selectedStudent.phone.trim() !== '') {
+      return selectedStudent.phone.trim();
+    }
+    if (!selectedStudent.authorizedPeople) return '';
     const contactWithPhone = selectedStudent.authorizedPeople.find((p) => p.phone && p.phone.trim() !== '');
     return contactWithPhone?.phone?.trim() || '';
   }, [selectedStudent]);
