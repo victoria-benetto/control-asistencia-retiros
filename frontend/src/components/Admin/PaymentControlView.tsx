@@ -42,6 +42,7 @@ interface StudentPaymentInfo {
   remainingDebt?: number;
   isPartial?: boolean;
   paymentRecord?: PaymentRecord;
+  allPayments?: PaymentRecord[];
   phone?: string;
   contactName?: string;
 }
@@ -123,7 +124,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
 
     return students.map((student) => {
       // Buscar si tiene pago registrado para este mes
-      const paymentRecord = payments.find((p) => p.studentId === student.id);
+      const studentPayments = payments.filter((p) => p.studentId === student.id);
 
       // Teléfono de contacto (de la alumna o de personas autorizadas de su ficha)
       let phone = '';
@@ -139,15 +140,21 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
         }
       }
 
-      if (paymentRecord) {
+      if (studentPayments.length > 0) {
+        const totalPaid = studentPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+        const expectedAmount = studentPayments.find((p) => p.expectedAmount && p.expectedAmount > 0)?.expectedAmount || DEFAULT_FEE;
+        const remainingDebt = Math.max(0, expectedAmount - totalPaid);
+        const isPartial = remainingDebt > 0;
+
         return {
           student,
           status: 'PAID',
-          amount: paymentRecord.amount,
-          expectedAmount: paymentRecord.expectedAmount,
-          remainingDebt: paymentRecord.remainingDebt,
-          isPartial: paymentRecord.isPartial,
-          paymentRecord,
+          amount: totalPaid,
+          expectedAmount,
+          remainingDebt,
+          isPartial,
+          paymentRecord: studentPayments[studentPayments.length - 1],
+          allPayments: studentPayments,
           phone,
           contactName,
         };
@@ -174,16 +181,16 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
   // Métricas generales
   const metrics = useMemo(() => {
     const totalActive = computedList.length;
-    const paidCount = computedList.filter((item) => item.status === 'PAID').length;
-    const pendingCount = computedList.filter((item) => item.status === 'PENDING').length;
+    const paidCount = computedList.filter((item) => item.status === 'PAID' && !item.isPartial).length;
+    const pendingCount = computedList.filter((item) => item.status === 'PENDING' || (item.status === 'PAID' && item.isPartial)).length;
     const overdueCount = computedList.filter((item) => item.status === 'OVERDUE').length;
 
-    const totalCollected = computedList.reduce(
+    const totalCollected = payments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0); const _unusedCollected = computedList.reduce(
       (acc, item) => (item.status === 'PAID' ? acc + item.amount : acc),
       0
     );
 
-    const cashCollected = computedList.reduce(
+    const cashCollected = payments.reduce((acc, p) => (p.paymentMethod === 'CASH' ? acc + (Number(p.amount) || 0) : acc), 0); const _unusedCash = computedList.reduce(
       (acc, item) =>
         item.status === 'PAID' && item.paymentRecord?.paymentMethod === 'CASH'
           ? acc + item.amount
@@ -191,7 +198,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
       0
     );
 
-    const transferCollected = computedList.reduce(
+    const transferCollected = payments.reduce((acc, p) => (p.paymentMethod === 'TRANSFER' ? acc + (Number(p.amount) || 0) : acc), 0); const _unusedTransfer = computedList.reduce(
       (acc, item) =>
         item.status === 'PAID' && item.paymentRecord?.paymentMethod === 'TRANSFER'
           ? acc + item.amount
@@ -250,7 +257,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
   // Abrir modal para marcar pago
   const handleOpenPaymentModal = (item: StudentPaymentInfo) => {
     setTargetStudent(item.student);
-    if (item.paymentRecord) {
+    if (item.paymentRecord && !item.isPartial) {
       setEditingPayment(item.paymentRecord);
       setSelectedMethod(item.paymentRecord.paymentMethod);
       setAmountInput(item.paymentRecord.amount);
@@ -259,7 +266,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
     } else {
       setEditingPayment(null);
       setSelectedMethod('TRANSFER');
-      setAmountInput(item.amount);
+      setAmountInput(item.isPartial && item.remainingDebt ? item.remainingDebt : item.amount);
       setNotesInput('');
       setReceiptBase64(null);
     }
@@ -686,7 +693,9 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                   <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
                     <span className="text-xs font-bold text-slate-700">
                       {isPaid
-                        ? `Cuota abonada (${
+                        ? item.allPayments && item.allPayments.length > 1
+                          ? `Total abonado (${item.allPayments.length} pagos acumulados)`
+                          : `Cuota abonada (${
                             item.paymentRecord?.paymentMethod === 'TRANSFER'
                               ? 'Transferencia'
                               : 'Efectivo'
@@ -709,6 +718,20 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                       ${item.amount.toLocaleString('es-AR')}
                     </span>
                   </div>
+
+                  {isPaid && item.allPayments && item.allPayments.length > 1 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
+                      {item.allPayments.map((p, idx) => (
+                        <span
+                          key={p.id || idx}
+                          className="text-[10px] bg-white border border-slate-200 px-2 py-0.5 rounded-lg text-slate-600 font-bold flex items-center gap-1"
+                        >
+                          <span>{p.paymentMethod === 'TRANSFER' ? '💳 Transf.' : '💵 Efectivo'}:</span>
+                          <strong className="text-slate-800">${p.amount.toLocaleString('es-AR')}</strong>
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Deuda restante si es pago parcial */}
                   {isPartial && item.remainingDebt && item.remainingDebt > 0 && (
@@ -737,6 +760,16 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                   {/* Si ya está al día: Botón para editar / ver recibo */}
                   {isPaid ? (
                     <>
+                      {isPartial && onNavigateToRegisterPayment && (
+                        <button
+                          onClick={() => onNavigateToRegisterPayment(item.student.id)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs transition-colors active:scale-98 shadow-xs"
+                          title="Registrar pago del saldo restante"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Saldar (${item.remainingDebt?.toLocaleString('es-AR')})</span>
+                        </button>
+                      )}
                       {item.paymentRecord?.receiptUrl && (
                         <button
                           onClick={() => setViewReceiptModal(item.paymentRecord!.receiptUrl!)}

@@ -20,8 +20,9 @@ import {
   getStudents,
   getPaymentConcepts,
   savePayment,
+  getPayments,
 } from '../../services/api';
-import { Student, PaymentConcept, AdminUser, PaymentMethod } from '../../types';
+import { Student, PaymentConcept, AdminUser, PaymentMethod, PaymentRecord } from '../../types';
 
 interface RegisterPaymentViewProps {
   user: AdminUser;
@@ -65,6 +66,7 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
   const [sendWhatsAppReceipt, setSendWhatsAppReceipt] = useState<boolean>(true);
 
   const [notes, setNotes] = useState<string>('');
+  const [existingMonthPayments, setExistingMonthPayments] = useState<PaymentRecord[]>([]);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   // Cargar alumnas activas y conceptos
@@ -110,6 +112,26 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
     setIsEditingAmount(false);
   };
 
+  // Consultar pagos del mes de la alumna para acumulación y detección de deuda previa
+  useEffect(() => {
+    if (!selectedStudent) {
+      setExistingMonthPayments([]);
+      return;
+    }
+    const paymentMonth = paymentDate.substring(0, 7);
+    getPayments(paymentMonth, selectedStudent.id)
+      .then((records) => {
+        const validList = Array.isArray(records) ? records : [];
+        setExistingMonthPayments(validList);
+        const alreadyPaid = validList.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+        const exp = selectedConcept ? selectedConcept.amount : 22000;
+        if (alreadyPaid > 0 && alreadyPaid < exp && !isEditingAmount) {
+          setAmountReceived(exp - alreadyPaid);
+        }
+      })
+      .catch((err) => console.warn('Error fetching student payments:', err));
+  }, [selectedStudent, paymentDate, selectedConcept, isEditingAmount]);
+
   // Filtrar alumnas en el buscador con lupa
   const filteredStudents = useMemo(() => {
     if (!searchQuery.trim()) return students.slice(0, 8);
@@ -132,9 +154,15 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
   }, [selectedStudent]);
 
   // Cómputo de Pago Parcial y Deuda Restante
-  const expectedAmount = selectedConcept ? selectedConcept.amount : amountReceived;
-  const isPartialPayment = amountReceived < expectedAmount;
-  const remainingDebt = isPartialPayment ? expectedAmount - amountReceived : 0;
+  const alreadyPaidThisMonth = useMemo(() => {
+    const list = Array.isArray(existingMonthPayments) ? existingMonthPayments : [];
+    return list.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+  }, [existingMonthPayments]);
+
+  const expectedAmount = selectedConcept ? selectedConcept.amount : (alreadyPaidThisMonth + amountReceived);
+  const totalAfterThisPayment = alreadyPaidThisMonth + amountReceived;
+  const isPartialPayment = totalAfterThisPayment < expectedAmount;
+  const remainingDebt = isPartialPayment ? expectedAmount - totalAfterThisPayment : 0;
 
   // Subir imagen del comprobante
   const handleReceiptUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,8 +238,8 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
             `📅 *Fecha:* ${formattedDate}\n` +
             (operationNumber.trim() ? `🔢 *Nro. Operación:* ${operationNumber.trim()}\n` : '') +
             (isPartialPayment
-              ? `\n⚠️ *Pago Parcial registrado* (Monto total del concepto: $${expectedAmount.toLocaleString('es-AR')})\n*Saldo adeudado restante:* $${remainingDebt.toLocaleString('es-AR')}\n`
-              : `\n✨ *Estado:* Cuota totalmente al día\n`) +
+              ? `\n⚠️ *Pago Parcial registrado* (Monto del concepto: $${expectedAmount.toLocaleString('es-AR')})\n*Total acumulado abonado:* $${totalAfterThisPayment.toLocaleString('es-AR')}\n*Saldo adeudado restante:* $${remainingDebt.toLocaleString('es-AR')}\n`
+              : alreadyPaidThisMonth > 0 ? `\n✨ *Estado:* Cuota totalmente saldada ($${totalAfterThisPayment.toLocaleString('es-AR')} abonados en total)\n` : `\n✨ *Estado:* Cuota totalmente al día\n`) +
             `\n¡Muchas gracias por formar parte de VULPIARE! ✨`;
 
           const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
@@ -446,6 +474,23 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
             </span>
           )}
         </div>
+
+        {alreadyPaidThisMonth > 0 && (
+          <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 text-xs flex items-center justify-between">
+            <div>
+              <span className="font-extrabold block">✨ Pagos previos en este mes:</span>
+              <span className="text-[11px] text-purple-700">
+                La alumna ya tiene abonados <strong>${alreadyPaidThisMonth.toLocaleString('es-AR')}</strong> de ${expectedAmount.toLocaleString('es-AR')}.
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] uppercase font-bold text-purple-500 block">Saldo restante</span>
+              <span className="font-black text-purple-900 text-sm">
+                ${Math.max(0, expectedAmount - alreadyPaidThisMonth).toLocaleString('es-AR')}
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-200">
           <span className="text-2xl font-black text-purple-700 leading-none">$</span>

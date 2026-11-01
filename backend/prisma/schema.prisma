@@ -133,7 +133,7 @@ model PaymentRecord {
   student           Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
   recordedBy        AdminUser?   @relation(fields: [recordedByAdminId], references: [id], onDelete: SetNull)
 
-  @@unique([studentId, month])
+  @@index([studentId, month])
 }
 
 model PaymentConcept {

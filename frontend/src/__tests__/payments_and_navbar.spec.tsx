@@ -180,6 +180,60 @@ describe('PaymentControlView Component Integration Tests', () => {
     const recordarButtons = screen.getAllByRole('button', { name: /Recordar/i });
     expect(recordarButtons.length).toBeGreaterThan(0);
   });
+
+  it('accumulates multiple payments for the same student in the same month and marks cuota as saldada', async () => {
+    const multiPayments: PaymentRecord[] = [
+      {
+        id: 'pay-1',
+        studentId: 'student-1',
+        month: currentMonthStr,
+        amount: 20000,
+        expectedAmount: 22000,
+        remainingDebt: 2000,
+        isPartial: true,
+        paymentMethod: 'TRANSFER',
+        paidAt: new Date().toISOString(),
+      },
+      {
+        id: 'pay-2',
+        studentId: 'student-1',
+        month: currentMonthStr,
+        amount: 2000,
+        expectedAmount: 22000,
+        remainingDebt: 0,
+        isPartial: false,
+        paymentMethod: 'CASH',
+        paidAt: new Date().toISOString(),
+      },
+    ];
+
+    vi.restoreAllMocks();
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/api/students/shifts')) {
+        return Promise.resolve({ ok: true, json: async () => ['Martes y Jueves de 16 a 18'] });
+      }
+      if (url.includes('/api/students')) {
+        return Promise.resolve({ ok: true, json: async () => [mockActiveStudents[0]] });
+      }
+      if (url.includes('/api/payments')) {
+        return Promise.resolve({ ok: true, json: async () => multiPayments });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<PaymentControlView user={superAdminUser} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Violeta Arco/i)).toBeInTheDocument();
+      // Total acumulado: 20000 + 2000 = 22000
+      expect(screen.getAllByText(/22\.000/i).length).toBeGreaterThan(0);
+      // Debe figurar como Al día (sin deuda restante)
+      expect(screen.getAllByText(/Al día/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/2 pagos acumulados/i)).toBeInTheDocument();
+      expect(screen.getByText(/Transf\./i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Efectivo/i).length).toBeGreaterThan(0);
+    });
+  });
 });
 
 describe('RegisterPaymentView Component Integration Tests', () => {

@@ -45,9 +45,15 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
    - Rutas API en `/api/payments` y `/api/payments/concepts`.
    - Soporte para fallback local ante latencia de red en base de datos.
 
+7. **Acumulación de Pagos Múltiples por Mes (Cuotas Saldadas con Pagos Parciales)**:
+   - Removida restricción única rígida `[studentId, month]` y reemplazada por índice en `schema.prisma` y Supabase.
+   - Soporte para múltiples pagos por alumna en el mismo mes (ej. $20.000 por transferencia + $2.000 en efectivo).
+   - `PaymentControlView.tsx` y `RegisterPaymentView.tsx` acumulan todos los pagos del mes: cuando la suma alcanza o supera el valor del concepto, la cuota pasa automáticamente a estado "Al día" (saldada con deuda $0).
+   - Cada pago conserva su propio método de pago, comprobante y fecha, garantizando métricas precisas de recaudación en Efectivo vs Transferencia.
+
 ---
 
 ## 🧪 Verificación y Estado
 - **Vite & TypeScript Frontend**: Compilación 100% exitosa (`tsc && vite build`).
 - **Backend TypeScript**: Validación estricta sin errores (`tsc --noEmit`).
-- **Tests Vitest Frontend**: 8/8 tests de integración ejecutados y aprobados (incluyendo flujos de `RegisterPaymentView`, `Navbar` y `PaymentControlView`).
+- **Tests Vitest Frontend**: 9/9 tests de integración ejecutados y aprobados (incluyendo acumulación de pagos múltiples).

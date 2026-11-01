@@ -304,59 +304,54 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Monto inválido.' });
     }
 
-    const parsedExpected = expectedAmount !== undefined ? Number(expectedAmount) : parsedAmount;
-    const remainingDebt = parsedExpected > parsedAmount ? parsedExpected - parsedAmount : 0;
-    const isPartial = remainingDebt > 0;
-
     const paymentDate = paidAt ? new Date(paidAt) : new Date();
 
     try {
-      const existing = await (prisma as any).paymentRecord.findFirst({
+      // Consultar pagos previos para este alumno y mes para acumulación correcta
+      const previousPayments = await (prisma as any).paymentRecord.findMany({
         where: { studentId, month },
       });
 
-      let savedRecord;
-      if (existing) {
-        savedRecord = await (prisma as any).paymentRecord.update({
-          where: { id: existing.id },
+      const previousTotal = previousPayments.reduce((acc: number, p: any) => acc + (Number(p.amount) || 0), 0);
+      const totalAfterPayment = previousTotal + parsedAmount;
+
+      const targetExpected = expectedAmount !== undefined
+        ? Number(expectedAmount)
+        : (previousPayments[0]?.expectedAmount || parsedAmount);
+
+      const remainingDebt = targetExpected > totalAfterPayment ? targetExpected - totalAfterPayment : 0;
+      const isPartial = remainingDebt > 0;
+
+      const savedRecord = await (prisma as any).paymentRecord.create({
+        data: {
+          studentId,
+          month,
+          amount: parsedAmount,
+          expectedAmount: targetExpected,
+          remainingDebt,
+          isPartial,
+          concept: concept || (previousPayments[0]?.concept || null),
+          operationNumber: operationNumber || null,
+          paymentMethod,
+          receiptUrl: receiptUrl || null,
+          notes: notes || null,
+          paidAt: paymentDate,
+          recordedByAdminId: recordedByAdminId || null,
+        },
+        include: {
+          student: true,
+          recordedBy: { select: { fullName: true } },
+        },
+      });
+
+      // Actualizar saldo adeudado y estado en pagos previos del mismo mes para mantener consistencia
+      if (previousPayments.length > 0) {
+        await (prisma as any).paymentRecord.updateMany({
+          where: { studentId, month },
           data: {
-            amount: parsedAmount,
-            expectedAmount: parsedExpected,
+            expectedAmount: targetExpected,
             remainingDebt,
             isPartial,
-            concept: concept || existing.concept,
-            operationNumber: operationNumber || existing.operationNumber,
-            paymentMethod,
-            receiptUrl: receiptUrl !== undefined ? receiptUrl : existing.receiptUrl,
-            notes: notes !== undefined ? notes : existing.notes,
-            paidAt: paymentDate,
-            recordedByAdminId: recordedByAdminId || existing.recordedByAdminId,
-          },
-          include: {
-            student: true,
-            recordedBy: { select: { fullName: true } },
-          },
-        });
-      } else {
-        savedRecord = await (prisma as any).paymentRecord.create({
-          data: {
-            studentId,
-            month,
-            amount: parsedAmount,
-            expectedAmount: parsedExpected,
-            remainingDebt,
-            isPartial,
-            concept: concept || null,
-            operationNumber: operationNumber || null,
-            paymentMethod,
-            receiptUrl: receiptUrl || null,
-            notes: notes || null,
-            paidAt: paymentDate,
-            recordedByAdminId: recordedByAdminId || null,
-          },
-          include: {
-            student: true,
-            recordedBy: { select: { fullName: true } },
           },
         });
       }
@@ -365,34 +360,42 @@ router.post('/', async (req: Request, res: Response) => {
     } catch (dbError) {
       console.warn('⚠️ Guardando pago en fallback local:', dbError);
       const list = getLocalPayments();
-      const existingIdx = list.findIndex(
-        (p) => p.studentId === studentId && p.month === month
-      );
+      const previousPayments = list.filter((p) => p.studentId === studentId && p.month === month);
+      const previousTotal = previousPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+      const totalAfterPayment = previousTotal + parsedAmount;
+      const targetExpected = expectedAmount !== undefined
+        ? Number(expectedAmount)
+        : (previousPayments[0]?.expectedAmount || parsedAmount);
+      const remainingDebt = targetExpected > totalAfterPayment ? targetExpected - totalAfterPayment : 0;
+      const isPartial = remainingDebt > 0;
 
       const record: LocalPayment = {
-        id: existingIdx >= 0 ? list[existingIdx].id : 'pay-' + Date.now(),
+        id: 'pay-' + Date.now(),
         studentId,
         month,
         amount: parsedAmount,
-        expectedAmount: parsedExpected,
+        expectedAmount: targetExpected,
         remainingDebt,
         isPartial,
-        concept: concept || (existingIdx >= 0 ? list[existingIdx].concept : undefined),
-        operationNumber: operationNumber || (existingIdx >= 0 ? list[existingIdx].operationNumber : undefined),
+        concept: concept || (previousPayments[0]?.concept || undefined),
+        operationNumber: operationNumber || undefined,
         paymentMethod,
-        receiptUrl: receiptUrl || (existingIdx >= 0 ? list[existingIdx].receiptUrl : null),
-        notes: notes || (existingIdx >= 0 ? list[existingIdx].notes : null),
+        receiptUrl: receiptUrl || null,
+        notes: notes || null,
         paidAt: paymentDate.toISOString(),
         recordedByAdminId: recordedByAdminId || null,
-        createdAt: existingIdx >= 0 ? list[existingIdx].createdAt : new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      if (existingIdx >= 0) {
-        list[existingIdx] = record;
-      } else {
-        list.push(record);
+      for (const p of list) {
+        if (p.studentId === studentId && p.month === month) {
+          p.expectedAmount = targetExpected;
+          p.remainingDebt = remainingDebt;
+          p.isPartial = isPartial;
+        }
       }
+      list.push(record);
       saveLocalPayments(list);
 
       return res.status(200).json(record);
@@ -459,13 +462,43 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
   try {
     try {
+      const toDelete = await (prisma as any).paymentRecord.findUnique({ where: { id } });
       await (prisma as any).paymentRecord.delete({
         where: { id },
       });
+      if (toDelete) {
+        const remaining = await (prisma as any).paymentRecord.findMany({
+          where: { studentId: toDelete.studentId, month: toDelete.month },
+        });
+        const total = remaining.reduce((acc: number, p: any) => acc + (Number(p.amount) || 0), 0);
+        const exp = remaining[0]?.expectedAmount || 22000;
+        const newDebt = exp > total ? exp - total : 0;
+        const isPart = newDebt > 0;
+        if (remaining.length > 0) {
+          await (prisma as any).paymentRecord.updateMany({
+            where: { studentId: toDelete.studentId, month: toDelete.month },
+            data: { remainingDebt: newDebt, isPartial: isPart },
+          });
+        }
+      }
       return res.json({ success: true, message: 'Pago eliminado correctamente' });
     } catch (dbError) {
       let list = getLocalPayments();
+      const toDelete = list.find((p) => p.id === id);
       list = list.filter((p) => p.id !== id);
+      if (toDelete) {
+        const remaining = list.filter((p) => p.studentId === toDelete.studentId && p.month === toDelete.month);
+        const total = remaining.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+        const exp = remaining[0]?.expectedAmount || 22000;
+        const newDebt = exp > total ? exp - total : 0;
+        const isPart = newDebt > 0;
+        for (const p of list) {
+          if (p.studentId === toDelete.studentId && p.month === toDelete.month) {
+            p.remainingDebt = newDebt;
+            p.isPartial = isPart;
+          }
+        }
+      }
       saveLocalPayments(list);
       return res.json({ success: true, message: 'Pago eliminado correctamente (fallback)' });
     }
