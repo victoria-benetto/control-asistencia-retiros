@@ -16,7 +16,6 @@ import {
   Info,
   X,
   CreditCard,
-  Banknote,
   Receipt,
   Sparkles,
 } from 'lucide-react';
@@ -172,6 +171,19 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
 
   const currentRemainingDebt = Math.max(0, currentExpectedFee - currentMonthPaid);
 
+  // Detectar si el mes en curso generó un excedente hacia el próximo mes
+  const currentMonthSurplusChild = useMemo(() => {
+    const parentIds = currentMonthPayments.map((p) => p.id);
+    return payments.find(
+      (p) =>
+        p.month > currentMonthStr &&
+        parentIds.some(
+          (pid) =>
+            p.notes?.includes(`[ORIGIN:${pid}]`) || p.operationNumber === `SURPLUS:${pid}`
+        )
+    );
+  }, [currentMonthPayments, payments, currentMonthStr]);
+
   // Estado del período en curso
   const currentStatusInfo = useMemo(() => {
     if (currentMonthPaid >= currentExpectedFee) {
@@ -211,17 +223,78 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
   const currentMonthReceipt = currentMonthPayments.find((p) => p.receiptUrl)?.receiptUrl || null;
   const latestCurrentPayment = currentMonthPayments[0] || null;
 
-  // Historial de pagos anteriores (excluyendo el mes en curso o agrupados por mes)
-  const pastPayments = useMemo(() => {
-    return payments.filter((p) => p.month !== currentMonthStr);
-  }, [payments, currentMonthStr]);
+  // =========================================================================
+  // AGRUPACIÓN Y TRAZABILIDAD DEL HISTORIAL DE CUOTAS
+  // =========================================================================
+  const monthSummaries = useMemo(() => {
+    const monthsSet = new Set<string>();
+    payments.forEach((p) => {
+      if (p.month) monthsSet.add(p.month);
+    });
+
+    const sortedMonths = Array.from(monthsSet).sort((a, b) => b.localeCompare(a));
+
+    return sortedMonths.map((m) => {
+      const monthPayments = payments.filter((p) => p.month === m);
+      const totalPaid = monthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+      const expectedFee = monthPayments[0]?.expectedAmount || defaultMonthlyFee;
+      const isCurrent = m === currentMonthStr;
+      const isFuture = m > currentMonthStr;
+
+      // Detectar si este mes proviene de un excedente acreditado de un mes anterior
+      const isSurplusFromPrevious = monthPayments.some(
+        (p) =>
+          p.notes?.includes('[ORIGIN:') ||
+          p.notes?.toLowerCase().includes('excedente acreditado')
+      );
+
+      // Detectar si este mes generó un excedente hacia un mes posterior
+      const parentIds = monthPayments.map((p) => p.id);
+      const generatedChild = payments.find(
+        (p) =>
+          p.month > m &&
+          parentIds.some(
+            (pid) =>
+              p.notes?.includes(`[ORIGIN:${pid}]`) || p.operationNumber === `SURPLUS:${pid}`
+          )
+      );
+
+      const receiptUrls = monthPayments
+        .map((p) => p.receiptUrl)
+        .filter(Boolean) as string[];
+
+      const methods = Array.from(new Set(monthPayments.map((p) => p.paymentMethod)));
+      const methodLabel =
+        methods.length > 1
+          ? 'Transferencia y Efectivo'
+          : methods[0] === 'TRANSFER'
+          ? 'Transferencia Bancaria'
+          : 'Efectivo';
+
+      const latestPayment = monthPayments[0];
+
+      return {
+        month: m,
+        totalPaid,
+        expectedFee,
+        isCurrent,
+        isFuture,
+        isSurplusFromPrevious,
+        generatedChild,
+        payments: monthPayments,
+        latestPayment,
+        receiptUrls,
+        methodLabel,
+      };
+    });
+  }, [payments, currentMonthStr, defaultMonthlyFee]);
 
   // =========================================================================
   // SUB-PANTALLA: Historial Completo de Cuotas
   // =========================================================================
   if (viewMode === 'ALL_PAYMENTS') {
     return (
-      <div className="min-h-[100dvh] bg-surface text-on-surface p-4 sm:p-6 pb-20 max-w-xl mx-auto">
+      <div className="min-h-[100dvh] bg-[#fdf7ff] text-slate-900 p-4 sm:p-6 pb-20 max-w-xl mx-auto">
         <header className="flex items-center gap-3 mb-6">
           <button
             onClick={() => setViewMode('MAIN')}
@@ -237,55 +310,72 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
           </div>
         </header>
 
-        {pastPayments.length === 0 ? (
+        {monthSummaries.length === 0 ? (
           <div className="bg-white rounded-3xl p-8 text-center border border-slate-100 shadow-sm">
             <Receipt className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-sm font-bold text-slate-700">Sin cuotas anteriores</h3>
-            <p className="text-xs text-slate-400 mt-1">No hay registros de meses anteriores cargados en el sistema.</p>
+            <h3 className="text-sm font-bold text-slate-700">Sin cuotas registradas</h3>
+            <p className="text-xs text-slate-400 mt-1">No hay registros de cuotas cargados en el sistema.</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {pastPayments.map((p) => (
+            {monthSummaries.map((m) => (
               <div
-                key={p.id}
+                key={m.month}
                 className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm flex flex-col gap-2.5"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <span className="text-sm font-extrabold text-slate-900 block">
-                      {formatMonthNice(p.month)}
+                      {formatMonthNice(m.month)}
                     </span>
                     <span className="text-xs text-slate-500 font-medium">
-                      {p.concept || 'Cuota de actividad'}
+                      {m.isSurplusFromPrevious
+                        ? 'Saldo a favor por excedente'
+                        : m.latestPayment?.concept || 'Cuota de actividad'}
                     </span>
                   </div>
                   <div className="text-right">
                     <span className="text-base font-black text-purple-700">
-                      ${p.amount.toLocaleString('es-AR')}
+                      ${m.totalPaid.toLocaleString('es-AR')}
                     </span>
-                    {p.isPartial && (
+                    {m.isSurplusFromPrevious ? (
+                      <span className="block text-[10px] font-extrabold text-purple-800 bg-purple-50 px-2 py-0.5 rounded-full mt-0.5 border border-purple-200">
+                        Excedente a favor
+                      </span>
+                    ) : m.totalPaid < m.expectedFee ? (
                       <span className="block text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full mt-0.5 border border-amber-200">
                         Pago parcial
+                      </span>
+                    ) : (
+                      <span className="block text-[10px] font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full mt-0.5 border border-emerald-200">
+                        Cuota al día
                       </span>
                     )}
                   </div>
                 </div>
 
+                {m.generatedChild && (
+                  <div className="text-[11px] font-medium text-purple-800 bg-purple-50/70 p-2.5 rounded-xl border border-purple-100 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+                    <span>
+                      Generó <strong>${m.generatedChild.amount.toLocaleString('es-AR')}</strong> de excedente acreditado a {formatMonthNice(m.generatedChild.month)}.
+                    </span>
+                  </div>
+                )}
+
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     <span>
-                      Abonado el{' '}
-                      <strong className="text-slate-700">
-                        {p.paidAt ? formatDateNice(p.paidAt.split('T')[0]) : 'Fecha no registrada'}
-                      </strong>{' '}
-                      vía {p.paymentMethod === 'TRANSFER' ? 'Transferencia' : 'Efectivo'}
+                      {m.isSurplusFromPrevious
+                        ? 'Acreditado como saldo a favor'
+                        : `Abonado el ${m.latestPayment?.paidAt ? formatDateNice(m.latestPayment.paidAt.split('T')[0]) : ''} vía ${m.methodLabel}`}
                     </span>
                   </div>
 
-                  {p.receiptUrl && (
+                  {m.receiptUrls.length > 0 && (
                     <button
-                      onClick={() => setViewingReceiptUrl(p.receiptUrl || null)}
+                      onClick={() => setViewingReceiptUrl(m.receiptUrls[0])}
                       className="text-purple-700 hover:text-purple-900 font-bold text-xs inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 hover:bg-purple-100 transition-colors"
                     >
                       <FileText className="w-3.5 h-3.5" />
@@ -311,7 +401,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
   // =========================================================================
   if (viewMode === 'ALL_ATTENDANCES') {
     return (
-      <div className="min-h-[100dvh] bg-surface text-on-surface p-4 sm:p-6 pb-20 max-w-xl mx-auto">
+      <div className="min-h-[100dvh] bg-[#fdf7ff] text-slate-900 p-4 sm:p-6 pb-20 max-w-xl mx-auto">
         <header className="flex items-center gap-3 mb-6">
           <button
             onClick={() => setViewMode('MAIN')}
@@ -424,13 +514,15 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
   // =========================================================================
   return (
     <div className="min-h-[100dvh] bg-[#fdf7ff] text-slate-900 antialiased pb-20">
-      {/* Header Fijo Superior */}
+      {/* Header Fijo Superior con Logo Oficial de Vulpiare */}
       <header className="sticky top-0 inset-x-0 z-40 bg-white/85 backdrop-blur-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-purple-100">
         <div className="max-w-xl mx-auto h-20 px-4 sm:px-6 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-700 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-purple-500/20">
-              <Sparkles className="w-5 h-5" />
-            </div>
+            <img
+              src="/vulpiare_logo.png"
+              alt="Vulpiare Logo"
+              className="w-10 h-10 rounded-full object-cover border border-purple-200 shadow-sm shrink-0"
+            />
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="font-black text-sm tracking-wide text-purple-900 uppercase">
@@ -712,6 +804,18 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
               </div>
             )}
 
+            {/* Banner explicativo de excedente generado para el próximo mes */}
+            {currentMonthSurplusChild && (
+              <div className="p-3 rounded-2xl bg-purple-50 border border-purple-200/80 flex items-center gap-2 text-xs text-purple-900">
+                <Sparkles className="w-4 h-4 text-purple-700 shrink-0" />
+                <p className="leading-tight">
+                  <strong>Saldo a favor:</strong> Se acreditaron{' '}
+                  <strong>${currentMonthSurplusChild.amount.toLocaleString('es-AR')}</strong> para la cuota de{' '}
+                  <strong>{formatMonthNice(currentMonthSurplusChild.month)}</strong>.
+                </p>
+              </div>
+            )}
+
             {currentStatusInfo.status === 'PARTIAL' && (
               <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-2.5">
                 <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -766,19 +870,19 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
             <div className="flex items-start gap-2 pt-1 border-t border-purple-100">
               <Info className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
               <p className="text-[11px] text-slate-600 leading-tight">
-                Información de solo lectura. Para informar pagos o consultas sobre facturación, comunicate con la administración del estudio.
+                Información de solo lectura. Para informar pagos o consultas sobre facturación, comunicate con la profesora Victoria.
               </p>
             </div>
           </div>
         </section>
 
-        {/* 4. HISTORIAL DE CUOTAS ANTERIORES (MUESTRA ÚLTIMAS 2) */}
+        {/* 4. HISTORIAL DE CUOTAS (MUESTRA ÚLTIMAS 2) */}
         <section className="space-y-2">
           <div className="flex items-center justify-between px-1">
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-500">
-              Historial de Cuotas Anteriores
+              Historial de Cuotas
             </h3>
-            {pastPayments.length > 2 && (
+            {monthSummaries.length > 2 && (
               <button
                 onClick={() => setViewMode('ALL_PAYMENTS')}
                 className="text-xs font-extrabold text-purple-700 hover:text-purple-900 flex items-center gap-1 transition-colors"
@@ -789,45 +893,70 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
             )}
           </div>
 
-          {pastPayments.length === 0 ? (
+          {monthSummaries.length === 0 ? (
             <div className="rounded-3xl p-5 bg-white border border-purple-50 text-center text-xs text-slate-400 shadow-sm">
-              No hay cuotas anteriores registradas aún.
+              No hay cuotas registradas aún.
             </div>
           ) : (
             <div className="space-y-2.5">
-              {pastPayments.slice(0, 2).map((p) => (
+              {monthSummaries.slice(0, 2).map((m) => (
                 <div
-                  key={p.id}
+                  key={m.month}
                   className="rounded-2xl p-4 bg-white shadow-[0_2px_10px_-2px_rgba(30,27,38,0.04)] border border-purple-50 flex flex-col gap-2"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex flex-col min-w-0">
                       <span className="text-sm font-extrabold text-slate-900">
-                        {formatMonthNice(p.month)}
+                        {formatMonthNice(m.month)}
                       </span>
                       <span className="text-xs text-slate-500 font-medium">
-                        {p.concept || 'Cuota de actividad'}
+                        {m.isSurplusFromPrevious
+                          ? 'Saldo a favor por excedente'
+                          : m.latestPayment?.concept || 'Cuota de actividad'}
                       </span>
                     </div>
                     <div className="text-right shrink-0">
                       <span className="text-sm font-black text-slate-900">
-                        ${p.amount.toLocaleString('es-AR')}
+                        ${m.totalPaid.toLocaleString('es-AR')}
                       </span>
+                      {m.isSurplusFromPrevious ? (
+                        <span className="block text-[10px] font-extrabold text-purple-800 bg-purple-50 px-2 py-0.5 rounded-full mt-0.5 border border-purple-200">
+                          Saldo a favor
+                        </span>
+                      ) : m.totalPaid >= m.expectedFee ? (
+                        <span className="block text-[10px] font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full mt-0.5 border border-emerald-200">
+                          Cuota al día
+                        </span>
+                      ) : (
+                        <span className="block text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full mt-0.5 border border-amber-200">
+                          Pago parcial
+                        </span>
+                      )}
                     </div>
                   </div>
+
+                  {m.generatedChild && (
+                    <div className="text-[11px] font-medium text-purple-800 bg-purple-50/70 p-2 rounded-xl border border-purple-100 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+                      <span>
+                        Generó <strong>${m.generatedChild.amount.toLocaleString('es-AR')}</strong> de excedente para {formatMonthNice(m.generatedChild.month)}.
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between pt-1 text-xs">
                     <div className="inline-flex items-center gap-1.5 text-slate-500">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                       <span>
-                        Abonado{' '}
-                        {p.paidAt ? formatDateNice(p.paidAt.split('T')[0]) : ''}
+                        {m.isSurplusFromPrevious
+                          ? 'Acreditado automáticamente'
+                          : `Abonado ${m.latestPayment?.paidAt ? formatDateNice(m.latestPayment.paidAt.split('T')[0]) : ''}`}
                       </span>
                     </div>
 
-                    {p.receiptUrl ? (
+                    {m.receiptUrls.length > 0 ? (
                       <button
-                        onClick={() => setViewingReceiptUrl(p.receiptUrl || null)}
+                        onClick={() => setViewingReceiptUrl(m.receiptUrls[0])}
                         className="text-purple-700 hover:text-purple-900 font-bold text-xs inline-flex items-center gap-1 py-1 px-2.5 rounded-full hover:bg-purple-50 transition-colors"
                         type="button"
                       >
@@ -836,7 +965,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
                       </button>
                     ) : (
                       <span className="text-[11px] text-slate-400 font-medium">
-                        {p.paymentMethod === 'TRANSFER' ? 'Transferencia' : 'Efectivo'}
+                        {m.methodLabel}
                       </span>
                     )}
                   </div>

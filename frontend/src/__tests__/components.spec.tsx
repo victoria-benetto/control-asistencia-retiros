@@ -135,7 +135,7 @@ describe('Frontend Component Unit & Integration Tests', () => {
       ],
     };
 
-    it('displays student profile with attendance dates, fees, and does not show whatsapp button', async () => {
+    it('displays student profile with app logo, fees, notice with profesora Victoria and no whatsapp button', async () => {
       const onLogout = vi.fn();
       global.fetch = vi.fn().mockImplementation((url: string) => {
         if (url.includes('/api/payments/concepts')) {
@@ -156,6 +156,17 @@ describe('Frontend Component Unit & Integration Tests', () => {
                 expectedAmount: 22000,
                 paymentMethod: 'TRANSFER',
                 paidAt: '2026-11-02T10:00:00Z',
+                notes: 'Pago con excedente de $3.000 acreditado a Diciembre 2026.',
+              },
+              {
+                id: 'pay-surplus',
+                studentId: 's-1',
+                month: '2026-12',
+                amount: 3000,
+                expectedAmount: 22000,
+                paymentMethod: 'TRANSFER',
+                paidAt: '2026-11-02T10:00:00Z',
+                notes: '[ORIGIN:pay-1] Excedente acreditado del pago de 2026-11',
               },
               {
                 id: 'pay-2',
@@ -165,14 +176,6 @@ describe('Frontend Component Unit & Integration Tests', () => {
                 paymentMethod: 'CASH',
                 paidAt: '2026-10-05T10:00:00Z',
               },
-              {
-                id: 'pay-3',
-                studentId: 's-1',
-                month: '2026-09',
-                amount: 22000,
-                paymentMethod: 'TRANSFER',
-                paidAt: '2026-09-04T10:00:00Z',
-              },
             ],
           });
         }
@@ -181,15 +184,24 @@ describe('Frontend Component Unit & Integration Tests', () => {
 
       render(<ParentPortal student={mockStudent} onLogout={onLogout} />);
 
+      // Verificar logo oficial de la app
+      const logoImg = screen.getByAltText(/vulpiare logo/i);
+      expect(logoImg).toBeInTheDocument();
+      expect(logoImg).toHaveAttribute('src', '/vulpiare_logo.png');
+
       expect(screen.getAllByText(/Alumna/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/Prueba/i)).toBeInTheDocument();
       expect(screen.getAllByText(/MARTES Y JUEVES 17:00 A 19:00/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/¡PRESENTE en clase!/i)).toBeInTheDocument();
 
-      // Verificar trazabilidad de cuotas
+      // Verificar estado de cuenta y cuotas
       await waitFor(() => {
-        expect(screen.getByText(/Cuota al día/i)).toBeInTheDocument();
+        expect(screen.getAllByText(/Cuota al día/i).length).toBeGreaterThan(0);
         expect(screen.getByText(/Estado de Cuenta y Cuotas/i)).toBeInTheDocument();
+        expect(screen.getByText(/comunicate con la profesora Victoria/i)).toBeInTheDocument();
+        // Verificar que en el historial aparecen TANTO Noviembre como Diciembre (excedente)
+        expect(screen.getAllByText(/Noviembre.*2026/i).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Diciembre.*2026/i).length).toBeGreaterThan(0);
       });
 
       // Verificar que NO existe botón de WhatsApp ni secretaría
