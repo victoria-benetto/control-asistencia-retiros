@@ -486,6 +486,77 @@ describe('FixedExpensesView Component Tests', () => {
       );
     });
   });
+
+  it('allows granular replication of selected expenses with adjusted amounts', async () => {
+    render(<FixedExpensesView user={superAdminUser} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Alquiler Estudio y Gimnasio/i)).toBeInTheDocument();
+    });
+
+    // Abrir modal "Replicar Gastos"
+    const replicateBtn = screen.getByRole('button', { name: /Replicar Gastos/i });
+    fireEvent.click(replicateBtn);
+
+    expect(screen.getByText(/Replicar Gastos a Otro Período/i)).toBeInTheDocument();
+    expect(screen.getByText(/¿Qué gastos querés replicar\?/i)).toBeInTheDocument();
+
+    // Comprobar botones de selección rápida (Todos, Solo recurrentes, Ninguno)
+    const selectNoneBtn = screen.getByRole('button', { name: /Ninguno/i });
+    fireEvent.click(selectNoneBtn);
+    expect(screen.getByText(/0 de 2 gastos seleccionados/i)).toBeInTheDocument();
+
+    const selectAllBtn = screen.getByRole('button', { name: /Todos/i });
+    fireEvent.click(selectAllBtn);
+    expect(screen.getByText(/2 de 2 gastos seleccionados/i)).toBeInTheDocument();
+
+    // Confirmar réplica
+    const confirmBtn = screen.getByRole('button', { name: /Confirmar Réplica/i });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/expenses/replicate-month',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"expenseIds"'),
+        })
+      );
+    });
+  });
+
+  it('allows single expense replication with custom month and custom amount', async () => {
+    render(<FixedExpensesView user={superAdminUser} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Alquiler Estudio y Gimnasio/i)).toBeInTheDocument();
+    });
+
+    // Abrir réplica individual desde el botón de la tarjeta
+    const copyBtns = screen.getAllByTitle(/Replicar este gasto/i);
+    fireEvent.click(copyBtns[0]);
+
+    expect(screen.getByRole('heading', { name: /Replicar Gasto/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/Alquiler Estudio y Gimnasio/i).length).toBeGreaterThanOrEqual(1);
+
+    // Modificar monto porque varió para el mes siguiente (ej. de 150000 a 165000)
+    const amountInput = screen.getByPlaceholderText(/Ej: 150000/i);
+    fireEvent.change(amountInput, { target: { value: '165000' } });
+
+    // Confirmar réplica individual
+    const confirmBtn = screen.getByRole('button', { name: /Confirmar Réplica/i });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/expenses/exp-1/replicate',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"amount":165000'),
+        })
+      );
+    });
+  });
 });
 
 describe('RevenueReportsView Component Tests', () => {

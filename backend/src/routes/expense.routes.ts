@@ -280,7 +280,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 router.post('/:id/replicate', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { targetMonth } = req.body;
+    const { targetMonth, amount } = req.body;
 
     if (!targetMonth || !/^\d{4}-\d{2}$/.test(targetMonth)) {
       return res.status(400).json({ error: 'El mes destino (formato YYYY-MM) es obligatorio.' });
@@ -303,10 +303,13 @@ router.post('/:id/replicate', async (req: Request, res: Response) => {
     // Calcular la fecha para el mes destino preservando el día del mes
     const day = (sourceExpense.date || '2026-11-01').split('-')[2] || '01';
     const newDate = `${targetMonth}-${day}`;
+    const finalAmount = amount !== undefined && !isNaN(Number(amount)) && Number(amount) > 0
+      ? Number(amount)
+      : sourceExpense.amount;
 
     const newExpenseData = {
       title: sourceExpense.title,
-      amount: sourceExpense.amount,
+      amount: finalAmount,
       date: newDate,
       month: targetMonth,
       category: sourceExpense.category,
@@ -348,48 +351,70 @@ router.post('/:id/replicate', async (req: Request, res: Response) => {
   }
 });
 
-// Replicar todos los gastos recurrentes de un mes hacia otro
+// Replicar gastos seleccionados o lote completo de un mes hacia otro
 router.post('/replicate-month', async (req: Request, res: Response) => {
   try {
-    const { fromMonth, toMonth } = req.body;
+    const { fromMonth, toMonth, expenseIds, customAmounts } = req.body;
 
     if (!fromMonth || !toMonth) {
       return res.status(400).json({ error: 'Mes origen (fromMonth) y mes destino (toMonth) son requeridos.' });
     }
 
-    let recurringExpenses: any[] = [];
-    try {
-      recurringExpenses = await (prisma as any).fixedExpense.findMany({
-        where: { month: String(fromMonth), isRecurring: true },
+    let targetExpenses: any[] = [];
+    const hasSpecificIds = Array.isArray(expenseIds) && expenseIds.length > 0;
+
+    if (hasSpecificIds) {
+      try {
+        targetExpenses = await (prisma as any).fixedExpense.findMany({
+          where: { id: { in: expenseIds } },
+        });
+      } catch (e) {
+        // Ignorar fallo remoto
+      }
+      if (!targetExpenses || targetExpenses.length === 0) {
+        targetExpenses = getLocalExpenses().filter((e) => expenseIds.includes(e.id));
+      }
+    } else {
+      try {
+        targetExpenses = await (prisma as any).fixedExpense.findMany({
+          where: { month: String(fromMonth), isRecurring: true },
+        });
+      } catch (e) {
+        // Ignorar fallo
+      }
+      if (!targetExpenses || targetExpenses.length === 0) {
+        targetExpenses = getLocalExpenses().filter(
+          (e) => e.month === String(fromMonth) && e.isRecurring !== false
+        );
+      }
+    }
+
+    if (!targetExpenses || targetExpenses.length === 0) {
+      return res.status(404).json({
+        error: hasSpecificIds
+          ? 'No se encontraron los gastos seleccionados para replicar.'
+          : `No se encontraron gastos para replicar en el mes ${fromMonth}.`,
       });
-    } catch (e) {
-      // Ignorar fallo
-    }
-
-    if (!recurringExpenses || recurringExpenses.length === 0) {
-      recurringExpenses = getLocalExpenses().filter(
-        (e) => e.month === String(fromMonth) && e.isRecurring !== false
-      );
-    }
-
-    if (recurringExpenses.length === 0) {
-      return res.status(404).json({ error: `No se encontraron gastos recurrentes en el mes ${fromMonth}.` });
     }
 
     const createdList: any[] = [];
-    for (const exp of recurringExpenses) {
+    for (const exp of targetExpenses) {
       const day = (exp.date || '2026-11-01').split('-')[2] || '01';
       const newDate = `${toMonth}-${day}`;
+      const finalAmount =
+        customAmounts && customAmounts[exp.id] !== undefined && !isNaN(Number(customAmounts[exp.id]))
+          ? Number(customAmounts[exp.id])
+          : exp.amount;
 
       const data = {
         title: exp.title,
-        amount: exp.amount,
+        amount: finalAmount,
         date: newDate,
         month: toMonth,
         category: exp.category,
         receiptUrl: exp.receiptUrl,
-        notes: exp.notes ? `${exp.notes} (Replicado de ${fromMonth})` : `Replicado de ${fromMonth}`,
-        isRecurring: true,
+        notes: exp.notes ? `${exp.notes} (Replicado de ${exp.month || fromMonth})` : `Replicado de ${exp.month || fromMonth}`,
+        isRecurring: exp.isRecurring !== false,
         recordedByAdminId: exp.recordedByAdminId,
       };
 
@@ -413,11 +438,11 @@ router.post('/replicate-month', async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      message: `Se replicaron ${createdList.length} gastos de ${fromMonth} a ${toMonth}.`,
+      message: `Se replicaron ${createdList.length} gastos con éxito a ${toMonth}.`,
       expenses: createdList,
     });
   } catch (err: any) {
-    return res.status(500).json({ error: 'Error al replicar gastos del mes: ' + err.message });
+    return res.status(500).json({ error: 'Error al replicar gastos: ' + err.message });
   }
 });
 

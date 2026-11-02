@@ -128,7 +128,11 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
       - Tarjetas de resumen: Total Egresos, Cantidad de Conceptos y Gastos Recurrentes.
       - Selector de mes con flechitas y selector directo.
       - Modal de creación y edición con validación de montos, selección de fecha automática/manual, categoría y carga de comprobante con visor integrado (imágenes y PDFs).
-      - Botón de réplica individual y modal de réplica por lote de todos los gastos recurrentes hacia cualquier mes futuro.
+      - **Flujo de Réplica Flexible y Granular**:
+        - Botón superior **"Replicar Gastos"**: abre modal de selección granular donde el usuario elige a qué mes replicar y marca exactamente qué gastos desea replicar mediante checkboxes individuales.
+        - Acciones rápidas: "Todos" (para replicar todo el mes en un clic), "Solo recurrentes" o "Ninguno".
+        - **Ajuste de montos en vivo**: cada fila seleccionada permite editar el monto si para el nuevo período hubo variaciones (ej. aumento de alquiler o servicios).
+        - Botón de réplica individual en cada fila de gasto con selector de mes de destino y campo de monto ajustable.
     - **Navbar y Menú Gestiones**:
       - Modal "¿Qué deseas gestionar hoy?" ampliado a 5 opciones con sus respectivos iconos y estilos: Gestión de Alumnas, Gestión de Profesores, Gestión de Aranceles (ABM Pagos), Reportes de Ingresos y Balance, y Gastos Fijos del Estudio.
 
@@ -138,4 +142,4 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 - **Vite & TypeScript Frontend**: Compilación 100% exitosa (`tsc && vite build`).
 - **Backend TypeScript**: Validación estricta sin errores (`tsc --noEmit`).
 - **Tests Vitest Backend**: 8/8 tests unitarios de trazabilidad, excedentes, modificación y anulación a 0 aprobados en `backend/src/__tests__/payments.spec.ts`.
-- **Tests Vitest Frontend**: 15/15 tests de integración aprobados en `frontend/src/__tests__/` (incluyendo flujo de navegación, trazabilidad de pagos, portal alumna, gastos fijos y reporte de ingresos con vista anual y paginación de gráficos).
+- **Tests Vitest Frontend**: 17/17 tests de integración aprobados en `frontend/src/__tests__/` (incluyendo flujo de navegación, trazabilidad de pagos, portal alumna, gastos fijos con réplica granular y reportes de ingresos).

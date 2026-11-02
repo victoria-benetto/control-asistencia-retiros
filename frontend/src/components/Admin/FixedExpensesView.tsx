@@ -17,6 +17,8 @@ import {
   Tag,
   Eye,
   FileSpreadsheet,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { FixedExpense, AdminUser } from '../../types';
 import {
@@ -70,12 +72,19 @@ export const FixedExpensesView: React.FC<FixedExpensesViewProps> = ({ user }) =>
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
-  // Target month for replication
+  // Estados para Réplica de Gastos (Selección múltiple o individual)
   const [replicateTargetMonth, setReplicateTargetMonth] = useState<string>(() => {
     const [y, m] = selectedMonth.split('-').map(Number);
     const nextDate = new Date(y, m, 1);
     return `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
   });
+  const [replicateSelectedIds, setReplicateSelectedIds] = useState<string[]>([]);
+  const [replicateCustomAmounts, setReplicateCustomAmounts] = useState<Record<string, number>>({});
+
+  // Réplica individual con selector de mes y monto ajustable
+  const [singleReplicateExpense, setSingleReplicateExpense] = useState<FixedExpense | null>(null);
+  const [singleReplicateTargetMonth, setSingleReplicateTargetMonth] = useState<string>('');
+  const [singleReplicateAmount, setSingleReplicateAmount] = useState<number | ''>('');
 
   const showToast = (msg: string) => {
     setSuccessToast(msg);
@@ -264,45 +273,153 @@ export const FixedExpensesView: React.FC<FixedExpensesViewProps> = ({ user }) =>
     }
   };
 
-  // Replicar gasto individual a próximo mes
-  const handleReplicateSingle = async (exp: FixedExpense) => {
-    const [y, m] = exp.month.split('-').map(Number);
-    const nextDate = new Date(y, m, 1);
-    const target = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
+  // =========================================================================
+  // MANEJO DE RÉPLICA DE GASTOS (SELECCIÓN Y AJUSTE DE MONTOS)
+  // =========================================================================
 
-    if (!window.confirm(`¿Replicar "${exp.title}" ($${exp.amount.toLocaleString('es-AR')}) al período ${formatMonthNice(target)}?`)) {
+  // Abrir modal de réplica con selección de gastos
+  const handleOpenBatchReplicateModal = () => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    const nextDate = new Date(y, m, 1);
+    const defaultTarget = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
+    setReplicateTargetMonth(defaultTarget);
+
+    // Por defecto, preseleccionar todos los gastos del mes seleccionado
+    const allIds = expenses.map((e) => e.id);
+    setReplicateSelectedIds(allIds);
+
+    const initialAmounts: Record<string, number> = {};
+    expenses.forEach((e) => {
+      initialAmounts[e.id] = e.amount;
+    });
+    setReplicateCustomAmounts(initialAmounts);
+    setIsReplicateModalOpen(true);
+  };
+
+  // Toggle individual en la lista de réplica
+  const handleToggleReplicateId = (id: string) => {
+    setReplicateSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  // Seleccionar todos los gastos
+  const handleSelectAllReplicate = () => {
+    setReplicateSelectedIds(expenses.map((e) => e.id));
+  };
+
+  // Deseleccionar todos
+  const handleDeselectAllReplicate = () => {
+    setReplicateSelectedIds([]);
+  };
+
+  // Seleccionar únicamente los marcados como recurrentes
+  const handleSelectOnlyRecurring = () => {
+    setReplicateSelectedIds(expenses.filter((e) => e.isRecurring !== false).map((e) => e.id));
+  };
+
+  // Modificar monto específico en la réplica si varió
+  const handleChangeReplicateAmount = (id: string, val: number) => {
+    setReplicateCustomAmounts((prev) => ({
+      ...prev,
+      [id]: isNaN(val) ? 0 : val,
+    }));
+  };
+
+  // Confirmar réplica de gastos seleccionados
+  const handleConfirmReplicateSelected = async () => {
+    if (replicateSelectedIds.length === 0) {
+      alert('Por favor seleccioná al menos un gasto para replicar.');
+      return;
+    }
+    if (!replicateTargetMonth) {
+      alert('Por favor seleccioná el mes de destino.');
       return;
     }
 
     try {
-      await replicateExpense(exp.id, target);
+      setSaving(true);
+      const res = await replicateMonthExpenses(
+        selectedMonth,
+        replicateTargetMonth,
+        replicateSelectedIds,
+        replicateCustomAmounts
+      );
+
+      const replicatedTotal = replicateSelectedIds.reduce((sum, id) => {
+        const val = replicateCustomAmounts[id];
+        return sum + (val !== undefined ? Number(val) : 0);
+      }, 0);
+
       trackExpenseReplicated({
-        expenseId: exp.id,
-        title: exp.title,
-        amount: exp.amount,
-        targetMonth: target,
+        expenseId: 'batch-selected',
+        title: `${replicateSelectedIds.length} gastos replicados`,
+        amount: replicatedTotal,
+        targetMonth: replicateTargetMonth,
       });
-      showToast(`Gasto replicado con éxito a ${formatMonthNice(target)}.`);
+
+      showToast(res.message || 'Gastos replicados con éxito.');
+      setIsReplicateModalOpen(false);
+      if (selectedMonth === replicateTargetMonth) {
+        await loadExpenses();
+      }
     } catch (err: any) {
-      alert('Error al replicar gasto: ' + err.message);
+      alert('Error al replicar gastos: ' + err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
-  // Replicar lote mensual
-  const handleReplicateMonthBatch = async () => {
+  // Total de gastos seleccionados para replicar
+  const totalReplicateAmount = useMemo(() => {
+    return replicateSelectedIds.reduce((sum, id) => {
+      const val = replicateCustomAmounts[id];
+      return sum + (val !== undefined ? Number(val) : 0);
+    }, 0);
+  }, [replicateSelectedIds, replicateCustomAmounts]);
+
+  // Abrir modal de réplica de gasto puntual
+  const handleOpenSingleReplicateModal = (exp: FixedExpense) => {
+    const [y, m] = exp.month.split('-').map(Number);
+    const nextDate = new Date(y, m, 1);
+    const defaultTarget = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
+    setSingleReplicateExpense(exp);
+    setSingleReplicateTargetMonth(defaultTarget);
+    setSingleReplicateAmount(exp.amount);
+  };
+
+  // Confirmar réplica de gasto puntual
+  const handleConfirmSingleReplicate = async () => {
+    if (!singleReplicateExpense) return;
+    const num = Number(singleReplicateAmount);
+    if (isNaN(num) || num <= 0) {
+      alert('Por favor ingresá un monto válido mayor a 0.');
+      return;
+    }
+    if (!singleReplicateTargetMonth) {
+      alert('Por favor seleccioná el mes de destino.');
+      return;
+    }
+
     try {
       setSaving(true);
-      const res = await replicateMonthExpenses(selectedMonth, replicateTargetMonth);
+      await replicateExpense(singleReplicateExpense.id, singleReplicateTargetMonth, num);
       trackExpenseReplicated({
-        expenseId: 'batch',
-        title: 'Lote recurrente',
-        amount: totalExpensesAmount,
-        targetMonth: replicateTargetMonth,
+        expenseId: singleReplicateExpense.id,
+        title: singleReplicateExpense.title,
+        amount: num,
+        targetMonth: singleReplicateTargetMonth,
       });
-      showToast(res.message || 'Gastos recurrentes replicados.');
-      setIsReplicateModalOpen(false);
+
+      showToast(
+        `"${singleReplicateExpense.title}" ($${num.toLocaleString('es-AR')}) replicado a ${formatMonthNice(singleReplicateTargetMonth)}.`
+      );
+      setSingleReplicateExpense(null);
+      if (selectedMonth === singleReplicateTargetMonth) {
+        await loadExpenses();
+      }
     } catch (err: any) {
-      alert('Error al replicar gastos: ' + err.message);
+      alert('Error al replicar gasto: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -336,12 +453,12 @@ export const FixedExpensesView: React.FC<FixedExpensesViewProps> = ({ user }) =>
 
           <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
             <button
-              onClick={() => setIsReplicateModalOpen(true)}
+              onClick={handleOpenBatchReplicateModal}
               className="px-4 py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 active:scale-95 text-white font-bold text-xs flex items-center gap-2 backdrop-blur-md transition-all shadow-sm"
-              title="Replicar todos los gastos recurrentes a otro mes"
+              title="Replicar gastos a otro mes (elegir cuáles o todos)"
             >
               <Repeat className="w-4 h-4" />
-              <span>Replicar Mes</span>
+              <span>Replicar Gastos</span>
             </button>
             <button
               onClick={handleOpenCreateModal}
@@ -524,9 +641,9 @@ export const FixedExpensesView: React.FC<FixedExpensesViewProps> = ({ user }) =>
                     )}
 
                     <button
-                      onClick={() => handleReplicateSingle(exp)}
+                      onClick={() => handleOpenSingleReplicateModal(exp)}
                       className="p-2 rounded-xl text-indigo-700 hover:bg-indigo-50 transition-colors"
-                      title="Replicar este gasto al mes siguiente"
+                      title="Replicar este gasto (elegir mes y monto)"
                     >
                       <Copy className="w-4 h-4" />
                     </button>
@@ -750,14 +867,21 @@ export const FixedExpensesView: React.FC<FixedExpensesViewProps> = ({ user }) =>
         </div>
       )}
 
-      {/* Modal Replicar Lote de Mes */}
+      {/* Modal Replicar Gastos Seleccionados (Lote o Selección Granular) */}
       {isReplicateModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Repeat className="w-5 h-5 text-indigo-700" />
-                <h3 className="text-base font-black text-slate-900">Replicar Gastos Fijos</h3>
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-2xl bg-indigo-50 text-indigo-700">
+                  <Repeat className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Replicar Gastos a Otro Período</h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Origen: <strong>{formatMonthNice(selectedMonth)}</strong>
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setIsReplicateModalOpen(false)}
@@ -767,37 +891,237 @@ export const FixedExpensesView: React.FC<FixedExpensesViewProps> = ({ user }) =>
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 font-medium leading-relaxed">
-              Esta función copiará todos los gastos recurrentes de{' '}
-              <strong>{formatMonthNice(selectedMonth)}</strong> hacia el mes que elijas (ej: alquiler, seguros, mantenimiento).
-            </p>
+            <div className="space-y-4 overflow-y-auto pr-1">
+              {/* Mes Destino */}
+              <div>
+                <label className="text-xs font-extrabold text-slate-700 block mb-1">
+                  Mes de Destino (YYYY-MM) *
+                </label>
+                <input
+                  type="month"
+                  required
+                  value={replicateTargetMonth}
+                  onChange={(e) => setReplicateTargetMonth(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600"
+                />
+              </div>
 
-            <div>
-              <label className="text-xs font-extrabold text-slate-700 block mb-1">
-                Mes de Destino (YYYY-MM)
-              </label>
-              <input
-                type="month"
-                required
-                value={replicateTargetMonth}
-                onChange={(e) => setReplicateTargetMonth(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600"
-              />
+              {/* Botones de Selección Rápida */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-extrabold text-slate-700 block">
+                    ¿Qué gastos querés replicar?
+                  </label>
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllReplicate}
+                      className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSelectOnlyRecurring}
+                      className="px-2 py-0.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors"
+                    >
+                      Solo recurrentes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeselectAllReplicate}
+                      className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                    >
+                      Ninguno
+                    </button>
+                  </div>
+                </div>
+
+                {expenses.length === 0 ? (
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-center text-xs text-slate-500 font-medium">
+                    No hay gastos registrados en {formatMonthNice(selectedMonth)} para replicar.
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-56 overflow-y-auto p-1">
+                    {expenses.map((exp) => {
+                      const isSelected = replicateSelectedIds.includes(exp.id);
+                      const currentVal = replicateCustomAmounts[exp.id] ?? exp.amount;
+
+                      return (
+                        <div
+                          key={exp.id}
+                          className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                            isSelected
+                              ? 'bg-purple-50/50 border-purple-200 shadow-sm'
+                              : 'bg-white border-slate-200 opacity-60'
+                          }`}
+                        >
+                          <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleReplicateId(exp.id)}
+                              className="w-4 h-4 rounded text-purple-700 accent-purple-700 cursor-pointer shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-slate-900 truncate">{exp.title}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-white border border-slate-200 font-semibold text-slate-500">
+                                  {exp.category || 'Gasto'}
+                                </span>
+                                {exp.isRecurring && (
+                                  <span className="text-[10px] text-indigo-600 font-extrabold flex items-center gap-0.5">
+                                    <Repeat className="w-2.5 h-2.5" /> Recurrente
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </label>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-xs font-bold text-slate-400">$</span>
+                            <input
+                              type="number"
+                              min="1"
+                              step="any"
+                              disabled={!isSelected}
+                              value={currentVal}
+                              onChange={(e) =>
+                                handleChangeReplicateAmount(exp.id, Number(e.target.value))
+                              }
+                              className={`w-24 px-2 py-1 rounded-xl border text-xs font-black text-right focus:outline-none focus:ring-2 focus:ring-purple-600 ${
+                                isSelected
+                                  ? 'border-purple-300 bg-white text-rose-600'
+                                  : 'border-slate-200 bg-slate-100 text-slate-400'
+                              }`}
+                              title="Podés ajustar el monto si para este nuevo mes varió"
+                              placeholder="Monto"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Resumen de Selección */}
+              {expenses.length > 0 && (
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+                  <span className="font-extrabold text-slate-700">
+                    {replicateSelectedIds.length} de {expenses.length} gastos seleccionados
+                  </span>
+                  <span className="font-black text-rose-600 text-sm">
+                    ${totalReplicateAmount.toLocaleString('es-AR')}
+                  </span>
+                </div>
+              )}
             </div>
 
-            <div className="pt-2 flex justify-end gap-2">
+            <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsReplicateModalOpen(false)}
-                className="px-4 py-2 rounded-2xl bg-slate-100 text-slate-700 font-bold text-xs"
+                className="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"
               >
                 Cancelar
               </button>
               <button
                 type="button"
-                onClick={handleReplicateMonthBatch}
+                onClick={handleConfirmReplicateSelected}
+                disabled={saving || replicateSelectedIds.length === 0}
+                className={`px-5 py-2.5 rounded-2xl text-white font-extrabold text-xs shadow-md transition-all active:scale-95 ${
+                  saving || replicateSelectedIds.length === 0
+                    ? 'bg-slate-300 cursor-not-allowed shadow-none'
+                    : 'bg-indigo-700 hover:bg-indigo-800 shadow-indigo-500/20'
+                }`}
+              >
+                {saving
+                  ? 'Replicando...'
+                  : `Confirmar Réplica (${replicateSelectedIds.length})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Replicar Gasto Puntual Individual */}
+      {singleReplicateExpense && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Copy className="w-5 h-5 text-indigo-700" />
+                <h3 className="text-base font-black text-slate-900">Replicar Gasto</h3>
+              </div>
+              <button
+                onClick={() => setSingleReplicateExpense(null)}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div>
+              <span className="text-[10px] uppercase font-extrabold text-indigo-700 block tracking-wider">
+                Concepto
+              </span>
+              <p className="text-sm font-black text-slate-900 mt-0.5">
+                {singleReplicateExpense.title}
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Monto original en {formatMonthNice(singleReplicateExpense.month)}: $
+                {singleReplicateExpense.amount.toLocaleString('es-AR')}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-extrabold text-slate-700 block mb-1">
+                Mes de Destino (YYYY-MM) *
+              </label>
+              <input
+                type="month"
+                required
+                value={singleReplicateTargetMonth}
+                onChange={(e) => setSingleReplicateTargetMonth(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-extrabold text-slate-700 block mb-1">
+                Monto a aplicar en el nuevo mes ($ ARS) *
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="any"
+                required
+                value={singleReplicateAmount}
+                onChange={(e) =>
+                  setSingleReplicateAmount(e.target.value === '' ? '' : Number(e.target.value))
+                }
+                className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-sm font-black text-rose-600 focus:outline-none focus:ring-2 focus:ring-purple-600"
+                placeholder="Ej: 150000"
+              />
+              <span className="text-[11px] text-slate-400 block mt-1">
+                Podés conservar el monto original o ajustarlo si varió.
+              </span>
+            </div>
+
+            <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSingleReplicateExpense(null)}
+                className="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSingleReplicate}
                 disabled={saving}
-                className="px-5 py-2 rounded-2xl bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold text-xs shadow-md shadow-indigo-500/20 active:scale-95"
+                className="px-5 py-2.5 rounded-2xl bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold text-xs shadow-md shadow-indigo-500/20 active:scale-95"
               >
                 {saving ? 'Replicando...' : 'Confirmar Réplica'}
               </button>

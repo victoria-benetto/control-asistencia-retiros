@@ -370,24 +370,27 @@ export async function deleteExpense(id: string): Promise<{ success: boolean; mes
 
 export async function replicateExpense(
   id: string,
-  targetMonth: string
+  targetMonth: string,
+  amount?: number
 ): Promise<FixedExpense> {
   const res = await fetch(`${API_BASE}/expenses/${id}/replicate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ targetMonth }),
+    body: JSON.stringify({ targetMonth, amount }),
   });
   return parseResponse(res);
 }
 
 export async function replicateMonthExpenses(
   fromMonth: string,
-  toMonth: string
+  toMonth: string,
+  expenseIds?: string[],
+  customAmounts?: Record<string, number>
 ): Promise<{ success: boolean; message: string; expenses: FixedExpense[] }> {
   const res = await fetch(`${API_BASE}/expenses/replicate-month`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fromMonth, toMonth }),
+    body: JSON.stringify({ fromMonth, toMonth, expenseIds, customAmounts }),
   });
   return parseResponse(res);
 }
