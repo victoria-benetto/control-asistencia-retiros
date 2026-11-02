@@ -229,4 +229,61 @@ describe('Attendance & Pickup Flow Integration Tests', () => {
       }
     }
   }, 20000);
+  it('POST /api/pickups allows recording pickup with newAuthorizedPerson (Otro)', async () => {
+    const testShift = 'Lunes y miércoles de 8 a 10';
+    const testDni = `89${Date.now().toString().slice(-6)}`;
+    const testDate = '2026-10-15';
+
+    // 1. Create a student
+    const sRes = await request(app)
+      .post('/api/admin/students')
+      .set('x-user-dni', '44122509')
+      .send({
+        firstName: 'Camila',
+        lastName: 'PickupTest',
+        dni: testDni,
+        shift: testShift,
+        status: 'ACTIVE',
+      });
+    const studentId = sRes.body.id;
+
+    try {
+      // 2. Mark attendance as PRESENT
+      const attRes = await request(app)
+        .post('/api/attendance')
+        .send({
+          studentId,
+          status: 'PRESENT',
+          date: testDate,
+          shift: testShift,
+        });
+      expect(attRes.status).toBe(200);
+      const attendanceId = attRes.body.id;
+
+      // 3. Record pickup with newAuthorizedPerson
+      const pickupRes = await request(app)
+        .post('/api/pickups')
+        .send({
+          attendanceId,
+          newAuthorizedPerson: {
+            fullName: 'Marcela Gómez',
+            relationship: 'Tía',
+            dni: '29876543',
+            phone: '1123456789',
+          },
+          notes: 'Autorizado vía WhatsApp',
+        });
+
+      expect(pickupRes.status).toBe(201);
+      expect(pickupRes.body.authorizedPerson).toBeDefined();
+      expect(pickupRes.body.authorizedPerson.fullName).toBe('Marcela Gómez');
+      expect(pickupRes.body.authorizedPerson.relationship).toBe('Tía');
+      expect(pickupRes.body.authorizedPerson.dni).toBe('29876543');
+      expect(pickupRes.body.notes).toBe('Autorizado vía WhatsApp');
+    } finally {
+      if (studentId) {
+        await request(app).delete(`/api/admin/students/${studentId}`).set('x-user-dni', '44122509');
+      }
+    }
+  }, 20000);
 });

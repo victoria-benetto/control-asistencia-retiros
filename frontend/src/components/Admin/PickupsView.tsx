@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { UserCheck, Clock, CheckCircle2, ShieldCheck, AlertCircle, RefreshCw, Calendar, Search } from 'lucide-react';
+import { UserCheck, Clock, CheckCircle2, ShieldCheck, AlertCircle, RefreshCw, Calendar, Search, X, UserPlus } from 'lucide-react';
 import { getTodayAttendance, savePickup } from '../../services/api';
-import { TodayStudentAttendance, AdminUser, OFFICIAL_SHIFTS } from '../../types';
+import { TodayStudentAttendance, AdminUser, OFFICIAL_SHIFTS, Student } from '../../types';
 
 interface PickupsViewProps {
   shift: string;
@@ -26,6 +26,70 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [pickupFilter, setPickupFilter] = useState<'ALL' | 'PENDING' | 'PICKED_UP' | 'NO_AUTHORIZED'>('ALL');
+
+  // Modal para registrar retiro con "Otro" adulto
+  const [otherModalData, setOtherModalData] = useState<{ attendanceId: string; student: Student } | null>(null);
+  const [otherFullName, setOtherFullName] = useState('');
+  const [otherRelationship, setOtherRelationship] = useState('');
+  const [otherDni, setOtherDni] = useState('');
+  const [otherPhone, setOtherPhone] = useState('');
+  const [otherNotes, setOtherNotes] = useState('');
+
+  const openOtherModal = (attendanceId: string, student: Student) => {
+    setOtherModalData({ attendanceId, student });
+    setOtherFullName('');
+    setOtherRelationship('');
+    setOtherDni('');
+    setOtherPhone('');
+    setOtherNotes('');
+  };
+
+  const closeOtherModal = () => {
+    if (otherModalData && selectedPersonMap[otherModalData.attendanceId] === 'OTHER') {
+      setSelectedPersonMap((prev) => ({ ...prev, [otherModalData.attendanceId]: '' }));
+    }
+    setOtherModalData(null);
+    setOtherFullName('');
+    setOtherRelationship('');
+    setOtherDni('');
+    setOtherPhone('');
+    setOtherNotes('');
+  };
+
+  const handleSubmitOtherPickup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otherModalData) return;
+
+    if (!otherFullName.trim()) {
+      alert('Por favor ingresá el nombre y apellido del adulto que retira.');
+      return;
+    }
+    if (!otherRelationship.trim()) {
+      alert('Por favor indicá el vínculo o parentesco con la alumna (ej: Tía, Abuela, etc.).');
+      return;
+    }
+
+    setSavingId(otherModalData.attendanceId);
+    try {
+      await savePickup({
+        attendanceId: otherModalData.attendanceId,
+        newAuthorizedPerson: {
+          fullName: otherFullName.trim(),
+          relationship: otherRelationship.trim(),
+          dni: otherDni.trim() || undefined,
+          phone: otherPhone.trim() || undefined,
+        },
+        notes: otherNotes.trim() || undefined,
+        recordedByAdminId: user.id,
+      });
+      closeOtherModal();
+      await fetchPresentStudents();
+    } catch (err: any) {
+      alert(err.message || 'Error al registrar el retiro con otro adulto.');
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   const fetchPresentStudents = async () => {
     setLoading(true);
@@ -326,16 +390,28 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
                     </div>
                   )}
 
-                  {/* Mensaje de Presente y listo si no tiene autorizados */}
+                  {/* Mensaje o botón si no tiene autorizados precargados */}
                   {!hasPickup && !hasAuthorizedPeople && (
-                    <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-xs font-semibold text-emerald-900 flex items-center gap-2 mt-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                      <span>Presente y lista. No tiene personas a cargo para retirar.</span>
+                    <div className="space-y-2 mt-2">
+                      <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 text-xs font-semibold text-amber-900 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>Sin autorizados precargados en el sistema.</span>
+                      </div>
+                      {attendanceId && (
+                        <button
+                          type="button"
+                          onClick={() => openOtherModal(attendanceId, student)}
+                          className="w-full py-2.5 px-3 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                        >
+                          <UserPlus className="w-3.5 h-3.5 text-purple-700" />
+                          <span>Registrar retiro con otro adulto</span>
+                        </button>
+                      )}
                     </div>
                   )}
 
                   {/* Selección de Persona Autorizada */}
-                  {attendanceId && hasAuthorizedPeople && (
+                  {attendanceId && (hasAuthorizedPeople || hasPickup) && (
                     <div className="space-y-2 mt-2">
                       <label className="block text-xs font-extrabold text-slate-700">
                         {hasPickup ? 'Registrar otro retiro / acompañante:' : 'Seleccionar persona autorizada:'}
@@ -343,26 +419,41 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
 
                       <select
                         value={selectedPersonMap[attendanceId] || ''}
-                        onChange={(e) =>
-                          setSelectedPersonMap({ ...selectedPersonMap, [attendanceId]: e.target.value })
-                        }
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === 'OTHER') {
+                            openOtherModal(attendanceId, student);
+                          } else {
+                            setSelectedPersonMap((prev) => ({ ...prev, [attendanceId]: val }));
+                          }
+                        }}
                         className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[44px]"
                       >
                         <option value="">-- Seleccionar Autorizado --</option>
-                        {student.authorizedPeople.map((person) => (
+                        {student.authorizedPeople?.map((person) => (
                           <option key={person.id} value={person.id}>
                             {person.fullName} - {person.relationship} (DNI: {person.dni})
                           </option>
                         ))}
+                        <option value="OTHER" className="font-extrabold text-purple-700">
+                          ➕ Otro adulto (ingresar datos)...
+                        </option>
                       </select>
                     </div>
                   )}
                 </div>
 
                 {/* Botón Confirmar Retiro Touch Friendly */}
-                {attendanceId && hasAuthorizedPeople && (
+                {attendanceId && (hasAuthorizedPeople || hasPickup) && (
                   <button
-                    onClick={() => handleRegisterPickup(attendanceId)}
+                    type="button"
+                    onClick={() => {
+                      if (selectedPersonMap[attendanceId] === 'OTHER') {
+                        openOtherModal(attendanceId, student);
+                      } else {
+                        handleRegisterPickup(attendanceId);
+                      }
+                    }}
                     disabled={savingId === attendanceId || !selectedPersonMap[attendanceId]}
                     className="w-full mt-3 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-extrabold text-xs sm:text-sm shadow-md transition-all disabled:opacity-40 flex items-center justify-center gap-2 min-h-[48px] active:scale-98"
                   >
@@ -379,6 +470,142 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
               </div>
             );
           })}
+        </div>
+      )}
+      {/* MODAL PARA RETIRO CON "OTRO" ADULTO */}
+      {otherModalData && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-purple-100 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                    Registrar Retiro
+                  </h3>
+                  <p className="text-[11px] text-purple-700 font-bold">
+                    Otro adulto responsable
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeOtherModal}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Datos de la Alumna */}
+            <div className="mt-3 p-3 rounded-2xl bg-purple-50/80 border border-purple-100 text-xs">
+              <p className="text-slate-500 font-semibold">Alumna a retirar:</p>
+              <p className="text-sm font-black text-purple-950">
+                {otherModalData.student.firstName} {otherModalData.student.lastName}
+              </p>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                DNI: <span className="font-mono font-bold text-slate-800">{otherModalData.student.dni}</span> | Turno: <strong>{otherModalData.student.shift}</strong>
+              </p>
+            </div>
+
+            {/* Formulario */}
+            <form onSubmit={handleSubmitOtherPickup} className="mt-4 space-y-3.5">
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                  Nombre y Apellido del Adulto <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={otherFullName}
+                  onChange={(e) => setOtherFullName(e.target.value)}
+                  placeholder="Ej: Laura Gómez"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[42px]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                  Vínculo / Relación con la Alumna <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={otherRelationship}
+                  onChange={(e) => setOtherRelationship(e.target.value)}
+                  placeholder="Ej: Tía, Abuela, Hermano/a mayor, Vecina..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[42px]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                    DNI (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={otherDni}
+                    onChange={(e) => setOtherDni(e.target.value)}
+                    placeholder="Ej: 32456789"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[42px]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                    Teléfono (Opcional)
+                  </label>
+                  <input
+                    type="tel"
+                    value={otherPhone}
+                    onChange={(e) => setOtherPhone(e.target.value)}
+                    placeholder="Ej: 11 2345-6789"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[42px]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                  Notas u Observaciones (Opcional)
+                </label>
+                <input
+                  type="text"
+                  value={otherNotes}
+                  onChange={(e) => setOtherNotes(e.target.value)}
+                  placeholder="Ej: Avisó la madre por WhatsApp previamente"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[42px]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={closeOtherModal}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs transition-all min-h-[42px]"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingId === otherModalData.attendanceId || !otherFullName.trim() || !otherRelationship.trim()}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-extrabold text-xs shadow-md transition-all disabled:opacity-40 flex items-center gap-2 min-h-[42px] active:scale-98"
+                >
+                  {savingId === otherModalData.attendanceId ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <UserCheck className="w-4 h-4" />
+                      <span>Confirmar Retiro</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

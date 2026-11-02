@@ -619,7 +619,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
                 </div>
               ) : mostRecentRecord.status === 'ABSENT' ? (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-800 text-xs font-extrabold border border-rose-200">
                       <XCircle className="w-4 h-4 text-rose-600" />
                       <span>AUSENTE en clase</span>
@@ -636,13 +636,13 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-black border border-emerald-200">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                       <span>¡PRESENTE en clase!</span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {!isTodayClass && (
                         <span className="text-[10px] text-purple-800 bg-purple-50 px-2 py-0.5 rounded-full font-bold border border-purple-200">
                           Última clase
@@ -660,20 +660,20 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div className="bg-slate-50 p-2.5 rounded-2xl flex flex-col">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <div className="bg-slate-50 p-2.5 rounded-2xl flex flex-col justify-center">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                         Horario Asignado
                       </span>
-                      <span className="text-xs font-bold text-slate-800 mt-0.5 truncate">
+                      <span className="text-xs font-bold text-slate-800 mt-0.5 leading-snug">
                         {mostRecentRecord.makeupShift || student.shift}
                       </span>
                     </div>
-                    <div className="bg-slate-50 p-2.5 rounded-2xl flex flex-col">
+                    <div className="bg-slate-50 p-2.5 rounded-2xl flex flex-col justify-center">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                         Docente a Cargo
                       </span>
-                      <span className="text-xs font-bold text-slate-800 mt-0.5 truncate">
+                      <span className="text-xs font-bold text-slate-800 mt-0.5 truncate leading-snug">
                         {mostRecentRecord.recordedBy?.fullName || 'Profesora'}
                       </span>
                     </div>

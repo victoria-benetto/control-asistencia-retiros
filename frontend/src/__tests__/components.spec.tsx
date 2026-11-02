@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LoginView } from '../components/LoginView';
 import { Navbar } from '../components/Navbar';
 import { ParentPortal } from '../components/Parent/ParentPortal';
+import { PickupsView } from '../components/Admin/PickupsView';
 import { Student, AdminUser } from '../types';
 
 describe('Frontend Component Unit & Integration Tests', () => {
@@ -248,6 +249,100 @@ describe('Frontend Component Unit & Integration Tests', () => {
       // Volver a la pantalla principal
       fireEvent.click(screen.getByRole('button', { name: /volver/i }));
       expect(screen.getByText(/Estado de la clase de hoy/i)).toBeInTheDocument();
+    });
+  });
+  describe('PickupsView Component & Otro Adulto Flow', () => {
+    const mockAdmin: AdminUser = {
+      id: 'admin-1',
+      dni: '44122509',
+      fullName: 'Victoria Profe',
+      role: 'SUPER_ADMIN',
+      permissions: { canAttendance: true, canPickups: true, canHistory: true },
+    };
+
+    it('opens modal when selecting Otro adulto and submits pickup with newAuthorizedPerson', async () => {
+      global.fetch = vi.fn().mockImplementation((url: string, opts?: any) => {
+        if (url.includes('/api/attendance/today')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              date: '2026-11-02',
+              shift: 'Lunes y miércoles de 8 a 10',
+              todayDayName: 'Lunes',
+              students: [
+                {
+                  student: {
+                    id: 's-1',
+                    firstName: 'Lucía',
+                    lastName: 'Martínez',
+                    dni: '45123456',
+                    shift: 'Lunes y miércoles de 8 a 10',
+                    authorizedPeople: [
+                      { id: 'ap-1', studentId: 's-1', fullName: 'Carlos Martínez', relationship: 'Padre', dni: '22111333' },
+                    ],
+                  },
+                  attendanceId: 'att-1',
+                  status: 'PRESENT',
+                  pickups: [],
+                },
+              ],
+            }),
+          });
+        }
+        if (url.includes('/api/pickups') && opts?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              id: 'pk-new',
+              attendanceId: 'att-1',
+              pickupTime: new Date().toISOString(),
+              authorizedPerson: { id: 'ap-new', fullName: 'Marta Gómez', relationship: 'Tía', dni: '28123456' },
+            }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      });
+
+      render(<PickupsView shift="Lunes y miércoles de 8 a 10" user={mockAdmin} />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Lucía Martínez/i)).toBeInTheDocument();
+      });
+
+      // Find the select for authorized person and select OTHER
+      const selects = screen.getAllByRole('combobox');
+      const authorizedSelect = selects[selects.length - 1];
+      expect(screen.getByText(/➕ Otro adulto/i)).toBeInTheDocument();
+
+      fireEvent.change(authorizedSelect, { target: { value: 'OTHER' } });
+
+      // Modal should be visible
+      await waitFor(() => {
+        expect(screen.getByText(/Registrar Retiro/i)).toBeInTheDocument();
+        expect(screen.getByText(/Otro adulto responsable/i)).toBeInTheDocument();
+      });
+
+      // Fill in modal inputs
+      const nameInput = screen.getByPlaceholderText(/Ej: Laura Gómez/i);
+      const relationshipInput = screen.getByPlaceholderText(/Ej: Tía, Abuela/i);
+      const dniInput = screen.getByPlaceholderText(/Ej: 32456789/i);
+
+      fireEvent.change(nameInput, { target: { value: 'Marta Gómez' } });
+      fireEvent.change(relationshipInput, { target: { value: 'Tía' } });
+      fireEvent.change(dniInput, { target: { value: '28123456' } });
+
+      const submitBtn = screen.getByRole('button', { name: /^confirmar retiro$/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/pickups',
+          expect.objectContaining({
+            method: 'POST',
+            body: expect.stringContaining('Marta Gómez'),
+          })
+        );
+      });
     });
   });
 });

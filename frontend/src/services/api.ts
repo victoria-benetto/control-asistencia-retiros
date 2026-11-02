@@ -169,7 +169,20 @@ export async function deleteAttendance(id: string, userDni?: string): Promise<{ 
 }
 
 // Retiros
-export async function savePickup(data: { attendanceId: string; authorizedPersonId: string; recordedByAdminId?: string; notes?: string }): Promise<PickupRecord> {
+export interface SavePickupPayload {
+  attendanceId: string;
+  authorizedPersonId?: string;
+  newAuthorizedPerson?: {
+    fullName: string;
+    relationship: string;
+    dni?: string;
+    phone?: string;
+  };
+  recordedByAdminId?: string;
+  notes?: string;
+}
+
+export async function savePickup(data: SavePickupPayload): Promise<PickupRecord> {
   const res = await fetch(`${API_BASE}/pickups`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

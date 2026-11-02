@@ -143,3 +143,25 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 - **Backend TypeScript**: Validación estricta sin errores (`tsc --noEmit`).
 - **Tests Vitest Backend**: 8/8 tests unitarios de trazabilidad, excedentes, modificación y anulación a 0 aprobados en `backend/src/__tests__/payments.spec.ts`.
 - **Tests Vitest Frontend**: 17/17 tests de integración aprobados en `frontend/src/__tests__/` (incluyendo flujo de navegación, trazabilidad de pagos, portal alumna, gastos fijos con réplica granular y reportes de ingresos).
+
+## 12. Control de Retiros ("Otro Adulto") y Portal Alumna Responsive ("Globos de Clase")
+- **Fecha**: Noviembre 2026.
+- **Objetivos y Mejoras Implementadas**:
+  1. **Control de Retiros con Selección de "Otro Adulto" (PickupsView.tsx y pickup.routes.ts)**:
+     - Agregada la opción **"➕ Otro adulto (ingresar datos)..."** dentro del desplegable de selección de autorizados en el Control de Retiros de administración.
+     - Apertura automática de un modal emergente donde se ingresan los datos del adulto que retira a la alumna:
+       - Nombre y Apellido (obligatorio).
+       - Vínculo / Relación con la alumna (obligatorio, ej: Tía, Abuela, Hermano/a, Vecina).
+       - DNI (opcional, con fallback seguro sin romper restricciones de base de datos).
+       - Teléfono (opcional).
+       - Notas u observaciones adicionales (opcional, ej: autorización previa por WhatsApp).
+     - Si la alumna presente no cuenta con autorizados precargados en el sistema, se muestra un botón directo para registrar el retiro con otro adulto.
+     - Backend (POST /api/pickups): recibe newAuthorizedPerson, crea el registro en AuthorizedPerson vinculado a la alumna y asocia el retiro (PickupRecord) con persistencia en Supabase.
+  2. **Portal Alumna: Adaptabilidad Responsive de "Estado de la clase de hoy" (ParentPortal.tsx)**:
+     - Reemplazada la disposición rígida de dos columnas fijas por grid-cols-1 sm:grid-cols-2.
+     - En pantallas de teléfonos móviles o con espacio horizontal reducido, los "globos" informativos de **"Horario Asignado"** y **"Docente a Cargo"** se colocan limpiamente uno debajo del otro, evitando truncamientos incómodos de los nombres largos de turnos.
+     - Incorporado flex-wrap en las cabeceras de estado (¡PRESENTE en clase!, hora, badge de última clase) para garantizar ajuste fluido sin desbordes.
+  3. **Tests y Verificación**:
+     - Test unitario frontend en components.spec.tsx validando la apertura del modal al seleccionar "Otro", completado de formulario y envío de savePickup con newAuthorizedPerson.
+     - Test unitario backend en attendance_pickup.spec.ts validando la creación de AuthorizedPerson y registro de retiro con newAuthorizedPerson.
+     - 18/18 tests frontend y 8/8 tests backend pasando exitosamente.

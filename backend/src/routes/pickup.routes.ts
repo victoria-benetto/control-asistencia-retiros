@@ -95,10 +95,14 @@ router.get('/today', async (req: Request, res: Response) => {
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { attendanceId, authorizedPersonId, recordedByAdminId, notes } = req.body;
+    const { attendanceId, authorizedPersonId, recordedByAdminId, notes, newAuthorizedPerson } = req.body;
 
-    if (!attendanceId || !authorizedPersonId) {
-      return res.status(400).json({ error: 'attendanceId y authorizedPersonId son requeridos.' });
+    if (!attendanceId) {
+      return res.status(400).json({ error: 'attendanceId es requerido.' });
+    }
+
+    if (!authorizedPersonId && (!newAuthorizedPerson || !newAuthorizedPerson.fullName?.trim())) {
+      return res.status(400).json({ error: 'authorizedPersonId o datos de newAuthorizedPerson son requeridos.' });
     }
 
     const attendance = await prisma.attendanceRecord.findUnique({
@@ -113,10 +117,29 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'No se puede registrar el retiro de una alumna ausente.' });
     }
 
+    let effectiveAuthPersonId = authorizedPersonId;
+
+    if (newAuthorizedPerson && newAuthorizedPerson.fullName?.trim()) {
+      const createdAuth = await prisma.authorizedPerson.create({
+        data: {
+          studentId: attendance.studentId,
+          fullName: newAuthorizedPerson.fullName.trim(),
+          relationship: newAuthorizedPerson.relationship ? newAuthorizedPerson.relationship.trim() : 'Otro',
+          dni: newAuthorizedPerson.dni?.trim() || 'S/D',
+          phone: newAuthorizedPerson.phone?.trim() || null,
+        },
+      });
+      effectiveAuthPersonId = createdAuth.id;
+    }
+
+    if (!effectiveAuthPersonId || effectiveAuthPersonId === 'OTHER') {
+      return res.status(400).json({ error: 'Persona autorizada inválida o no provista.' });
+    }
+
     const pickup = await prisma.pickupRecord.create({
       data: {
         attendanceId,
-        authorizedPersonId,
+        authorizedPersonId: effectiveAuthPersonId,
         recordedByAdminId: recordedByAdminId || null,
         pickupTime: new Date(),
         notes: notes ? notes.trim() : null,
