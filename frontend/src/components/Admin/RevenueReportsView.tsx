@@ -532,36 +532,36 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
 
       {/* 2. Selector de Período y Filtro Rápido */}
       <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between rounded-3xl bg-white p-3.5 sm:p-4 shadow-sm border border-slate-100">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handlePrevPeriod}
-              aria-label={viewScope === 'ANNUAL' ? 'Año anterior' : 'Mes anterior'}
-              className="p-2 rounded-full hover:bg-slate-100 text-slate-600 transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-50 text-purple-700">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                  {viewScope === 'ANNUAL' ? 'Año Seleccionado' : 'Período Seleccionado'}
-                </span>
-                <span className="text-base sm:text-lg font-black text-slate-900 capitalize">
-                  {displayPeriodLabel}
-                </span>
-              </div>
+        <div className="flex items-center justify-between w-full rounded-3xl bg-white p-3 sm:p-4 shadow-sm border border-slate-100">
+          <button
+            onClick={handlePrevPeriod}
+            aria-label={viewScope === 'ANNUAL' ? 'Año anterior' : 'Mes anterior'}
+            className="p-2 sm:p-2.5 rounded-2xl hover:bg-slate-100 text-slate-600 transition-colors shrink-0 active:scale-95"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 justify-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-50 text-purple-700 shrink-0">
+              <Calendar className="w-5 h-5" />
             </div>
-            <button
-              onClick={handleNextPeriod}
-              aria-label={viewScope === 'ANNUAL' ? 'Año siguiente' : 'Mes siguiente'}
-              className="p-2 rounded-full hover:bg-slate-100 text-slate-600 transition-colors"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
+            <div className="flex flex-col min-w-0 text-left">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 truncate">
+                {viewScope === 'ANNUAL' ? 'Año Seleccionado' : 'Período Seleccionado'}
+              </span>
+              <span className="text-sm sm:text-lg font-black text-slate-900 capitalize truncate">
+                {displayPeriodLabel}
+              </span>
+            </div>
           </div>
+
+          <button
+            onClick={handleNextPeriod}
+            aria-label={viewScope === 'ANNUAL' ? 'Año siguiente' : 'Mes siguiente'}
+            className="p-2 sm:p-2.5 rounded-2xl hover:bg-slate-100 text-slate-600 transition-colors shrink-0 active:scale-95"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Chips de Filtrado Horizontal */}
