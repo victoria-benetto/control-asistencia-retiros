@@ -112,12 +112,18 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
   - **Frontend Components**:
     - `RevenueReportsView.tsx`:
       - Header banner con degradado Vulpiare y conmutador Mensual / Anual.
-      - 6 KPIs financieros en tiempo real: Ingresos Totales (con % vs mes anterior), Gastos Fijos, Balance Neto (`Total Ingresos - Total Gastos`), Cobros Hechos (% efectividad sobre alumnas activas), En Mora / Pendiente, Ticket Promedio.
-      - Gráfico de barras de evolución histórica (últimos 6 meses) con etiqueta RÉCORD.
+      - **Selector de Período Adaptativo**:
+        - En vista **Mensual**: selector y flechas mes a mes (ej. "Noviembre 2026").
+        - En vista **Anual**: selector y flechas año a año (ej. "Año 2026", "Año 2025") con comparativa vs año anterior.
+        - **Eliminación del botón redundante de Gastos Fijos** dentro del período seleccionado (la gestión se realiza exclusivamente desde su propia pestaña en Gestiones).
+      - 6 KPIs financieros en tiempo real: Ingresos Totales (con % vs mes o año anterior), Gastos Fijos, Balance Neto (`Total Ingresos - Total Gastos`), Cobros Hechos (% efectividad sobre alumnas activas), En Mora / Pendiente, Ticket Promedio.
+      - **Gráfico de Evolución de Ingresos Avanzado**:
+        - En vista **Mensual**: soporte de conmutador **6 Meses / 12 Meses**, y controles de navegación hacia meses anteriores y posteriores, con botón para volver al período actual.
+        - En vista **Anual**: evolución de ingresos anuales históricos por año calendario (ej. 2022 a 2026) con controles de navegación para explorar bloques de años anteriores o siguientes.
+        - Barras interactivas con tooltip exacto y selección al clic para cambiar el período en foco.
       - Desglose por Medio de Pago (Transferencia Bancaria vs Efectivo en Caja) con barras porcentuales.
       - Desglose por Concepto (Cuotas Mensuales, Matrículas Anuales, Clases Sueltas).
-      - Acciones de exportación: Descarga CSV oficial para Excel y generación de PDF para impresión contable.
-      - Acceso directo a la pantalla de Gastos Fijos.
+      - Acciones de exportación: Descarga CSV oficial para Excel (con nombre dinámico mensual o anual) y generación de PDF para impresión contable.
     - `FixedExpensesView.tsx`:
       - Tarjetas de resumen: Total Egresos, Cantidad de Conceptos y Gastos Recurrentes.
       - Selector de mes con flechitas y selector directo.
@@ -132,4 +138,4 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 - **Vite & TypeScript Frontend**: Compilación 100% exitosa (`tsc && vite build`).
 - **Backend TypeScript**: Validación estricta sin errores (`tsc --noEmit`).
 - **Tests Vitest Backend**: 8/8 tests unitarios de trazabilidad, excedentes, modificación y anulación a 0 aprobados en `backend/src/__tests__/payments.spec.ts`.
-- **Tests Vitest Frontend**: 14/14 tests de integración aprobados en `frontend/src/__tests__/` (incluyendo flujo de navegación, trazabilidad de pagos, portal alumna, control de gastos fijos y reporte de ingresos).
+- **Tests Vitest Frontend**: 15/15 tests de integración aprobados en `frontend/src/__tests__/` (incluyendo flujo de navegación, trazabilidad de pagos, portal alumna, gastos fijos y reporte de ingresos con vista anual y paginación de gráficos).

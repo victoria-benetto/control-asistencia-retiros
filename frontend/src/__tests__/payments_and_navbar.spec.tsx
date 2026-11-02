@@ -581,4 +581,50 @@ describe('RevenueReportsView Component Tests', () => {
     expect(exportBtn).toBeInTheDocument();
     fireEvent.click(exportBtn);
   });
+
+  it('removes gastos fijos button from period selector, supports annual scope with years and trend chart navigation', async () => {
+    render(<RevenueReportsView user={superAdminUser} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Reportes de Ingresos y Balance/i)).toBeInTheDocument();
+    });
+
+    // 1. Verificar que NO existe el botón de "Gestionar Gastos Fijos" dentro de los reportes
+    expect(screen.queryByText(/Gestionar Gastos Fijos/i)).not.toBeInTheDocument();
+
+    // 2. En vista mensual por defecto: verificar selector 6M / 12M y controles de navegación de meses anteriores
+    expect(screen.getByRole('button', { name: '6 Meses' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '12 Meses' })).toBeInTheDocument();
+    expect(screen.getByTitle(/Ver meses anteriores/i)).toBeInTheDocument();
+
+    // Cambiar a vista 12 Meses
+    fireEvent.click(screen.getByRole('button', { name: '12 Meses' }));
+    expect(screen.getByText(/Últimos 12 meses/i)).toBeInTheDocument();
+
+    // 3. Cambiar a vista Anual
+    const annualBtn = screen.getByRole('button', { name: 'Anual' });
+    fireEvent.click(annualBtn);
+
+    const currentYear = new Date().getFullYear();
+    const prevYear = currentYear - 1;
+
+    // En vista anual el período seleccionado debe mostrar el año (ej. "Año 2026")
+    await waitFor(() => {
+      expect(screen.getByText(new RegExp(`Año ${currentYear}`, 'i'))).toBeInTheDocument();
+      expect(screen.getByText(/Evolución de Ingresos Anuales/i)).toBeInTheDocument();
+      expect(screen.getByText(/Histórico de recaudación anual/i)).toBeInTheDocument();
+    });
+
+    // Probar navegación con flechas de año (Año anterior)
+    const prevYearBtn = screen.getByRole('button', { name: /Año anterior/i });
+    fireEvent.click(prevYearBtn);
+
+    expect(screen.getByText(new RegExp(`Año ${prevYear}`, 'i'))).toBeInTheDocument();
+
+    // Probar retorno al año siguiente
+    const nextYearBtn = screen.getByRole('button', { name: /Año siguiente/i });
+    fireEvent.click(nextYearBtn);
+
+    expect(screen.getByText(new RegExp(`Año ${currentYear}`, 'i'))).toBeInTheDocument();
+  });
 });

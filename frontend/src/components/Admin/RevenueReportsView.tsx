@@ -50,6 +50,13 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
 
+  // Rango y desplazamiento para el gráfico mensual (6M vs 12M y paginado)
+  const [chartMonthsRange, setChartMonthsRange] = useState<'6M' | '12M'>('6M');
+  const [chartMonthOffset, setChartMonthOffset] = useState<number>(0);
+
+  // Desplazamiento para el gráfico anual (paginado de años)
+  const [chartYearOffset, setChartYearOffset] = useState<number>(0);
+
   // Filtro por concepto
   const [conceptFilter, setConceptFilter] = useState<string>('TODOS');
 
@@ -81,6 +88,11 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
     loadData();
   }, []);
 
+  // Año seleccionado y etiquetas de período
+  const selectedYear = useMemo(() => {
+    return selectedMonth.split('-')[0] || String(new Date().getFullYear());
+  }, [selectedMonth]);
+
   // Formateador de mes (ej. "Noviembre 2026")
   const formatMonthNice = (monthStr: string) => {
     if (!monthStr) return '';
@@ -91,25 +103,49 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
     return formatted.charAt(0).toUpperCase() + formatted.slice(1);
   };
 
-  // Navegación de mes con flechitas
-  const handlePrevMonth = () => {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const prev = new Date(y, m - 2, 1);
-    setSelectedMonth(`${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`);
+  // Etiqueta del período activo (Mes o Año según viewScope)
+  const displayPeriodLabel = useMemo(() => {
+    if (viewScope === 'ANNUAL') {
+      return `Año ${selectedYear}`;
+    }
+    return formatMonthNice(selectedMonth);
+  }, [viewScope, selectedYear, selectedMonth]);
+
+  // Navegación de período (mes a mes en Mensual, año a año en Anual)
+  const handlePrevPeriod = () => {
+    if (viewScope === 'ANNUAL') {
+      const y = Number(selectedYear);
+      const m = selectedMonth.split('-')[1] || '01';
+      setSelectedMonth(`${y - 1}-${m}`);
+    } else {
+      const [y, m] = selectedMonth.split('-').map(Number);
+      const prev = new Date(y, m - 2, 1);
+      setSelectedMonth(`${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`);
+    }
   };
 
-  const handleNextMonth = () => {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const next = new Date(y, m, 1);
-    setSelectedMonth(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`);
+  const handleNextPeriod = () => {
+    if (viewScope === 'ANNUAL') {
+      const y = Number(selectedYear);
+      const m = selectedMonth.split('-')[1] || '01';
+      setSelectedMonth(`${y + 1}-${m}`);
+    } else {
+      const [y, m] = selectedMonth.split('-').map(Number);
+      const next = new Date(y, m, 1);
+      setSelectedMonth(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`);
+    }
   };
 
-  // Mes anterior para cálculo de comparativa %
+  // Período anterior para cálculo de comparativa %
   const previousMonthStr = useMemo(() => {
     const [y, m] = selectedMonth.split('-').map(Number);
     const prev = new Date(y, m - 2, 1);
     return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
   }, [selectedMonth]);
+
+  const previousYearStr = useMemo(() => {
+    return String(Number(selectedYear) - 1);
+  }, [selectedYear]);
 
   // Alumnas activas (las que deben pagar cuota)
   const activeStudents = useMemo(() => {
@@ -145,10 +181,18 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
     return list;
   }, [payments, selectedMonth, viewScope, conceptFilter]);
 
-  // Pagos del mes anterior para comparativa
-  const prevMonthPayments = useMemo(() => {
-    return payments.filter((p) => p.month === previousMonthStr);
-  }, [payments, previousMonthStr]);
+  // Recaudación del período anterior para comparativa
+  const prevPeriodRevenue = useMemo(() => {
+    if (viewScope === 'MONTHLY') {
+      return payments
+        .filter((p) => p.month === previousMonthStr)
+        .reduce((sum, p) => sum + (p.amount || 0), 0);
+    } else {
+      return payments
+        .filter((p) => p.month.startsWith(previousYearStr))
+        .reduce((sum, p) => sum + (p.amount || 0), 0);
+    }
+  }, [payments, viewScope, previousMonthStr, previousYearStr]);
 
   // Gastos del período
   const filteredExpenses = useMemo(() => {
@@ -166,14 +210,10 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
     return filteredPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
   }, [filteredPayments]);
 
-  const prevMonthRevenue = useMemo(() => {
-    return prevMonthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-  }, [prevMonthPayments]);
-
   const revenueVariationPercent = useMemo(() => {
-    if (prevMonthRevenue === 0) return totalRevenue > 0 ? 100 : 0;
-    return Math.round(((totalRevenue - prevMonthRevenue) / prevMonthRevenue) * 100);
-  }, [totalRevenue, prevMonthRevenue]);
+    if (prevPeriodRevenue === 0) return totalRevenue > 0 ? 100 : 0;
+    return Math.round(((totalRevenue - prevPeriodRevenue) / prevPeriodRevenue) * 100);
+  }, [totalRevenue, prevPeriodRevenue]);
 
   // Total Gastos
   const totalExpenses = useMemo(() => {
@@ -277,23 +317,37 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
   }, [filteredPayments]);
 
   // =========================================================================
-  // EVOLUCIÓN HISTÓRICA DE INGRESOS (ÚLTIMOS 6 MESES)
+  // EVOLUCIÓN HISTÓRICA DE INGRESOS (MENSUAL O ANUAL)
   // =========================================================================
-  const historicalTrend = useMemo(() => {
-    const result: Array<{ monthStr: string; label: string; amount: number; isCurrent: boolean }> = [];
+  // Gráfico de evolución mensual (6M o 12M con soporte de desplazamiento hacia meses anteriores)
+  const monthlyTrend = useMemo(() => {
+    const result: Array<{
+      key: string;
+      label: string;
+      sublabel?: string;
+      amount: number;
+      isCurrent: boolean;
+      tooltip: string;
+    }> = [];
+    const count = chartMonthsRange === '6M' ? 6 : 12;
     const [y, m] = selectedMonth.split('-').map(Number);
 
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(y, m - 1 - i, 1);
+    for (let i = count - 1; i >= 0; i--) {
+      const d = new Date(y, m - 1 - i - chartMonthOffset, 1);
       const mStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const monthPayments = payments.filter((p) => p.month === mStr);
       const sum = monthPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
       const label = d.toLocaleDateString('es-AR', { month: 'short' }).toUpperCase().replace('.', '');
+      const yearShort = `'${String(d.getFullYear()).slice(2)}`;
+      const niceName = d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+
       result.push({
-        monthStr: mStr,
+        key: mStr,
         label,
+        sublabel: chartMonthsRange === '12M' || d.getFullYear() !== y ? yearShort : undefined,
         amount: sum,
         isCurrent: mStr === selectedMonth,
+        tooltip: `${niceName.charAt(0).toUpperCase() + niceName.slice(1)}: $${sum.toLocaleString('es-AR')}`,
       });
     }
 
@@ -304,13 +358,63 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
       heightPercent: Math.max(12, Math.round((item.amount / maxAmount) * 92)),
       isRecord: item.amount === maxAmount && maxAmount > 0,
     }));
-  }, [payments, selectedMonth]);
+  }, [payments, selectedMonth, chartMonthsRange, chartMonthOffset]);
+
+  // Gráfico de evolución anual (5 años con soporte de desplazamiento)
+  const annualTrend = useMemo(() => {
+    const result: Array<{
+      key: string;
+      label: string;
+      sublabel?: string;
+      amount: number;
+      isCurrent: boolean;
+      tooltip: string;
+    }> = [];
+    const baseYear = Number(selectedYear) + chartYearOffset;
+    const yearsCount = 5;
+
+    for (let i = yearsCount - 1; i >= 0; i--) {
+      const targetYear = baseYear - i;
+      const yStr = String(targetYear);
+      const yearPayments = payments.filter((p) => (p.month || '').startsWith(yStr));
+      const sum = yearPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
+
+      result.push({
+        key: yStr,
+        label: yStr,
+        sublabel: 'Anual',
+        amount: sum,
+        isCurrent: yStr === selectedYear,
+        tooltip: `Año ${yStr}: $${sum.toLocaleString('es-AR')}`,
+      });
+    }
+
+    const maxAmount = Math.max(...result.map((r) => r.amount), 1);
+
+    return result.map((item) => ({
+      ...item,
+      heightPercent: Math.max(12, Math.round((item.amount / maxAmount) * 92)),
+      isRecord: item.amount === maxAmount && maxAmount > 0,
+    }));
+  }, [payments, selectedYear, chartYearOffset]);
+
+  const displayedTrend = viewScope === 'ANNUAL' ? annualTrend : monthlyTrend;
+
+  // Clic en barra de gráfico para cambiar el período seleccionado
+  const handleBarClick = (key: string) => {
+    if (viewScope === 'ANNUAL') {
+      const currentM = selectedMonth.split('-')[1] || '01';
+      setSelectedMonth(`${key}-${currentM}`);
+    } else {
+      setSelectedMonth(key);
+    }
+  };
 
   // Disparar evento analítico al cargar el reporte
   useEffect(() => {
     if (!loading) {
       trackFinancialReportViewed({
-        period: selectedMonth,
+        period: viewScope === 'ANNUAL' ? selectedYear : selectedMonth,
         totalRevenue,
         totalExpenses,
         netBalance,
@@ -318,14 +422,15 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
         pendingCount: unpaidStudents.length,
       });
     }
-  }, [selectedMonth, loading, totalRevenue, totalExpenses, netBalance, paidCount, unpaidStudents.length]);
+  }, [selectedMonth, selectedYear, viewScope, loading, totalRevenue, totalExpenses, netBalance, paidCount, unpaidStudents.length]);
 
   // =========================================================================
   // ACCIONES DE EXPORTACIÓN
   // =========================================================================
   const handleExportExcel = () => {
+    const periodLabel = viewScope === 'ANNUAL' ? selectedYear : selectedMonth;
     setExportFeedback('excel');
-    trackReportExported({ format: 'excel', period: selectedMonth, totalRevenue });
+    trackReportExported({ format: 'excel', period: periodLabel, totalRevenue });
 
     // Generar CSV descargable
     const headers = ['Fecha', 'Alumna', 'DNI', 'Concepto', 'Monto', 'Medio de Pago', 'Operacion', 'Notas'];
@@ -347,7 +452,12 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Vulpiare_Reporte_${selectedMonth}.csv`);
+    link.setAttribute(
+      'download',
+      viewScope === 'ANNUAL'
+        ? `Vulpiare_Reporte_Anual_${selectedYear}.csv`
+        : `Vulpiare_Reporte_${selectedMonth}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -389,7 +499,10 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
           {/* Segmented Control Mensual vs Anual */}
           <div className="mt-1 flex rounded-full bg-black/20 p-1 backdrop-blur-sm self-start w-full max-w-[260px]">
             <button
-              onClick={() => setViewScope('MONTHLY')}
+              onClick={() => {
+                setViewScope('MONTHLY');
+                setChartMonthOffset(0);
+              }}
               className={`flex-1 rounded-full py-1.5 text-center text-xs font-black transition-all ${
                 viewScope === 'MONTHLY'
                   ? 'bg-white text-purple-900 shadow-sm'
@@ -400,7 +513,10 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
               Mensual
             </button>
             <button
-              onClick={() => setViewScope('ANNUAL')}
+              onClick={() => {
+                setViewScope('ANNUAL');
+                setChartYearOffset(0);
+              }}
               className={`flex-1 rounded-full py-1.5 text-center text-xs font-black transition-all ${
                 viewScope === 'ANNUAL'
                   ? 'bg-white text-purple-900 shadow-sm'
@@ -419,8 +535,8 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
         <div className="flex items-center justify-between rounded-3xl bg-white p-3.5 sm:p-4 shadow-sm border border-slate-100">
           <div className="flex items-center gap-3">
             <button
-              onClick={handlePrevMonth}
-              aria-label="Mes anterior"
+              onClick={handlePrevPeriod}
+              aria-label={viewScope === 'ANNUAL' ? 'Año anterior' : 'Mes anterior'}
               className="p-2 rounded-full hover:bg-slate-100 text-slate-600 transition-colors"
             >
               <ChevronLeft className="w-5 h-5" />
@@ -431,31 +547,21 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                  Período Seleccionado
+                  {viewScope === 'ANNUAL' ? 'Año Seleccionado' : 'Período Seleccionado'}
                 </span>
                 <span className="text-base sm:text-lg font-black text-slate-900 capitalize">
-                  {formatMonthNice(selectedMonth)}
+                  {displayPeriodLabel}
                 </span>
               </div>
             </div>
             <button
-              onClick={handleNextMonth}
-              aria-label="Mes siguiente"
+              onClick={handleNextPeriod}
+              aria-label={viewScope === 'ANNUAL' ? 'Año siguiente' : 'Mes siguiente'}
               className="p-2 rounded-full hover:bg-slate-100 text-slate-600 transition-colors"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
-
-          {onNavigateToExpenses && (
-            <button
-              onClick={onNavigateToExpenses}
-              className="px-4 py-2 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-extrabold text-xs flex items-center gap-1.5 transition-colors"
-            >
-              <DollarSign className="w-4 h-4 text-amber-600" />
-              <span className="hidden sm:inline">Gestionar</span> Gastos Fijos
-            </button>
-          )}
         </div>
 
         {/* Chips de Filtrado Horizontal */}
@@ -500,12 +606,12 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
               {revenueVariationPercent >= 0 ? (
                 <>
                   <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>+{revenueVariationPercent}% vs mes anterior</span>
+                  <span>+{revenueVariationPercent}% vs {viewScope === 'ANNUAL' ? 'año anterior' : 'mes anterior'}</span>
                 </>
               ) : (
                 <>
                   <TrendingDown className="w-3.5 h-3.5 text-rose-600" />
-                  <span>{revenueVariationPercent}% vs mes anterior</span>
+                  <span>{revenueVariationPercent}% vs {viewScope === 'ANNUAL' ? 'año anterior' : 'mes anterior'}</span>
                 </>
               )}
             </div>
@@ -618,49 +724,177 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
         </div>
       </section>
 
-      {/* 4. Visualización de Evolución de Ingresos (Barras estilizadas estilo reportes_e_ingresos.html) */}
+      {/* 4. Visualización de Evolución de Ingresos (Mensual o Anual con controles de navegación) */}
       <section className="rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-slate-100 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex flex-col">
-            <h2 className="text-base sm:text-lg font-black text-slate-900">Evolución de Ingresos</h2>
-            <span className="text-xs text-slate-400 font-medium">Últimos 6 meses (ARS)</span>
+            <h2 className="text-base sm:text-lg font-black text-slate-900">
+              {viewScope === 'ANNUAL' ? 'Evolución de Ingresos Anuales' : 'Evolución de Ingresos'}
+            </h2>
+            <span className="text-xs text-slate-400 font-medium">
+              {viewScope === 'ANNUAL'
+                ? 'Histórico de recaudación anual (ARS)'
+                : chartMonthOffset > 0
+                ? `Período anterior (desplazado ${chartMonthOffset} meses atrás)`
+                : `Últimos ${chartMonthsRange === '6M' ? '6' : '12'} meses (ARS)`}
+            </span>
           </div>
-          <div className="flex items-center gap-1.5 rounded-full bg-purple-50 px-3 py-1 text-purple-700 font-extrabold text-xs">
-            <BarChart3 className="w-4 h-4" />
-            <span>Semestral</span>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {viewScope === 'MONTHLY' ? (
+              <>
+                {/* Selector 6M vs 12M */}
+                <div className="flex items-center rounded-2xl bg-slate-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setChartMonthsRange('6M')}
+                    className={`px-3 py-1 text-[11px] font-black rounded-xl transition-all ${
+                      chartMonthsRange === '6M'
+                        ? 'bg-white text-purple-900 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    6 Meses
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartMonthsRange('12M')}
+                    className={`px-3 py-1 text-[11px] font-black rounded-xl transition-all ${
+                      chartMonthsRange === '12M'
+                        ? 'bg-white text-purple-900 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    12 Meses
+                  </button>
+                </div>
+
+                {/* Navegación de meses anteriores y siguientes */}
+                <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setChartMonthOffset((prev) => prev + (chartMonthsRange === '6M' ? 6 : 12))}
+                    className="p-1.5 rounded-xl hover:bg-white text-slate-700 hover:text-purple-700 transition-colors shadow-sm"
+                    title="Ver meses anteriores"
+                    aria-label="Ver meses anteriores"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  {chartMonthOffset > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setChartMonthOffset(0)}
+                      className="px-2 py-0.5 text-[10px] font-extrabold text-purple-700 hover:bg-white rounded-lg transition-colors"
+                      title="Volver a los meses más recientes"
+                    >
+                      Actual
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={chartMonthOffset <= 0}
+                    onClick={() =>
+                      setChartMonthOffset((prev) =>
+                        Math.max(0, prev - (chartMonthsRange === '6M' ? 6 : 12))
+                      )
+                    }
+                    className={`p-1.5 rounded-xl transition-colors ${
+                      chartMonthOffset <= 0
+                        ? 'text-slate-300 cursor-not-allowed'
+                        : 'hover:bg-white text-slate-700 hover:text-purple-700 shadow-sm'
+                    }`}
+                    title="Ver meses posteriores"
+                    aria-label="Ver meses posteriores"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Navegación de años en vista anual */
+              <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => setChartYearOffset((prev) => prev - 5)}
+                  className="px-3 py-1.5 rounded-xl hover:bg-white text-slate-700 text-xs font-bold transition-all flex items-center gap-1 shadow-sm"
+                  title="Ver 5 años anteriores"
+                  aria-label="Ver años anteriores"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>Años anteriores</span>
+                </button>
+                {chartYearOffset !== 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setChartYearOffset(0)}
+                    className="px-2 py-1 text-[10px] font-extrabold text-purple-700 hover:bg-white rounded-lg transition-colors"
+                    title="Volver al período actual"
+                  >
+                    Actual
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setChartYearOffset((prev) => prev + 5)}
+                  className="px-3 py-1.5 rounded-xl hover:bg-white text-slate-700 text-xs font-bold transition-all flex items-center gap-1 shadow-sm"
+                  title="Ver 5 años siguientes"
+                  aria-label="Ver años siguientes"
+                >
+                  <span>Años siguientes</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
         {/* UI Chart de Barras con gradiente Vulpiare */}
-        <div className="flex h-48 w-full items-end justify-between gap-2 pt-6 pb-2 px-2">
-          {historicalTrend.map((item) => (
-            <div key={item.monthStr} className="flex flex-1 flex-col items-center gap-1.5 h-full justify-end relative">
+        <div className="flex h-52 w-full items-end justify-between gap-2 pt-6 pb-2 px-2 overflow-x-auto">
+          {displayedTrend.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => handleBarClick(item.key)}
+              title={`${item.tooltip} (Clic para seleccionar período)`}
+              className="flex flex-1 min-w-[36px] flex-col items-center gap-1.5 h-full justify-end relative group focus:outline-none transition-transform active:scale-95"
+            >
               {item.isRecord && (
                 <div className="absolute -top-3.5 rounded-full bg-pink-600 px-2 py-0.5 shadow-sm">
                   <span className="text-[8px] font-black uppercase text-white tracking-wider">RÉCORD</span>
                 </div>
               )}
-              <span className="text-[10px] font-extrabold text-slate-500">
-                {item.amount >= 1000 ? `${Math.round(item.amount / 1000)}k` : item.amount}
+              <span className="text-[10px] font-extrabold text-slate-500 group-hover:text-purple-700 transition-colors">
+                {item.amount >= 1000000
+                  ? `${(item.amount / 1000000).toFixed(1)}M`
+                  : item.amount >= 1000
+                  ? `${Math.round(item.amount / 1000)}k`
+                  : item.amount}
               </span>
               <div
-                className={`w-full max-w-[34px] rounded-t-2xl transition-all duration-500 shadow-sm ${
+                className={`w-full max-w-[38px] rounded-t-2xl transition-all duration-500 shadow-sm ${
                   item.isCurrent
-                    ? 'bg-gradient-to-t from-purple-700 via-purple-600 to-pink-600 shadow-purple-200'
+                    ? 'bg-gradient-to-t from-purple-700 via-purple-600 to-pink-600 shadow-purple-300 ring-2 ring-purple-600/30'
                     : item.isRecord
                     ? 'bg-gradient-to-t from-pink-600 to-purple-600'
-                    : 'bg-slate-200 hover:bg-slate-300'
+                    : 'bg-slate-200 group-hover:bg-purple-200'
                 }`}
                 style={{ height: `${item.heightPercent}%` }}
               ></div>
-              <span
-                className={`text-[10px] font-extrabold mt-1 ${
-                  item.isCurrent ? 'text-purple-700 font-black' : 'text-slate-400'
-                }`}
-              >
-                {item.label}
-              </span>
-            </div>
+              <div className="flex flex-col items-center mt-1">
+                <span
+                  className={`text-[10px] font-extrabold leading-none ${
+                    item.isCurrent ? 'text-purple-700 font-black' : 'text-slate-500'
+                  }`}
+                >
+                  {item.label}
+                </span>
+                {item.sublabel && (
+                  <span className="text-[9px] text-slate-400 font-bold mt-0.5 leading-none">
+                    {item.sublabel}
+                  </span>
+                )}
+              </div>
+            </button>
           ))}
         </div>
       </section>
