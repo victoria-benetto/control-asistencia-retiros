@@ -8,6 +8,7 @@ import studentRoutes from './routes/student.routes';
 import attendanceRoutes from './routes/attendance.routes';
 import pickupRoutes from './routes/pickup.routes';
 import paymentRoutes from './routes/payment.routes';
+import expenseRoutes from './routes/expense.routes';
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ app.use('/api/students', studentRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/pickups', pickupRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/expenses', expenseRoutes);
 
 // Endpoint de estado / salud y prueba de base de datos
 app.get('/api/health', async (_req, res) => {

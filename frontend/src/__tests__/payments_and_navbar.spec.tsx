@@ -6,7 +6,9 @@ import { Navbar } from '../components/Navbar';
 import { PaymentControlView } from '../components/Admin/PaymentControlView';
 import { RegisterPaymentView } from '../components/Admin/RegisterPaymentView';
 import { PaymentConceptsManagement } from '../components/Admin/PaymentConceptsManagement';
-import { Student, AdminUser, PaymentRecord, PaymentConcept } from '../types';
+import { FixedExpensesView } from '../components/Admin/FixedExpensesView';
+import { RevenueReportsView } from '../components/Admin/RevenueReportsView';
+import { Student, AdminUser, PaymentRecord, PaymentConcept, FixedExpense } from '../types';
 
 describe('Navbar Gestiones & Pagos Integration Tests', () => {
   const superAdminUser: AdminUser = {
@@ -47,7 +49,7 @@ describe('Navbar Gestiones & Pagos Integration Tests', () => {
     expect(setActiveTab).toHaveBeenCalledWith('payments');
   });
 
-  it('opens Gestiones modal and allows switching between Alumnas, Profesores and ABM Pagos', () => {
+  it('opens Gestiones modal and allows switching between Alumnas, Profesores, ABM Pagos, Reportes y Gastos Fijos', () => {
     const setActiveTab = vi.fn();
     const onLogout = vi.fn();
 
@@ -64,15 +66,17 @@ describe('Navbar Gestiones & Pagos Integration Tests', () => {
     const gestionesBtn = screen.getAllByRole('button').find((b) => b.textContent?.includes('Gestiones'));
     fireEvent.click(gestionesBtn!);
 
-    // Debe abrir el modal con el título y las tres opciones
+    // Debe abrir el modal con el título y las cinco opciones
     expect(screen.getByText(/¿Qué deseas gestionar hoy\?/i)).toBeInTheDocument();
     expect(screen.getByText(/Gestión de Alumnas/i)).toBeInTheDocument();
     expect(screen.getByText(/Gestión de Profesores/i)).toBeInTheDocument();
     expect(screen.getByText(/Gestión de Conceptos de Pago/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reportes de Ingresos y Balance/i)).toBeInTheDocument();
+    expect(screen.getByText(/Gastos Fijos del Estudio/i)).toBeInTheDocument();
 
-    // Al seleccionar "Gestión de Conceptos de Pago (ABM)"
-    fireEvent.click(screen.getByText(/Gestión de Conceptos de Pago/i));
-    expect(setActiveTab).toHaveBeenCalledWith('payment-concepts');
+    // Al seleccionar "Reportes de Ingresos y Balance"
+    fireEvent.click(screen.getByText(/Reportes de Ingresos y Balance/i));
+    expect(setActiveTab).toHaveBeenCalledWith('reports');
   });
 });
 
@@ -378,5 +382,203 @@ describe('RegisterPaymentView Component Integration Tests', () => {
       );
       expect(onBack).toHaveBeenCalled();
     });
+  });
+});
+
+describe('FixedExpensesView Component Tests', () => {
+  const superAdminUser: AdminUser = {
+    id: 'admin-1',
+    dni: '44122509',
+    fullName: 'Victoria',
+    role: 'SUPER_ADMIN',
+    permissions: { canAttendance: true, canPickups: true, canHistory: true },
+  };
+
+  const currentMonthStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
+  const mockExpenses: FixedExpense[] = [
+    {
+      id: 'exp-1',
+      title: 'Alquiler Estudio y Gimnasio',
+      amount: 150000,
+      month: currentMonthStr,
+      date: `${currentMonthStr}-05`,
+      category: 'Alquiler',
+      notes: 'Pago mensual alquiler',
+      isRecurring: true,
+      receiptUrl: 'data:image/png;base64,mockReceipt',
+      recordedByAdminId: 'admin-1',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'exp-2',
+      title: 'Servicio de Internet y WiFi',
+      amount: 25000,
+      month: currentMonthStr,
+      date: `${currentMonthStr}-10`,
+      category: 'Servicios',
+      isRecurring: true,
+      recordedByAdminId: 'admin-1',
+      createdAt: new Date().toISOString(),
+    },
+  ];
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    global.fetch = vi.fn().mockImplementation((url: string, opts?: any) => {
+      if (url.includes('/api/expenses') && (!opts || opts.method === 'GET' || !opts.method)) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockExpenses,
+        });
+      }
+      if (url.includes('/api/expenses') && opts?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ id: 'exp-new', ...JSON.parse(opts.body) }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => [] });
+    });
+  });
+
+  it('renders fixed expenses list and KPI totals', async () => {
+    render(<FixedExpensesView user={superAdminUser} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Control de Gastos del Estudio/i)).toBeInTheDocument();
+      expect(screen.getByText(/Alquiler Estudio y Gimnasio/i)).toBeInTheDocument();
+      expect(screen.getByText(/Servicio de Internet y WiFi/i)).toBeInTheDocument();
+    });
+
+    // Total egresos: 150.000 + 25.000 = $175.000
+    expect(screen.getByText(/\$175\.000/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 mensuales/i)).toBeInTheDocument();
+  });
+
+  it('opens new expense modal and submits expense', async () => {
+    render(<FixedExpensesView user={superAdminUser} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Nuevo Gasto/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/Nuevo Gasto/i));
+
+    expect(screen.getByText(/Registrar Nuevo Gasto Fijo/i)).toBeInTheDocument();
+
+    const titleInput = screen.getByPlaceholderText(/Ej: Alquiler del gimnasio/i);
+    const amountInput = screen.getByPlaceholderText(/Ej: 150000/i);
+
+    fireEvent.change(titleInput, { target: { value: 'Seguro de Responsabilidad' } });
+    fireEvent.change(amountInput, { target: { value: '35000' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Registrar Gasto/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/expenses',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"title":"Seguro de Responsabilidad"'),
+        })
+      );
+    });
+  });
+});
+
+describe('RevenueReportsView Component Tests', () => {
+  const superAdminUser: AdminUser = {
+    id: 'admin-1',
+    dni: '44122509',
+    fullName: 'Victoria',
+    role: 'SUPER_ADMIN',
+    permissions: { canAttendance: true, canPickups: true, canHistory: true },
+  };
+
+  const currentMonthStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
+  const mockPayments: PaymentRecord[] = [
+    {
+      id: 'pay-1',
+      studentId: 'student-1',
+      month: currentMonthStr,
+      amount: 40000,
+      paymentMethod: 'TRANSFER',
+      concept: 'Cuota Mensual',
+      paidAt: `${currentMonthStr}-03T10:00:00Z`,
+      createdAt: `${currentMonthStr}-03T10:00:00Z`,
+    },
+    {
+      id: 'pay-2',
+      studentId: 'student-2',
+      month: currentMonthStr,
+      amount: 20000,
+      paymentMethod: 'CASH',
+      concept: 'Matrícula Anual',
+      paidAt: `${currentMonthStr}-05T12:00:00Z`,
+      createdAt: `${currentMonthStr}-05T12:00:00Z`,
+    },
+  ];
+
+  const mockExpenses: FixedExpense[] = [
+    {
+      id: 'exp-1',
+      title: 'Alquiler',
+      amount: 30000,
+      month: currentMonthStr,
+      date: `${currentMonthStr}-01`,
+      category: 'Alquiler',
+      isRecurring: true,
+      recordedByAdminId: 'admin-1',
+      createdAt: new Date().toISOString(),
+    },
+  ];
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/api/payments')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockPayments,
+        });
+      }
+      if (url.includes('/api/expenses')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockExpenses,
+        });
+      }
+      if (url.includes('/api/students')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{ id: 'student-1' }, { id: 'student-2' }],
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => [] });
+    });
+  });
+
+  it('renders revenue reports, calculates net balance and triggers export', async () => {
+    render(<RevenueReportsView user={superAdminUser} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Reportes de Ingresos y Balance/i)).toBeInTheDocument();
+      // Total ingresos = $60.000
+      expect(screen.getByText(/\$60\.000/i)).toBeInTheDocument();
+      // Gastos fijos = $30.000 y Balance neto = +$30.000
+      expect(screen.getAllByText(/\$30\.000/i).length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Comprobar desglose de medios de pago: Transferencia Bancaria y Efectivo en Caja
+    expect(screen.getByText(/Transferencia Bancaria/i)).toBeInTheDocument();
+    expect(screen.getByText(/Efectivo en Caja/i)).toBeInTheDocument();
+
+    // Exportar Excel
+    const exportBtn = screen.getByRole('button', { name: /Excel \(CSV\)/i });
+    expect(exportBtn).toBeInTheDocument();
+    fireEvent.click(exportBtn);
   });
 });

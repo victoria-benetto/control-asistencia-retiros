@@ -12,6 +12,8 @@ import {
   X,
   ChevronRight,
   Tag,
+  BarChart3,
+  DollarSign,
 } from 'lucide-react';
 import { AdminUser } from '../types';
 
@@ -41,13 +43,19 @@ export const Navbar: React.FC<NavbarProps> = ({
     month: 'short',
   });
 
-  const handleSelectGestion = (tab: 'students' | 'teachers' | 'payment-concepts') => {
+  const handleSelectGestion = (
+    tab: 'students' | 'teachers' | 'payment-concepts' | 'reports' | 'expenses'
+  ) => {
     setActiveTab(tab);
     setGestionesModalOpen(false);
   };
 
   const isGestionesActive =
-    activeTab === 'students' || activeTab === 'teachers' || activeTab === 'payment-concepts';
+    activeTab === 'students' ||
+    activeTab === 'teachers' ||
+    activeTab === 'payment-concepts' ||
+    activeTab === 'reports' ||
+    activeTab === 'expenses';
 
   return (
     <>
@@ -174,6 +182,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                     ? '(Profes)'
                     : activeTab === 'payment-concepts'
                     ? '(Aranceles)'
+                    : activeTab === 'reports'
+                    ? '(Reportes)'
+                    : activeTab === 'expenses'
+                    ? '(Gastos Fijos)'
                     : ''}
                 </span>
               </button>
@@ -324,6 +336,44 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-emerald-600/70 group-hover:translate-x-1 transition-transform" />
+              </button>
+
+              {/* Opción 4: Reportes de Ingresos */}
+              <button
+                onClick={() => handleSelectGestion('reports')}
+                className="w-full p-3.5 rounded-2xl bg-indigo-50 hover:bg-indigo-100/80 border border-indigo-200 text-left transition-all flex items-center gap-3.5 group active:scale-98"
+              >
+                <div className="p-2.5 rounded-2xl bg-indigo-600 text-white shadow-sm shadow-indigo-300">
+                  <BarChart3 className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-extrabold text-slate-900 text-sm group-hover:text-indigo-900 transition-colors">
+                    Reportes de Ingresos y Balance
+                  </p>
+                  <p className="text-xs font-medium text-slate-500 truncate">
+                    Módulo financiero, balance mensual, métricas y analítica
+                  </p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-indigo-600/70 group-hover:translate-x-1 transition-transform" />
+              </button>
+
+              {/* Opción 5: Gastos Fijos */}
+              <button
+                onClick={() => handleSelectGestion('expenses')}
+                className="w-full p-3.5 rounded-2xl bg-rose-50 hover:bg-rose-100/80 border border-rose-200 text-left transition-all flex items-center gap-3.5 group active:scale-98"
+              >
+                <div className="p-2.5 rounded-2xl bg-rose-600 text-white shadow-sm shadow-rose-300">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-extrabold text-slate-900 text-sm group-hover:text-rose-900 transition-colors">
+                    Gastos Fijos del Estudio
+                  </p>
+                  <p className="text-xs font-medium text-slate-500 truncate">
+                    Alquiler, servicios, comprobantes y gastos recurrentes
+                  </p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-rose-600/70 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
 

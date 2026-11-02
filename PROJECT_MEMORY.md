@@ -91,8 +91,45 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
+## 11. Módulo Financiero del Super Admin: Reportes de Ingresos, Balance Neto, Analítica PostHog y Gastos Fijos con Réplica
+- **Fecha**: Noviembre 2026.
+- **Objetivo**: Integrar dentro del modal unificado de **Gestiones** dos nuevas herramientas financieras para el Super Admin:
+  1. **Reportes de Ingresos y Balance**: Basado en `reportes_e_ingresos.html`, conectando pagos de alumnas y egresos operativos para calcular el balance neto real en tiempo real.
+  2. **Control de Gastos Fijos**: Registro de egresos operativos (alquiler de gimnasio, servicios, seguros, mantenimiento) con adjuntos (imagen o PDF) y replicación mensual (individual y por lote recurrente).
+  3. **Analítica y Telemetría PostHog**: Servicio desacoplado `frontend/src/services/analytics.ts` para capturar eventos de visualización de reportes, registro de gastos, réplicas y descargas de balances.
+
+- **Detalles de Implementación**:
+  - **Prisma & Base de Datos**:
+    - Modelo `FixedExpense` creado en `backend/prisma/schema.prisma` y sincronizado en Supabase con `prisma db push` preservando la integridad absoluta de las 80 alumnas.
+    - Soporte de campos: `title`, `amount`, `date` (YYYY-MM-DD), `month` (YYYY-MM), `category`, `receiptUrl` (Base64 imagen o PDF), `notes`, `isRecurring`, `recordedByAdminId`.
+  - **Backend API (`backend/src/routes/expense.routes.ts`)**:
+    - `GET /api/expenses?month=...`: Lista de gastos con soporte para persistencia local de contingencia (`data_expenses.json`).
+    - `POST /api/expenses`: Creación de gastos fijos.
+    - `PUT /api/expenses/:id`: Edición y actualización.
+    - `DELETE /api/expenses/:id`: Eliminación de gastos.
+    - `POST /api/expenses/:id/replicate`: Réplica individual de un gasto al mes siguiente u otro especificado.
+    - `POST /api/expenses/replicate-month`: Réplica masiva de todos los gastos marcados como recurrentes de un mes de origen a un mes de destino.
+  - **Frontend Components**:
+    - `RevenueReportsView.tsx`:
+      - Header banner con degradado Vulpiare y conmutador Mensual / Anual.
+      - 6 KPIs financieros en tiempo real: Ingresos Totales (con % vs mes anterior), Gastos Fijos, Balance Neto (`Total Ingresos - Total Gastos`), Cobros Hechos (% efectividad sobre alumnas activas), En Mora / Pendiente, Ticket Promedio.
+      - Gráfico de barras de evolución histórica (últimos 6 meses) con etiqueta RÉCORD.
+      - Desglose por Medio de Pago (Transferencia Bancaria vs Efectivo en Caja) con barras porcentuales.
+      - Desglose por Concepto (Cuotas Mensuales, Matrículas Anuales, Clases Sueltas).
+      - Acciones de exportación: Descarga CSV oficial para Excel y generación de PDF para impresión contable.
+      - Acceso directo a la pantalla de Gastos Fijos.
+    - `FixedExpensesView.tsx`:
+      - Tarjetas de resumen: Total Egresos, Cantidad de Conceptos y Gastos Recurrentes.
+      - Selector de mes con flechitas y selector directo.
+      - Modal de creación y edición con validación de montos, selección de fecha automática/manual, categoría y carga de comprobante con visor integrado (imágenes y PDFs).
+      - Botón de réplica individual y modal de réplica por lote de todos los gastos recurrentes hacia cualquier mes futuro.
+    - **Navbar y Menú Gestiones**:
+      - Modal "¿Qué deseas gestionar hoy?" ampliado a 5 opciones con sus respectivos iconos y estilos: Gestión de Alumnas, Gestión de Profesores, Gestión de Aranceles (ABM Pagos), Reportes de Ingresos y Balance, y Gastos Fijos del Estudio.
+
+---
+
 ## 🧪 Verificación y Estado
 - **Vite & TypeScript Frontend**: Compilación 100% exitosa (`tsc && vite build`).
 - **Backend TypeScript**: Validación estricta sin errores (`tsc --noEmit`).
 - **Tests Vitest Backend**: 8/8 tests unitarios de trazabilidad, excedentes, modificación y anulación a 0 aprobados en `backend/src/__tests__/payments.spec.ts`.
-- **Tests Vitest Frontend**: 11/11 tests de integración aprobados en `frontend/src/__tests__/` (incluyendo flujo de navegación, trazabilidad de pagos y validación de portal alumna).
+- **Tests Vitest Frontend**: 14/14 tests de integración aprobados en `frontend/src/__tests__/` (incluyendo flujo de navegación, trazabilidad de pagos, portal alumna, control de gastos fijos y reporte de ingresos).

@@ -8,6 +8,7 @@ import {
   ShiftAssistant,
   PaymentRecord,
   PaymentConcept,
+  FixedExpense,
 } from '../types';
 
 const API_BASE = '/api';
@@ -311,6 +312,82 @@ export async function resetMonthPayments(studentId: string, month: string): Prom
   const params = new URLSearchParams({ studentId, month });
   const res = await fetch(`${API_BASE}/payments/reset-month?${params.toString()}`, {
     method: 'DELETE',
+  });
+  return parseResponse(res);
+}
+
+
+// =========================================================================
+// Gastos Fijos (Super Admin)
+// =========================================================================
+
+export async function getExpenses(month?: string): Promise<FixedExpense[]> {
+  const params = new URLSearchParams();
+  if (month) params.append('month', month);
+  const queryString = params.toString();
+  const url = queryString ? `${API_BASE}/expenses?${queryString}` : `${API_BASE}/expenses`;
+  const res = await fetch(url);
+  return parseResponse(res);
+}
+
+export async function createExpense(expenseData: {
+  title: string;
+  amount: number;
+  date?: string;
+  month?: string;
+  category?: string;
+  receiptUrl?: string | null;
+  notes?: string | null;
+  isRecurring?: boolean;
+  recordedByAdminId?: string;
+}): Promise<FixedExpense> {
+  const res = await fetch(`${API_BASE}/expenses`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(expenseData),
+  });
+  return parseResponse(res);
+}
+
+export async function updateExpense(
+  id: string,
+  expenseData: Partial<FixedExpense>
+): Promise<FixedExpense> {
+  const res = await fetch(`${API_BASE}/expenses/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(expenseData),
+  });
+  return parseResponse(res);
+}
+
+export async function deleteExpense(id: string): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/expenses/${id}`, {
+    method: 'DELETE',
+  });
+  return parseResponse(res);
+}
+
+export async function replicateExpense(
+  id: string,
+  targetMonth: string
+): Promise<FixedExpense> {
+  const res = await fetch(`${API_BASE}/expenses/${id}/replicate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetMonth }),
+  });
+  return parseResponse(res);
+}
+
+export async function replicateMonthExpenses(
+  fromMonth: string,
+  toMonth: string
+): Promise<{ success: boolean; message: string; expenses: FixedExpense[] }> {
+  const res = await fetch(`${API_BASE}/expenses/replicate-month`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fromMonth, toMonth }),
   });
   return parseResponse(res);
 }

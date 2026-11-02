@@ -147,3 +147,24 @@ export interface PaymentRecord {
     dni?: string;
   };
 }
+
+
+export interface FixedExpense {
+  id: string;
+  title: string;
+  amount: number;
+  date: string; // Formato YYYY-MM-DD
+  month: string; // Formato YYYY-MM
+  category?: string | null;
+  receiptUrl?: string | null;
+  notes?: string | null;
+  isRecurring?: boolean;
+  recordedByAdminId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  recordedBy?: {
+    id?: string;
+    fullName: string;
+    dni?: string;
+  };
+}

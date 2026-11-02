@@ -38,6 +38,7 @@ model AdminUser {
   PickupRecord     PickupRecord[]
   ShiftAssistant   ShiftAssistant[]
   PaymentRecord    PaymentRecord[]
+  FixedExpense     FixedExpense[]
 }
 
 model Student {
@@ -144,4 +145,23 @@ model PaymentConcept {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model FixedExpense {
+  id                String      @id @default(uuid())
+  title             String      // Ej: "Alquiler Gimnasio", "Seguro", "Servicio Limpieza", "Luz/Gas"
+  amount            Float       // Monto del gasto
+  date              String      // Formato YYYY-MM-DD
+  month             String      // Formato YYYY-MM
+  category          String?     @default("Servicios") // "Alquiler", "Servicios", "Equipamiento", "Impuestos", "Otros"
+  receiptUrl        String?     // Imagen o PDF en Base64 / URL
+  notes             String?
+  isRecurring       Boolean     @default(true)
+  recordedByAdminId String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  recordedBy        AdminUser?  @relation(fields: [recordedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([month])
 }

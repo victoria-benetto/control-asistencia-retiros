@@ -9,6 +9,8 @@ import { HistoryView } from './components/Admin/HistoryView';
 import { PaymentControlView } from './components/Admin/PaymentControlView';
 import { RegisterPaymentView } from './components/Admin/RegisterPaymentView';
 import { PaymentConceptsManagement } from './components/Admin/PaymentConceptsManagement';
+import { RevenueReportsView } from './components/Admin/RevenueReportsView';
+import { FixedExpensesView } from './components/Admin/FixedExpensesView';
 import { ParentPortal } from './components/Parent/ParentPortal';
 import { LoginResponse, AdminUser, Student, AttendanceRecord, OFFICIAL_SHIFTS } from './types';
 import { getDefaultShiftForDate } from './utils/shiftUtils';
@@ -139,6 +141,17 @@ export function App() {
 
           {activeTab === 'teachers' && isSuperAdmin && (
             <AdminManagement user={currentUser} />
+          )}
+
+          {activeTab === 'reports' && isSuperAdmin && (
+            <RevenueReportsView
+              user={currentUser}
+              onNavigateToExpenses={() => setActiveTab('expenses')}
+            />
+          )}
+
+          {activeTab === 'expenses' && isSuperAdmin && (
+            <FixedExpensesView user={currentUser} />
           )}
         </main>
       </div>
