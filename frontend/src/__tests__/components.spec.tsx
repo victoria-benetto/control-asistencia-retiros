@@ -99,7 +99,10 @@ describe('Frontend Component Unit & Integration Tests', () => {
   });
 
   describe('ParentPortal Component', () => {
-    const todayStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
     const mockStudent: Student & { attendances: any[] } = {
       id: 's-1',
       dni: '12345678',
@@ -116,17 +119,123 @@ describe('Frontend Component Unit & Integration Tests', () => {
           timeIn: '17:05',
           isMakeup: false,
         },
+        {
+          id: 'att-2',
+          studentId: 's-1',
+          date: '2026-10-20',
+          status: 'PRESENT',
+          timeIn: '17:00',
+        },
+        {
+          id: 'att-3',
+          studentId: 's-1',
+          date: '2026-10-15',
+          status: 'ABSENT',
+        },
       ],
     };
 
-    it('displays student profile with attendance dates and times', () => {
+    it('displays student profile with attendance dates, fees, and does not show whatsapp button', async () => {
       const onLogout = vi.fn();
+      global.fetch = vi.fn().mockImplementation((url: string) => {
+        if (url.includes('/api/payments/concepts')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => [{ id: 'c1', name: 'Cuota Mensual', amount: 22000, isActive: true }],
+          });
+        }
+        if (url.includes('/api/payments')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => [
+              {
+                id: 'pay-1',
+                studentId: 's-1',
+                month: currentMonthStr,
+                amount: 22000,
+                expectedAmount: 22000,
+                paymentMethod: 'TRANSFER',
+                paidAt: '2026-11-02T10:00:00Z',
+              },
+              {
+                id: 'pay-2',
+                studentId: 's-1',
+                month: '2026-10',
+                amount: 22000,
+                paymentMethod: 'CASH',
+                paidAt: '2026-10-05T10:00:00Z',
+              },
+              {
+                id: 'pay-3',
+                studentId: 's-1',
+                month: '2026-09',
+                amount: 22000,
+                paymentMethod: 'TRANSFER',
+                paidAt: '2026-09-04T10:00:00Z',
+              },
+            ],
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => [] });
+      });
+
       render(<ParentPortal student={mockStudent} onLogout={onLogout} />);
 
       expect(screen.getAllByText(/Alumna/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/Prueba/i)).toBeInTheDocument();
       expect(screen.getAllByText(/MARTES Y JUEVES 17:00 A 19:00/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/¡PRESENTE en clase!/i)).toBeInTheDocument();
+
+      // Verificar trazabilidad de cuotas
+      await waitFor(() => {
+        expect(screen.getByText(/Cuota al día/i)).toBeInTheDocument();
+        expect(screen.getByText(/Estado de Cuenta y Cuotas/i)).toBeInTheDocument();
+      });
+
+      // Verificar que NO existe botón de WhatsApp ni secretaría
+      expect(screen.queryByText(/Secretaría Vulpiare/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Atención a familias/i)).not.toBeInTheDocument();
+    });
+
+    it('navigates to full history screen when clicking ver mas and returns with back button', async () => {
+      const onLogout = vi.fn();
+      global.fetch = vi.fn().mockImplementation((url: string) => {
+        if (url.includes('/api/payments/concepts')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => [{ id: 'c1', name: 'Cuota Mensual', amount: 22000, isActive: true }],
+          });
+        }
+        if (url.includes('/api/payments')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => [
+              { id: 'p1', studentId: 's-1', month: '2026-10', amount: 22000, paymentMethod: 'CASH' },
+              { id: 'p2', studentId: 's-1', month: '2026-09', amount: 22000, paymentMethod: 'CASH' },
+              { id: 'p3', studentId: 's-1', month: '2026-08', amount: 22000, paymentMethod: 'CASH' },
+            ],
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => [] });
+      });
+
+      render(<ParentPortal student={mockStudent} onLogout={onLogout} />);
+
+      await waitFor(() => {
+        const verMasButtons = screen.getAllByRole('button', { name: /ver más/i });
+        expect(verMasButtons.length).toBeGreaterThan(0);
+      });
+
+      // Navegar a asistencias completas (el botón "Ver más" de asistencias)
+      const verMasButtons = screen.getAllByRole('button', { name: /ver más/i });
+      fireEvent.click(verMasButtons[verMasButtons.length - 1]);
+
+      expect(screen.getByText(/Historial de Asistencias/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /volver/i })).toBeInTheDocument();
+
+      // Volver a la pantalla principal
+      fireEvent.click(screen.getByRole('button', { name: /volver/i }));
+      expect(screen.getByText(/Estado de la clase de hoy/i)).toBeInTheDocument();
     });
   });
 });

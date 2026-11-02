@@ -69,10 +69,26 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
      - Si se edita con otro excedente: se recalcula y ajusta el monto acreditado en el mes siguiente.
    - **Anulación Masiva de Cuota (`DELETE /api/payments/reset-month`)**: Botón rojo directo en el modal de `PaymentControlView.tsx` ("Anular todos los pagos de este mes (Volver a $0 / Impago)") para corregir errores humanos de selección de alumna en un solo clic.
 
+10. **Portal Alumna: Estado de Clase, Cuotas, Trazabilidad e Historial Desplegable (`ParentPortal.tsx`)**:
+    - Diseño adaptado a la estética y especificación de `portal_alumna_pagos_y_asistencias.html` / `portal_alumna_estado_de_pagos_y_asistencia.html`.
+    - **Header y Perfil de Alumna**: Turno oficial asignado, Nombre completo, DNI, avatar circular con gradiente e iniciales, fecha actual formateada en español y botón "Salir".
+    - **Estado de la clase de hoy o más reciente**:
+      - Si existe asistencia hoy: estado "¡PRESENTE en clase!" o "AUSENTE", hora de registro, horario del turno, docente a cargo, y detalle de retiro (persona autorizada o "Presente y listo - No requiere persona a cargo para retiro").
+      - Si no existe hoy: muestra automáticamente la última clase registrada correspondiente a su turno (ayer o fecha anterior más reciente) con aviso de que la clase de hoy aún no ha sido registrada.
+    - **Estado de Cuenta y Cuotas**:
+      - Trazabilidad en tiempo real conectada a los pagos registrados.
+      - Período en curso, concepto, valor regular ($22.000 o según arancel activo).
+      - Estados dinámicos: "Cuota al día" (verde con fecha y medio de pago), "Pago Parcial" (monto abonado y restante a saldar), "Pendiente" (primeros 10 días) o "Vencida (+10% recargo)" (pasados los 10 días).
+      - Botón "Ver Recibo Oficial" con modal emergente para previsualizar comprobantes cargados.
+      - Tarjeta informativa de próximo vencimiento (1 al 10 del mes siguiente) y aclaración de solo lectura.
+    - **Historial de Cuotas Anteriores**: Muestra las últimas 2 cuotas por defecto, con botón "Ver más" que despliega la pantalla completa de cuotas históricas y flechita de retorno.
+    - **Historial de Asistencias**: Muestra las últimas 2 asistencias por defecto, con botón "Ver más" que despliega la pantalla completa de asistencias históricas y flechita de retorno.
+    - **Exclusión Estricta**: Se omitió por completo el botón de WhatsApp y la tarjeta de secretaría / atención a familias según requerimiento.
+
 ---
 
 ## 🧪 Verificación y Estado
 - **Vite & TypeScript Frontend**: Compilación 100% exitosa (`tsc && vite build`).
 - **Backend TypeScript**: Validación estricta sin errores (`tsc --noEmit`).
 - **Tests Vitest Backend**: 8/8 tests unitarios de trazabilidad, excedentes, modificación y anulación a 0 aprobados en `backend/src/__tests__/payments.spec.ts`.
-- **Tests Vitest Frontend**: 10/10 tests de integración aprobados en `frontend/src/__tests__/`.
+- **Tests Vitest Frontend**: 11/11 tests de integración aprobados en `frontend/src/__tests__/` (incluyendo flujo de navegación, trazabilidad de pagos y validación de portal alumna).
