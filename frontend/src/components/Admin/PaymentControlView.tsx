@@ -20,7 +20,7 @@ import {
   Check,
   Plus,
 } from 'lucide-react';
-import { getStudents, getPayments, savePayment, updatePayment, deletePayment, getShifts } from '../../services/api';
+import { getStudents, getPayments, savePayment, updatePayment, deletePayment, resetMonthPayments, getShifts } from '../../services/api';
 import { Student, PaymentRecord, AdminUser, OFFICIAL_SHIFTS } from '../../types';
 
 interface PaymentControlViewProps {
@@ -254,15 +254,21 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
     });
   }, [computedList, activeFilter, selectedShift, searchTerm]);
 
-  // Abrir modal para marcar pago
-  const handleOpenPaymentModal = (item: StudentPaymentInfo) => {
+  // Abrir modal para marcar o editar pago
+  const handleOpenPaymentModal = (item: StudentPaymentInfo, specificPayment?: PaymentRecord) => {
     setTargetStudent(item.student);
-    if (item.paymentRecord && !item.isPartial) {
-      setEditingPayment(item.paymentRecord);
-      setSelectedMethod(item.paymentRecord.paymentMethod);
-      setAmountInput(item.paymentRecord.amount);
-      setNotesInput(item.paymentRecord.notes || '');
-      setReceiptBase64(item.paymentRecord.receiptUrl || null);
+    const paymentToEdit =
+      specificPayment ||
+      (item.allPayments && item.allPayments.length > 0
+        ? item.allPayments[item.allPayments.length - 1]
+        : item.paymentRecord);
+
+    if (paymentToEdit) {
+      setEditingPayment(paymentToEdit);
+      setSelectedMethod(paymentToEdit.paymentMethod);
+      setAmountInput(paymentToEdit.amount);
+      setNotesInput(paymentToEdit.notes || '');
+      setReceiptBase64(paymentToEdit.receiptUrl || null);
     } else {
       setEditingPayment(null);
       setSelectedMethod('TRANSFER');
@@ -290,19 +296,24 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
     reader.readAsDataURL(file);
   };
 
-  // Guardar pago
+  // Guardar o modificar pago (soporta volver a 0)
   const handleSavePayment = async () => {
     if (!targetStudent) return;
     setSubmittingPayment(true);
 
     try {
       if (editingPayment) {
-        await updatePayment(editingPayment.id, {
-          amount: amountInput,
-          paymentMethod: selectedMethod,
-          receiptUrl: selectedMethod === 'TRANSFER' ? receiptBase64 : null,
-          notes: notesInput.trim() || null,
-        });
+        if (amountInput <= 0) {
+          // Modificar a monto 0 significa anular este pago
+          await deletePayment(editingPayment.id);
+        } else {
+          await updatePayment(editingPayment.id, {
+            amount: amountInput,
+            paymentMethod: selectedMethod,
+            receiptUrl: selectedMethod === 'TRANSFER' ? receiptBase64 : null,
+            notes: notesInput.trim() || null,
+          });
+        }
       } else {
         await savePayment({
           studentId: targetStudent.id,
@@ -324,10 +335,10 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
     }
   };
 
-  // Eliminar pago / revertir a impago
+  // Eliminar pago individual / revertir
   const handleDeletePayment = async (paymentId: string) => {
     const confirmDelete = window.confirm(
-      '¿Deseas revertir el pago de esta cuota? Volverá a computarse automáticamente como pendiente o vencida.'
+      '¿Deseas revertir este pago? Si generó excedente a favor en el mes siguiente, también se anulará automáticamente.'
     );
     if (!confirmDelete) return;
 
@@ -337,6 +348,22 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
       await loadData();
     } catch (err: any) {
       alert('Error al anular pago: ' + err.message);
+    }
+  };
+
+  // Anulación total del mes (Volver a 0 / Impago por error de selección de alumna)
+  const handleResetMonthPayments = async (studentId: string, studentName: string) => {
+    const confirmReset = window.confirm(
+      `¿Deseas anular TODOS los pagos de ${studentName} para ${selectedMonthLabel} y volver a $0?\n\nSi este pago generó saldo a favor (excedente) para el mes siguiente, ese excedente también se eliminará automáticamente.`
+    );
+    if (!confirmReset) return;
+
+    try {
+      await resetMonthPayments(studentId, selectedMonth);
+      setPaymentModalOpen(false);
+      await loadData();
+    } catch (err: any) {
+      alert('Error al anular pagos del mes: ' + err.message);
     }
   };
 
@@ -883,6 +910,48 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
               </button>
             </div>
 
+            {/* Selector de pagos existentes si hay más de 1 registrado */}
+            {(() => {
+              const info = computedList.find((i) => i.student.id === targetStudent.id);
+              const monthPayments = info?.allPayments || (info?.paymentRecord ? [info.paymentRecord] : []);
+              if (monthPayments.length <= 1) return null;
+
+              return (
+                <div className="p-3 bg-purple-50/70 rounded-2xl border border-purple-100 space-y-1.5">
+                  <span className="text-[11px] font-extrabold text-purple-900 block">
+                    Pagos registrados en este mes ({monthPayments.length}):
+                  </span>
+                  <div className="flex flex-col gap-1">
+                    {monthPayments.map((p, idx) => (
+                      <button
+                        key={p.id || idx}
+                        type="button"
+                        onClick={() => {
+                          setEditingPayment(p);
+                          setSelectedMethod(p.paymentMethod);
+                          setAmountInput(p.amount);
+                          setNotesInput(p.notes || '');
+                          setReceiptBase64(p.receiptUrl || null);
+                        }}
+                        className={`p-2 rounded-xl text-xs flex items-center justify-between border transition-all text-left ${
+                          editingPayment?.id === p.id
+                            ? 'bg-purple-700 text-white border-purple-700 shadow-sm'
+                            : 'bg-white text-slate-700 border-purple-200/60 hover:bg-purple-100/50'
+                        }`}
+                      >
+                        <span className="font-bold">
+                          {p.paymentMethod === 'TRANSFER' ? '💳 Transf.' : '💵 Efectivo'}: ${p.amount.toLocaleString('es-AR')}
+                        </span>
+                        <span className="text-[10px] opacity-80">
+                          {editingPayment?.id === p.id ? 'Seleccionado para editar' : 'Clic para editar este'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Selector de Método de Pago: 2 Opciones Grandes tipo selector de rol */}
             <div>
               <label className="text-xs font-extrabold uppercase text-slate-500 block mb-2">
@@ -943,6 +1012,11 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                   className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base font-black text-slate-900 outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
+              {amountInput <= 0 && (
+                <p className="text-[11px] font-bold text-rose-600 mt-1">
+                  ⚠️ Monto $0: Al guardar, este pago se anulará y volverá a computarse como impago.
+                </p>
+              )}
             </div>
 
             {/* Adjuntar Comprobante (Si eligió Transferencia) */}
@@ -1001,32 +1075,51 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
             </div>
 
             {/* Acciones del Modal */}
-            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-              {editingPayment && (
+            <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center gap-2">
+                {editingPayment && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeletePayment(editingPayment.id)}
+                    className="p-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-xs transition-colors shrink-0"
+                    title="Eliminar este pago individual y revertir"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => handleDeletePayment(editingPayment.id)}
-                  className="p-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-xs transition-colors"
-                  title="Eliminar este pago y revertir a impago"
+                  onClick={() => setPaymentModalOpen(false)}
+                  className="flex-1 py-3 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs transition-colors"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  Cancelar
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setPaymentModalOpen(false)}
-                className="flex-1 py-3 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={submittingPayment}
-                onClick={handleSavePayment}
-                className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-purple-700 to-pink-600 hover:opacity-95 text-white font-extrabold text-xs shadow-md shadow-purple-200 transition-all active:scale-95 disabled:opacity-50"
-              >
-                {submittingPayment ? 'Guardando...' : 'Guardar Pago'}
-              </button>
+                <button
+                  type="button"
+                  disabled={submittingPayment}
+                  onClick={handleSavePayment}
+                  className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-purple-700 to-pink-600 hover:opacity-95 text-white font-extrabold text-xs shadow-md shadow-purple-200 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {submittingPayment ? 'Guardando...' : editingPayment ? (amountInput <= 0 ? 'Anular Pago ($0)' : 'Actualizar Pago') : 'Guardar Pago'}
+                </button>
+              </div>
+
+              {/* Botón para anular todos los pagos del mes y volver a 0 (Error humano de asignación de alumna) */}
+              {(() => {
+                const info = computedList.find((i) => i.student.id === targetStudent.id);
+                if (!info?.paymentRecord && (!info?.allPayments || info.allPayments.length === 0)) return null;
+
+                return (
+                  <button
+                    type="button"
+                    onClick={() => handleResetMonthPayments(targetStudent.id, `${targetStudent.firstName} ${targetStudent.lastName}`)}
+                    className="w-full py-2.5 px-3 rounded-2xl border border-rose-200 bg-rose-50/80 hover:bg-rose-100 text-rose-700 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Anular todos los pagos de este mes (Volver a $0 / Impago)</span>
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>

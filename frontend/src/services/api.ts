@@ -306,3 +306,11 @@ export async function deletePayment(id: string): Promise<{ success: boolean; mes
   });
   return parseResponse(res);
 }
+
+export async function resetMonthPayments(studentId: string, month: string): Promise<{ success: boolean; message: string }> {
+  const params = new URLSearchParams({ studentId, month });
+  const res = await fetch(`${API_BASE}/payments/reset-month?${params.toString()}`, {
+    method: 'DELETE',
+  });
+  return parseResponse(res);
+}

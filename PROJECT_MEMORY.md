@@ -60,9 +60,19 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
      - Alerta explicativa detallando cuánto cubre el mes corriente y qué monto se acredita para el próximo mes.
      - Recibo de WhatsApp formateado automáticamente especificando que el mes actual quedó saldado y el excedente acreditado para el mes siguiente.
 
+9. **Trazabilidad Completa, Modificación, Anulación a $0 y Eliminación en Cascada de Excedentes**:
+   - Vinculación explícita e indestructible entre pagos principales y sus créditos sobrantes mediante `[ORIGIN:<primary_id>]` y `operationNumber: SURPLUS:<primary_id>`.
+   - **Eliminación en Cascada (`DELETE /api/payments/:id`)**: Si se anula o elimina un pago que generó excedente en el mes posterior, el excedente hijo se elimina automáticamente, volviendo ambos meses a $0 / impagos.
+   - **Edición Quirúrgica (`PUT /api/payments/:id`)**:
+     - Si se modifica el monto a un valor menor que la cuota (ej. $15.000): el mes actual queda como pago parcial y el excedente del mes siguiente se borra de inmediato (vuelve a 0).
+     - Si se edita a $0: se anula el pago por completo y se elimina cualquier excedente.
+     - Si se edita con otro excedente: se recalcula y ajusta el monto acreditado en el mes siguiente.
+   - **Anulación Masiva de Cuota (`DELETE /api/payments/reset-month`)**: Botón rojo directo en el modal de `PaymentControlView.tsx` ("Anular todos los pagos de este mes (Volver a $0 / Impago)") para corregir errores humanos de selección de alumna en un solo clic.
+
 ---
 
 ## 🧪 Verificación y Estado
 - **Vite & TypeScript Frontend**: Compilación 100% exitosa (`tsc && vite build`).
 - **Backend TypeScript**: Validación estricta sin errores (`tsc --noEmit`).
-- **Tests Vitest Frontend**: 10/10 tests de integración ejecutados y aprobados (incluyendo acumulación y acreditación de excedente).
+- **Tests Vitest Backend**: 8/8 tests unitarios de trazabilidad, excedentes, modificación y anulación a 0 aprobados en `backend/src/__tests__/payments.spec.ts`.
+- **Tests Vitest Frontend**: 10/10 tests de integración aprobados en `frontend/src/__tests__/`.
