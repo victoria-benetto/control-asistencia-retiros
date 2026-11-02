@@ -142,7 +142,8 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
 
       if (studentPayments.length > 0) {
         const totalPaid = studentPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-        const expectedAmount = studentPayments.find((p) => p.expectedAmount && p.expectedAmount > 0)?.expectedAmount || DEFAULT_FEE;
+        const studentBaseFee = student.monthlyFee || DEFAULT_FEE;
+        const expectedAmount = studentPayments.find((p) => p.expectedAmount && p.expectedAmount > 0)?.expectedAmount || studentBaseFee;
         const remainingDebt = Math.max(0, expectedAmount - totalPaid);
         const isPartial = remainingDebt > 0;
 
@@ -164,9 +165,10 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
       // Si el mes ya pasó o si es el mes actual pero pasaron los 10 días -> VENCIDA con 10% de recargo
       const isOverdue = isPastMonth || (isCurrentMonth && currentDay > 10);
 
+      const baseFee = student.monthlyFee || DEFAULT_FEE;
       const fee = isOverdue
-        ? Math.round(DEFAULT_FEE * (1 + SURCHARGE_PERCENT))
-        : DEFAULT_FEE;
+        ? Math.round(baseFee * (1 + SURCHARGE_PERCENT))
+        : baseFee;
 
       return {
         student,

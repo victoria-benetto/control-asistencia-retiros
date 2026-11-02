@@ -28,7 +28,10 @@ export interface AuthorizedPerson {
   fullName: string;
   dni: string;
   relationship: string;
-  phone?: string;
+  phone?: string;
+  plan?: string | null;
+  monthlyFee?: number | null;
+  schedule?: { day: string; shift: string }[] | null;
 }
 
 export type StudentStatus = 'ACTIVE' | 'TEMPORARILY_INACTIVE' | 'INACTIVE';
@@ -42,6 +45,9 @@ export interface Student {
   status?: StudentStatus;
   notes?: string;
   phone?: string;
+  plan?: string | null;
+  monthlyFee?: number | null;
+  schedule?: { day: string; shift: string }[] | null;
   authorizedPeople: AuthorizedPerson[];
   attendances?: AttendanceRecord[];
 }

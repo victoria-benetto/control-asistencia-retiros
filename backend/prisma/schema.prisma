@@ -50,6 +50,9 @@ model Student {
   status           StudentStatus      @default(ACTIVE)
   notes            String?
   phone            String?
+  plan             String?            // CLASE_SUELTA | UNA_VEZ | DOS_VECES | TRES_VECES | PASE_LIBRE
+  monthlyFee       Float?             // Valor de la cuota mensual según el plan
+  schedule         Json?              // [{ "day": "LUNES", "shift": "<turno oficial>" }]
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   authorizedPeople AuthorizedPerson[]

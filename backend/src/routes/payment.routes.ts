@@ -271,6 +271,8 @@ router.get('/', async (req: Request, res: Response) => {
             dni: true,
             shift: true,
             status: true,
+            plan: true,
+            monthlyFee: true,
             authorizedPeople: true,
           },
         },
@@ -330,9 +332,16 @@ router.post('/', async (req: Request, res: Response) => {
         where: { studentId, month },
       });
       const prevTotal = prevPayments.reduce((acc: number, p: any) => acc + (Number(p.amount) || 0), 0);
+      // Cuota del plan de la alumna (si tiene plan asignado) como monto esperado por defecto
+      let studentPlan: any = null;
+      try {
+        if ((prisma as any).student?.findUnique) {
+          studentPlan = await (prisma as any).student.findUnique({ where: { id: studentId }, select: { monthlyFee: true } });
+        }
+      } catch (e) {}
       const targetExpected = expectedAmount !== undefined
         ? Number(expectedAmount)
-        : (prevPayments[0]?.expectedAmount || 22000);
+        : (prevPayments[0]?.expectedAmount || studentPlan?.monthlyFee || 22000);
 
       const needed = Math.max(0, targetExpected - prevTotal);
 

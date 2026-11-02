@@ -4,4 +4,5 @@ dist
 dev.db
 dev.db-journal
 *.log
+data_*.json
 .DS_Store

@@ -146,7 +146,10 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
   // Al cambiar de concepto, actualizar monto si el usuario no lo estaba editando libremente
   const handleSelectConcept = (concept: PaymentConcept) => {
     setSelectedConcept(concept);
-    setAmountReceived(concept.amount);
+    const targetAmount = (concept.name.toLowerCase().includes('cuota') && selectedStudent?.monthlyFee)
+      ? selectedStudent.monthlyFee
+      : concept.amount;
+    setAmountReceived(targetAmount);
     setIsEditingAmount(false);
   };
 
@@ -162,7 +165,9 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
         const validList = Array.isArray(records) ? records : [];
         setExistingMonthPayments(validList);
         const alreadyPaid = validList.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-        const exp = selectedConcept ? selectedConcept.amount : 22000;
+        const exp = (selectedConcept?.name.toLowerCase().includes('cuota') && selectedStudent?.monthlyFee)
+          ? selectedStudent.monthlyFee
+          : (selectedConcept ? selectedConcept.amount : (selectedStudent?.monthlyFee || 22000));
         if (alreadyPaid > 0 && alreadyPaid < exp && !isEditingAmount) {
           setAmountReceived(exp - alreadyPaid);
         }
@@ -197,7 +202,10 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
     return list.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
   }, [existingMonthPayments]);
 
-  const expectedAmount = selectedConcept ? selectedConcept.amount : (alreadyPaidThisMonth + amountReceived);
+  const defaultFee = selectedStudent?.monthlyFee || 22000;
+  const expectedAmount = selectedConcept
+    ? (selectedConcept.name.toLowerCase().includes('cuota') && selectedStudent?.monthlyFee ? selectedStudent.monthlyFee : selectedConcept.amount)
+    : defaultFee;
   const totalAfterThisPayment = alreadyPaidThisMonth + amountReceived;
   const isPartialPayment = totalAfterThisPayment < expectedAmount;
   const remainingDebt = isPartialPayment ? expectedAmount - totalAfterThisPayment : 0;

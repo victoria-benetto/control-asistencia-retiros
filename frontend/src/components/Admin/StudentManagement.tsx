@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, ShieldAlert, UserPlus, X, Save, Search, Calendar, Users, Activity, CheckCircle2, History, Phone } from 'lucide-react';
+import { Plus, Trash2, Edit2, ShieldAlert, UserPlus, X, Save, Search, Calendar, Users, Activity, CheckCircle2, History, Phone, Clock, DollarSign } from 'lucide-react';
 import { getStudents, createStudent, updateStudent, deleteStudent, getShifts, getStudentAttendances, deleteAttendance } from '../../services/api';
 import { Student, AdminUser, StudentStatus, OFFICIAL_SHIFTS } from '../../types';
+import { STUDENT_PLANS, StudentPlan, WEEK_DAYS, DAY_SHIFTS, formatMoney, describeSchedule, ENROLLMENT_FEE } from '../../utils/plans';
 
 interface StudentManagementProps {
   user: AdminUser;
@@ -27,6 +28,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
   const [search, setSearch] = useState('');
   const [selectedShiftFilter, setSelectedShiftFilter] = useState<string>('ALL');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('ALL');
+  const [selectedPlanFilter, setSelectedPlanFilter] = useState<string>('ALL');
 
   // Mes seleccionado para contabilizar asistencias mensuales (Super Admin)
   const now = new Date();
@@ -41,6 +43,11 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
   const [lastName, setLastName] = useState('');
   const [dni, setDni] = useState('');
   const [shift, setShift] = useState(OFFICIAL_SHIFTS[0]);
+  const [plan, setPlan] = useState<StudentPlan>('DOS_VECES');
+  const [schedule, setSchedule] = useState<Record<string, string>>({
+    MARTES: OFFICIAL_SHIFTS[2],
+    JUEVES: OFFICIAL_SHIFTS[2],
+  });
   const [status, setStatus] = useState<StudentStatus>('ACTIVE');
   const [notes, setNotes] = useState('');
   const [phone, setPhone] = useState('');
@@ -80,6 +87,11 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     setLastName('');
     setDni('');
     setShift(OFFICIAL_SHIFTS[0]);
+    setPlan('DOS_VECES');
+    setSchedule({
+      MARTES: OFFICIAL_SHIFTS[2],
+      JUEVES: OFFICIAL_SHIFTS[2],
+    });
     setStatus('ACTIVE');
     setNotes('');
     setPhone('');
@@ -98,6 +110,37 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     setStatus(s.status || 'ACTIVE');
     setNotes(s.notes || '');
     setPhone(s.phone || '');
+
+    const currentPlan = (s.plan as StudentPlan) || 'DOS_VECES';
+    setPlan(currentPlan);
+
+    const initialSchedule: Record<string, string> = {};
+    if (Array.isArray(s.schedule) && s.schedule.length > 0) {
+      s.schedule.forEach((entry) => {
+        if (entry.day && entry.shift) {
+          initialSchedule[entry.day] = entry.shift;
+        }
+      });
+    } else {
+      // Reconstrucción a partir del turno legado
+      if (s.shift.includes('Martes y Jueves')) {
+        initialSchedule.MARTES = OFFICIAL_SHIFTS[2];
+        initialSchedule.JUEVES = OFFICIAL_SHIFTS[2];
+      } else if (s.shift.includes('Lunes y mi') && s.shift.includes('8 a 10')) {
+        initialSchedule.LUNES = OFFICIAL_SHIFTS[3];
+        initialSchedule.MIERCOLES = OFFICIAL_SHIFTS[3];
+      } else if (s.shift.includes('16:45 a 18')) {
+        initialSchedule.LUNES = OFFICIAL_SHIFTS[0];
+        initialSchedule.MIERCOLES = OFFICIAL_SHIFTS[0];
+        initialSchedule.VIERNES = OFFICIAL_SHIFTS[0];
+      } else if (s.shift.includes('17:30 a 19')) {
+        initialSchedule.LUNES = OFFICIAL_SHIFTS[1];
+        initialSchedule.MIERCOLES = OFFICIAL_SHIFTS[1];
+        initialSchedule.VIERNES = OFFICIAL_SHIFTS[1];
+      }
+    }
+    setSchedule(initialSchedule);
+
     setAuthorizedPeople(
       s.authorizedPeople && s.authorizedPeople.length > 0
         ? s.authorizedPeople.map((p) => ({
@@ -109,6 +152,60 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
         : [{ fullName: '', dni: '', relationship: 'Mamá', phone: '' }]
     );
     setModalOpen(true);
+  };
+
+  const handlePlanChange = (newPlan: StudentPlan) => {
+    setPlan(newPlan);
+    const planDef = STUDENT_PLANS[newPlan];
+
+    if (newPlan === 'CLASE_SUELTA') {
+      setSchedule({});
+      return;
+    }
+
+    if (newPlan === 'PASE_LIBRE') {
+      const fullSchedule: Record<string, string> = {};
+      WEEK_DAYS.forEach((d) => {
+        const currentShift = schedule[d.key];
+        const validShifts = DAY_SHIFTS[d.key];
+        const isValid = validShifts.some((s) => s.shift === currentShift);
+        fullSchedule[d.key] = isValid && currentShift ? currentShift : validShifts[0].shift;
+      });
+      setSchedule(fullSchedule);
+      return;
+    }
+
+    const currentKeys = Object.keys(schedule);
+    if (currentKeys.length > planDef.days) {
+      const trimmed: Record<string, string> = {};
+      currentKeys.slice(0, planDef.days).forEach((k) => {
+        trimmed[k] = schedule[k];
+      });
+      setSchedule(trimmed);
+    }
+  };
+
+  const handleToggleDay = (dayKey: string) => {
+    const isSelected = Boolean(schedule[dayKey]);
+    if (isSelected) {
+      const updated = { ...schedule };
+      delete updated[dayKey];
+      setSchedule(updated);
+    } else {
+      const planDef = STUDENT_PLANS[plan];
+      const currentCount = Object.keys(schedule).length;
+      if (planDef.days > 0 && currentCount >= planDef.days) {
+        alert(`El plan seleccionado "${planDef.label}" solo permite ${planDef.days} día(s). Desmarcá un día previo para elegir este.`);
+        return;
+      }
+      const available = DAY_SHIFTS[dayKey];
+      const defaultShift = available[0].shift;
+      setSchedule({ ...schedule, [dayKey]: defaultShift });
+    }
+  };
+
+  const handleChangeDayShift = (dayKey: string, newShift: string) => {
+    setSchedule({ ...schedule, [dayKey]: newShift });
   };
 
   const openHistoryModal = async (s: Student) => {
@@ -139,9 +236,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     setDeletingAttId(attendanceId);
     try {
       await deleteAttendance(attendanceId, user.dni);
-      // Quitar de la lista local en el modal
       setStudentAttendances((prev) => prev.filter((a) => a.id !== attendanceId));
-      // Actualizar asistencias en el listado de alumnas para que el conteo mensual se actualice al instante
       setStudents((prev) =>
         prev.map((st) => {
           if (st.id === historyStudent?.id) {
@@ -179,38 +274,49 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim() || !dni.trim() || !shift) {
-      alert('Nombre, Apellido, DNI y Turno son requeridos.');
+    if (!firstName.trim() || !lastName.trim() || !dni.trim()) {
+      alert('Nombre, Apellido y DNI son requeridos.');
       return;
     }
+
+    const planDef = STUDENT_PLANS[plan];
+    const selectedDaysCount = Object.keys(schedule).length;
+
+    if (planDef.days > 0 && selectedDaysCount !== planDef.days) {
+      alert(`El plan "${planDef.label}" requiere exactamente ${planDef.days} día(s). Tenés seleccionados ${selectedDaysCount}.`);
+      return;
+    }
+
+    const scheduleEntries = Object.entries(schedule).map(([day, shiftVal]) => ({
+      day,
+      shift: shiftVal,
+    }));
+
+    const primaryShift = scheduleEntries[0]?.shift || shift || OFFICIAL_SHIFTS[0];
 
     const validPeople = authorizedPeople.filter(
       (p) => p.fullName.trim() !== '' && p.dni.trim() !== ''
     );
 
+    const payload = {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      dni: dni.trim(),
+      shift: primaryShift,
+      plan,
+      monthlyFee: planDef.fee,
+      schedule: scheduleEntries,
+      status,
+      notes: notes.trim(),
+      phone: phone.trim() || undefined,
+      authorizedPeople: validPeople,
+    };
+
     try {
       if (editingStudent) {
-        await updateStudent(user.dni, editingStudent.id, {
-          firstName,
-          lastName,
-          dni,
-          shift,
-          status,
-          notes,
-          phone: phone.trim() || undefined,
-          authorizedPeople: validPeople,
-        });
+        await updateStudent(user.dni, editingStudent.id, payload);
       } else {
-        await createStudent(user.dni, {
-          firstName,
-          lastName,
-          dni,
-          shift,
-          status,
-          notes,
-          phone: phone.trim() || undefined,
-          authorizedPeople: validPeople,
-        });
+        await createStudent(user.dni, payload);
       }
       setModalOpen(false);
       fetchAll();
@@ -273,7 +379,8 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
       s.firstName.toLowerCase().includes(search.toLowerCase()) ||
       s.lastName.toLowerCase().includes(search.toLowerCase()) ||
       s.dni.includes(search) ||
-      s.shift.toLowerCase().includes(search.toLowerCase());
+      s.shift.toLowerCase().includes(search.toLowerCase()) ||
+      (s.phone && s.phone.includes(search));
 
     const matchesShift =
       selectedShiftFilter === 'ALL' || s.shift === selectedShiftFilter;
@@ -281,7 +388,10 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     const matchesStatus =
       selectedStatusFilter === 'ALL' || currentStatus === selectedStatusFilter;
 
-    return matchesSearch && matchesShift && matchesStatus;
+    const matchesPlan =
+      selectedPlanFilter === 'ALL' || s.plan === selectedPlanFilter;
+
+    return matchesSearch && matchesShift && matchesStatus && matchesPlan;
   });
 
   return (
@@ -294,7 +404,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
           </span>
           <h2 className="text-xl sm:text-2xl font-black">Alumnas</h2>
           <p className="text-amber-100 text-xs sm:text-sm mt-0.5">
-            Gestión de alumnas registradas en VULPIARE, estados y asistencias mensuales.
+            Gestión de alumnas, planes de cuota, cronograma de turnos y facturación mensual.
           </p>
         </div>
 
@@ -307,7 +417,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
         </button>
       </div>
 
-      {/* Control Mensual de Asistencias & Resumen de Estados (Exclusivo Super Admin) */}
+      {/* Control Mensual de Asistencias & Resumen de Estados */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         {/* Selector de Mes */}
         <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col justify-between md:col-span-2">
@@ -363,20 +473,35 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
         </div>
       </div>
 
-      {/* Buscador y Filtros por Turno y Estado */}
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="flex-1 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-2">
+      {/* Buscador y Filtros */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-2">
           <Search className="w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar alumna por nombre o DNI..."
+            placeholder="Buscar por nombre, DNI o WhatsApp..."
             className="w-full text-xs font-bold border-none focus:outline-none bg-transparent"
           />
         </div>
 
-        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-xs flex items-center min-w-[200px]">
+        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-xs flex items-center">
+          <select
+            value={selectedPlanFilter}
+            onChange={(e) => setSelectedPlanFilter(e.target.value)}
+            className="w-full text-xs font-bold bg-transparent border-none focus:outline-none text-slate-700 px-2 cursor-pointer"
+          >
+            <option value="ALL">✨ Todos los Planes</option>
+            {(Object.keys(STUDENT_PLANS) as StudentPlan[]).map((pKey) => (
+              <option key={pKey} value={pKey}>
+                {STUDENT_PLANS[pKey].label} ({formatMoney(STUDENT_PLANS[pKey].fee)})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-xs flex items-center">
           <select
             value={selectedShiftFilter}
             onChange={(e) => setSelectedShiftFilter(e.target.value)}
@@ -391,7 +516,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
           </select>
         </div>
 
-        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-xs flex items-center min-w-[180px]">
+        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-xs flex items-center">
           <select
             value={selectedStatusFilter}
             onChange={(e) => setSelectedStatusFilter(e.target.value)}
@@ -418,20 +543,29 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
             filteredStudents.map((s) => {
               const currentStatus = s.status || 'ACTIVE';
               const monthlyAttendanceCount = getStudentMonthlyAttendanceCount(s);
+              const studentPlanDef = s.plan && STUDENT_PLANS[s.plan as StudentPlan];
 
               return (
                 <div
                   key={s.id}
                   className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors"
                 >
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <div className="flex flex-wrap items-center gap-2">
                       <h4 className="font-black text-slate-900 text-base">
                         {s.firstName} {s.lastName}
                       </h4>
-                      <span className="bg-purple-50 text-purple-900 text-xs font-extrabold px-2.5 py-0.5 rounded-full border border-purple-100">
-                        {s.shift}
-                      </span>
+
+                      {/* Badge de Plan */}
+                      {studentPlanDef ? (
+                        <span className="bg-amber-100 text-amber-900 text-xs font-black px-2.5 py-0.5 rounded-full border border-amber-300">
+                          {studentPlanDef.label} · {formatMoney(s.monthlyFee || studentPlanDef.fee)}
+                        </span>
+                      ) : (
+                        <span className="bg-purple-50 text-purple-900 text-xs font-extrabold px-2.5 py-0.5 rounded-full border border-purple-100">
+                          {s.shift}
+                        </span>
+                      )}
 
                       {/* Badge de Estado */}
                       <span
@@ -451,12 +585,30 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
                       </span>
                     </div>
 
+                    {/* Cronograma de días y turnos específicos */}
+                    {s.schedule && s.schedule.length > 0 ? (
+                      <div className="flex items-center gap-1.5 text-xs text-slate-600 font-bold">
+                        <Clock className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                        <span className="text-slate-800">{describeSchedule(s.schedule)}</span>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 font-medium">
+                        Turno fijo: <span className="text-slate-600 font-bold">{s.shift}</span>
+                      </p>
+                    )}
+
                     <p className="text-xs text-slate-500 font-medium">
-                      DNI Alumna: <span className="font-mono text-slate-700 font-bold">{s.dni}</span>{s.phone && (<span className="ml-2 inline-flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200"><Phone className="w-3 h-3 text-emerald-600" />{s.phone}</span>)}
+                      DNI Alumna: <span className="font-mono text-slate-700 font-bold">{s.dni}</span>
+                      {s.phone && (
+                        <span className="ml-2 inline-flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                          <Phone className="w-3 h-3 text-emerald-600" />
+                          {s.phone}
+                        </span>
+                      )}
                     </p>
 
-                    {/* Contabilizador de Clases Asistidas en el Mes (Super Admin) */}
-                    <div className="pt-1 flex flex-wrap items-center gap-2">
+                    {/* Contabilizador de Clases Asistidas en el Mes */}
+                    <div className="pt-0.5 flex flex-wrap items-center gap-2">
                       <span className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-900 px-3 py-1 rounded-xl text-xs font-black">
                         <Calendar className="w-3.5 h-3.5 text-indigo-600" />
                         <span>
@@ -481,7 +633,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
                     </div>
 
                     {/* Autorizados */}
-                    <div className="mt-2 flex flex-wrap gap-1">
+                    <div className="mt-1 flex flex-wrap gap-1">
                       <span className="text-[11px] font-bold text-slate-400 self-center mr-1">Autorizados:</span>
                       {s.authorizedPeople.length === 0 ? (
                         <span className="text-[11px] text-rose-500 font-bold">Ninguno</span>
@@ -530,7 +682,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
         </div>
       )}
 
-      {/* Modal Historial de Asistencias & Eliminación de Asistencia Incorrecta */}
+      {/* Modal Historial de Asistencias & Eliminación */}
       {historyModalOpen && historyStudent && (
         <div
           className="fixed inset-x-0 bottom-0 top-16 md:top-[112px] z-40 bg-slate-900/40 backdrop-blur-sm flex items-start justify-center p-3 sm:p-6 overflow-y-auto pb-24 md:pb-8"
@@ -661,7 +813,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
             if (e.target === e.currentTarget) setModalOpen(false);
           }}
         >
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-lg my-3 sm:my-6 p-6 relative animate-fadeIn">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-2xl my-3 sm:my-6 p-6 relative animate-fadeIn">
             <button
               onClick={() => setModalOpen(false)}
               className="absolute top-5 right-5 p-2 rounded-2xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
@@ -673,13 +825,13 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
               {editingStudent ? 'Editar Alumna' : 'Nueva Alumna'}
             </h3>
             <p className="text-xs text-slate-500 font-medium mb-4">
-              Ingresá los datos de la alumna y las personas autorizadas para su retiro.
+              Configurá los datos de la alumna, su plan de cuotas, días y horarios de cursada.
             </p>
 
             <form onSubmit={handleSave} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Nombre</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Nombre *</label>
                   <input
                     type="text"
                     required
@@ -691,7 +843,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Apellido</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Apellido *</label>
                   <input
                     type="text"
                     required
@@ -705,7 +857,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">DNI Alumna</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">DNI Alumna *</label>
                   <input
                     type="text"
                     required
@@ -717,39 +869,154 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Turno Habitual</label>
-                  <select
-                    value={shift}
-                    onChange={(e) => setShift(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
-                  >
-                    {shifts.map((sh) => (
-                      <option key={sh} value={sh}>
-                        {sh}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Teléfono de Contacto (WhatsApp)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="Ej. 11 2345-6789"
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 pl-9"
+                    />
+                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Teléfono de Contacto (Opcional - WhatsApp para avisos y recibos de pago)
-                </label>
-                <div className="relative">
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Ej. 11 2345-6789 o +54 9 11 2345-6789 (Opcional)"
-                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 pl-9"
-                  />
-                  <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              {/* Selector de Plan y Cuota Obligatoria */}
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50/60 p-4 rounded-3xl border border-amber-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-black text-amber-950 uppercase tracking-wider">
+                      Plan y Cuota Mensual *
+                    </label>
+                    <p className="text-[11px] text-amber-800 font-medium">
+                      Determina la cuota a cobrar en el estado de cuenta y los días habilitados.
+                    </p>
+                  </div>
+                  <span className="text-xs font-black text-amber-900 bg-white px-3 py-1 rounded-full border border-amber-200 shadow-2xs">
+                    {formatMoney(STUDENT_PLANS[plan].fee)}/mes
+                  </span>
                 </div>
-                <p className="text-[11px] text-slate-400 font-medium mt-1">
-                  * Opcional: Si se completa, se utilizará para comunicar faltas de pago y enviar automáticamente los recibos oficiales por WhatsApp.
-                </p>
+
+                {/* Tarjetas de Planes */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {(Object.keys(STUDENT_PLANS) as StudentPlan[]).map((pKey) => {
+                    const pInfo = STUDENT_PLANS[pKey];
+                    const isSelected = plan === pKey;
+                    return (
+                      <button
+                        key={pKey}
+                        type="button"
+                        onClick={() => handlePlanChange(pKey)}
+                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-md ring-2 ring-amber-400'
+                            : 'bg-white text-slate-800 border-slate-200 hover:border-amber-300 hover:bg-amber-50/40'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black leading-tight">{pInfo.label}</span>
+                          {isSelected && <CheckCircle2 className="w-4 h-4 text-white flex-shrink-0" />}
+                        </div>
+                        <p className={`text-sm font-black mt-1 ${isSelected ? 'text-amber-100' : 'text-amber-700'}`}>
+                          {formatMoney(pInfo.fee)}
+                        </p>
+                        <p className={`text-[10px] font-medium mt-0.5 ${isSelected ? 'text-amber-200' : 'text-slate-400'}`}>
+                          {pInfo.days === 0 ? 'Sin días fijos' : pInfo.days === 5 ? 'Todos los días hábiles' : `${pInfo.days} día(s) por semana`}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Banner Informativo de Inscripción Inicial */}
+                <div className="flex items-center justify-between bg-white/90 p-2.5 rounded-2xl border border-amber-200 text-xs">
+                  <span className="text-slate-600 font-bold">
+                    📌 Inscripción (pago inicial anual):
+                  </span>
+                  <span className="font-black text-amber-800 bg-amber-100/70 px-2.5 py-0.5 rounded-xl">
+                    {formatMoney(ENROLLMENT_FEE)}
+                  </span>
+                </div>
               </div>
+
+              {/* Asignación Dinámica de Días y Turnos */}
+              {STUDENT_PLANS[plan].days > 0 ? (
+                <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-xs font-black text-slate-800 uppercase tracking-wider">
+                        Días y Horarios de Asistencia *
+                      </label>
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        Seleccioná exactamente <strong>{STUDENT_PLANS[plan].days} día(s)</strong> para este plan ({Object.keys(schedule).length}/{STUDENT_PLANS[plan].days} seleccionados).
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {WEEK_DAYS.map((d) => {
+                      const isSelected = Boolean(schedule[d.key]);
+                      const currentShiftVal = schedule[d.key];
+                      const availableShifts = DAY_SHIFTS[d.key];
+                      const hasMultipleShifts = availableShifts.length > 1;
+
+                      return (
+                        <div
+                          key={d.key}
+                          className={`p-3 rounded-2xl border transition-all ${
+                            isSelected
+                              ? 'bg-white border-amber-400 shadow-xs ring-1 ring-amber-300'
+                              : 'bg-white/60 border-slate-200 hover:bg-white'
+                          }`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleDay(d.key)}
+                                className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                              />
+                              <span className="text-xs font-black text-slate-900">{d.label}</span>
+                              {!hasMultipleShifts && isSelected && (
+                                <span className="text-[11px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-lg">
+                                  {availableShifts[0].label}
+                                </span>
+                              )}
+                            </label>
+
+                            {/* Selector anidado de horario si el día tiene múltiples turnos y está seleccionado */}
+                            {isSelected && hasMultipleShifts && (
+                              <div className="flex items-center gap-1.5 pl-6 sm:pl-0">
+                                <span className="text-[11px] font-bold text-slate-400">Horario:</span>
+                                <select
+                                  value={currentShiftVal || availableShifts[0].shift}
+                                  onChange={(e) => handleChangeDayShift(d.key, e.target.value)}
+                                  className="px-2.5 py-1.5 rounded-xl bg-amber-50/80 border border-amber-200 text-xs font-black text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                                >
+                                  {availableShifts.map((sh) => (
+                                    <option key={sh.shift} value={sh.shift}>
+                                      {sh.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-purple-50 rounded-2xl border border-purple-200 text-purple-900 text-xs">
+                  ℹ️ <strong>Clase suelta:</strong> No requiere asignación de días fijos. La alumna abona por clase individual al momento de asistir.
+                </div>
+              )}
 
               {/* Estado de la Alumna */}
               <div>
@@ -792,7 +1059,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
                   <button
                     type="button"
                     onClick={handleAddAuthorizedRow}
-                    className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
+                    className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Agregar Persona</span>
@@ -833,7 +1100,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
                         <button
                           type="button"
                           onClick={() => handleRemoveAuthorizedRow(idx)}
-                          className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
+                          className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -848,13 +1115,13 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2.5 rounded-2xl border border-slate-200 text-slate-600 font-extrabold text-xs hover:bg-slate-50 min-h-[42px]"
+                  className="px-4 py-2.5 rounded-2xl border border-slate-200 text-slate-600 font-extrabold text-xs hover:bg-slate-50 min-h-[42px] cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-md shadow-amber-200 transition-all flex items-center gap-1.5 min-h-[42px]"
+                  className="px-5 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-md shadow-amber-200 transition-all flex items-center gap-1.5 min-h-[42px] cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
                   <span>Guardar</span>

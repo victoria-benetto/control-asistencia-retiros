@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
+import { validatePlanSchedule, STUDENT_PLANS } from '../utils/plans';
 
 const router = Router();
 
@@ -199,9 +200,19 @@ router.delete('/teachers/:id', requireSuperAdmin, async (req: Request, res: Resp
  */
 router.post('/students', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, dni, shift, status, notes, phone, authorizedPeople } = req.body;
-    if (!firstName || !lastName || !dni || !shift) {
-      return res.status(400).json({ error: 'Nombre, Apellido, DNI y Turno son requeridos.' });
+    const { firstName, lastName, dni, status, notes, phone, authorizedPeople, plan, schedule } = req.body;
+    let { shift } = req.body;
+    if (!firstName || !lastName || !dni || (!shift && !plan)) {
+      return res.status(400).json({ error: 'Nombre, Apellido, DNI y Plan/Turno son requeridos.' });
+    }
+
+    // Plan de cuota + cronograma por día
+    let planData: any = {};
+    if (plan) {
+      const result = validatePlanSchedule(plan, schedule);
+      if ('error' in result) return res.status(400).json({ error: result.error });
+      planData = { plan, monthlyFee: STUDENT_PLANS[plan].fee, schedule: result.schedule };
+      shift = result.schedule[0]?.shift || STUDENT_PLANS[plan].label;
     }
 
     const cleanDni = dni.trim();
@@ -235,6 +246,7 @@ router.post('/students', requireSuperAdmin, async (req: Request, res: Response) 
         status: validStatus,
         notes: notes ? notes.trim() : '',
         phone: phone && String(phone).trim() ? String(phone).trim() : null,
+        ...planData,
         authorizedPeople: {
           create: validPeople,
         },
@@ -279,7 +291,7 @@ router.post('/students', requireSuperAdmin, async (req: Request, res: Response) 
 router.put('/students/:id', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, dni, shift, status, notes, phone, authorizedPeople } = req.body;
+    const { firstName, lastName, dni, shift, status, notes, phone, authorizedPeople, plan, schedule } = req.body;
 
     const student = await prisma.student.findUnique({ where: { id } });
     if (!student) {
@@ -287,9 +299,17 @@ router.put('/students/:id', requireSuperAdmin, async (req: Request, res: Respons
     }
 
     const updateData: any = {};
+    if (plan) {
+      const result = validatePlanSchedule(plan, schedule);
+      if ('error' in result) return res.status(400).json({ error: result.error });
+      updateData.plan = plan;
+      updateData.monthlyFee = STUDENT_PLANS[plan].fee;
+      updateData.schedule = result.schedule;
+      updateData.shift = result.schedule[0]?.shift || STUDENT_PLANS[plan].label;
+    }
     if (firstName) updateData.firstName = firstName.trim();
     if (lastName) updateData.lastName = lastName.trim();
-    if (shift) updateData.shift = shift.trim();
+    if (shift && !plan) updateData.shift = shift.trim();
     if (status && ['ACTIVE', 'TEMPORARILY_INACTIVE', 'INACTIVE'].includes(status)) {
       updateData.status = status;
     }

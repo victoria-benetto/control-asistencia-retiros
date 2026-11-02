@@ -34,7 +34,11 @@ router.get('/today', async (req: Request, res: Response) => {
     };
 
     if (shift) {
-      whereCondition.student = { shift: String(shift) };
+      // Asistencias del turno (por turno registrado; registros antiguos sin turno usan el turno de la alumna)
+      whereCondition.OR = [
+        { shift: String(shift) },
+        { shift: '', student: { shift: String(shift) } },
+      ];
     }
 
     const presentRecords = await prisma.attendanceRecord.findMany({

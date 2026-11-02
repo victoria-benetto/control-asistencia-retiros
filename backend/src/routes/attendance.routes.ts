@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { getTodayDateString, getTodayDayName } from '../utils/date';
 import { OFFICIAL_SHIFTS } from './student.routes';
+import { studentAttendsShift } from '../utils/plans';
 
 const router = Router();
 
@@ -30,15 +31,16 @@ router.get('/today', async (req: Request, res: Response) => {
   const targetShift = (req.query.shift as string) || (new Date(`${selectedDate}T12:00:00`).getDay() === 2 || new Date(`${selectedDate}T12:00:00`).getDay() === 4 ? 'Martes y Jueves de 16 a 18' : OFFICIAL_SHIFTS[0]);
 
   try {
-    // Alumnas registradas en este turno (únicamente con estado ACTIVE)
-    const studentsInShift = await prisma.student.findMany({
+    // Alumnas del turno (ACTIVE): legado por turno fijo, o con plan según su cronograma por día
+    const candidateStudents = await prisma.student.findMany({
       where: {
-        shift: targetShift,
         status: 'ACTIVE',
+        OR: [{ shift: targetShift }, { plan: { not: null } }],
       },
       include: { authorizedPeople: true },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
+    const studentsInShift = candidateStudents.filter((s) => studentAttendsShift(s, targetShift, selectedDate));
 
     // Registros de asistencia existentes específicamente para la fecha Y TURNO seleccionados
     const existingAttendances = await prisma.attendanceRecord.findMany({
@@ -254,6 +256,7 @@ router.get('/history', async (req: Request, res: Response) => {
       const shiftStr = String(shift).trim();
       whereCondition.OR = [
         { student: { shift: shiftStr } },
+        { shift: shiftStr },
         { makeupShift: shiftStr },
       ];
     }
