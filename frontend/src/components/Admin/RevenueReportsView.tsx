@@ -21,9 +21,13 @@ import {
   ArrowDownRight,
   Filter,
   Sparkles,
+  Search,
+  Eye,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { AdminUser, PaymentRecord, Student, FixedExpense, PaymentConcept } from '../../types';
-import { getPayments, getStudents, getExpenses, getPaymentConcepts } from '../../services/api';
+import { getPayments, getStudents, getExpenses, getPaymentConcepts, deletePayment } from '../../services/api';
 import { trackFinancialReportViewed, trackReportExported } from '../../services/analytics';
 
 interface RevenueReportsViewProps {
@@ -62,6 +66,9 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
 
   // Estado de feedback de exportación
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
+  const [tableSearch, setTableSearch] = useState<string>('');
+  const [viewReceiptModal, setViewReceiptModal] = useState<string | null>(null);
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
 
   // Cargar datos
   const loadData = async () => {
@@ -441,6 +448,34 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
       });
     }
   }, [selectedMonth, selectedYear, viewScope, loading, totalRevenue, totalExpenses, netBalance, paidCount, unpaidStudents.length]);
+
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!window.confirm('¿Estás segura de anular este registro de pago? Esta acción eliminará el cobro de los reportes.')) {
+      return;
+    }
+    setDeletingPaymentId(paymentId);
+    try {
+      await deletePayment(paymentId);
+      setPayments((prev) => prev.filter((p) => p.id !== paymentId));
+    } catch (err: any) {
+      alert('Error al anular pago: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setDeletingPaymentId(null);
+    }
+  };
+
+  const filteredTablePayments = useMemo(() => {
+    if (!tableSearch.trim()) return filteredPayments;
+    const q = tableSearch.toLowerCase().trim();
+    return filteredPayments.filter((p) => {
+      const studentName = p.student ? `${p.student.firstName} ${p.student.lastName}`.toLowerCase() : '';
+      const dni = p.student?.dni || '';
+      const concept = (p.concept || '').toLowerCase();
+      const method = p.paymentMethod === 'TRANSFER' ? 'transferencia' : 'efectivo';
+      const notes = (p.notes || '').toLowerCase();
+      return studentName.includes(q) || dni.includes(q) || concept.includes(q) || method.includes(q) || notes.includes(q);
+    });
+  }, [filteredPayments, tableSearch]);
 
   // =========================================================================
   // ACCIONES DE EXPORTACIÓN
@@ -1010,6 +1045,204 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
           ))}
         </div>
       </section>
+
+      {/* 7. Registro Detallado de Transacciones */}
+      <section className="rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-slate-100 flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-black text-slate-900">
+                Registro Detallado de Pagos y Cobros
+              </h2>
+              <span className="text-xs font-black bg-purple-100 text-purple-800 px-2.5 py-0.5 rounded-full">
+                {filteredTablePayments.length} {filteredTablePayments.length === 1 ? 'pago' : 'pagos'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Listado individual de quién pagó, concepto, monto exacto y medio de pago para el período seleccionado.
+            </p>
+          </div>
+
+          {/* Buscador dentro de transacciones */}
+          <div className="relative w-full sm:w-72">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={tableSearch}
+              onChange={(e) => setTableSearch(e.target.value)}
+              placeholder="Buscar por alumna, DNI, concepto..."
+              className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-2 focus:ring-purple-500"
+            />
+            {tableSearch && (
+              <button
+                type="button"
+                onClick={() => setTableSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {filteredTablePayments.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-400 font-bold bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+            No se encontraron transacciones registradas para este filtro ({conceptFilter}) en el período seleccionado.
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {filteredTablePayments.map((p) => {
+              const c = (p.concept || '').toLowerCase();
+              const isSeguro = c.includes('seguro');
+              const isInscripcion = c.includes('inscrip') || c.includes('matr');
+              const isSuelta = c.includes('suelta') || c.includes('pase');
+              const isCuota = !isSeguro && !isInscripcion && !isSuelta;
+              const isDeleting = deletingPaymentId === p.id;
+
+              const dateStr = p.paidAt
+                ? new Date(p.paidAt).toLocaleDateString('es-AR', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })
+                : p.month;
+
+              return (
+                <div
+                  key={p.id}
+                  className="p-3.5 sm:p-4 rounded-2xl bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="flex items-start sm:items-center gap-3">
+                    <div
+                      className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black flex-shrink-0 text-white shadow-xs ${
+                        isSeguro
+                          ? 'bg-indigo-600'
+                          : isInscripcion
+                          ? 'bg-pink-600'
+                          : isSuelta
+                          ? 'bg-amber-600'
+                          : 'bg-purple-600'
+                      }`}
+                    >
+                      {isSeguro ? '🛡️' : isInscripcion ? '📝' : isSuelta ? '🎟️' : '🩰'}
+                    </div>
+
+                    <div className="flex flex-col">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-extrabold text-slate-900 text-sm">
+                          {p.student ? `${p.student.firstName} ${p.student.lastName}` : 'Alumna sin asignar'}
+                        </span>
+                        {p.student?.dni && (
+                          <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                            DNI: {p.student.dni}
+                          </span>
+                        )}
+                        <span
+                          className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                            isSeguro
+                              ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                              : isInscripcion
+                              ? 'bg-pink-100 text-pink-800 border border-pink-200'
+                              : isSuelta
+                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                              : 'bg-purple-100 text-purple-800 border border-purple-200'
+                          }`}
+                        >
+                          {p.concept || 'Cuota Mensual'}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 font-medium mt-1">
+                        <span>📅 {dateStr}</span>
+                        <span>•</span>
+                        <span className="font-extrabold text-slate-700">
+                          {p.paymentMethod === 'TRANSFER' ? '💳 Transferencia' : '💵 Efectivo'}
+                        </span>
+                        {p.operationNumber && (
+                          <span className="text-slate-400 text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">
+                            Op: {p.operationNumber}
+                          </span>
+                        )}
+                        {p.recordedBy?.fullName && (
+                          <>
+                            <span>•</span>
+                            <span className="text-slate-400 text-[10px]">
+                              Cobrado por: {p.recordedBy.fullName}
+                            </span>
+                          </>
+                        )}
+                        {p.notes && (
+                          <span className="text-purple-700 font-bold bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-100">
+                            💬 {p.notes}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-3 self-end sm:self-center w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60">
+                    <span className="text-base sm:text-lg font-black text-slate-900">
+                      ${p.amount.toLocaleString('es-AR')}
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      {p.receiptUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setViewReceiptModal(p.receiptUrl!)}
+                          className="p-2 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-800 text-xs font-bold transition-colors"
+                          title="Ver comprobante adjunto"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={isDeleting}
+                        onClick={() => handleDeletePayment(p.id)}
+                        className="p-2 rounded-xl bg-slate-100 hover:bg-rose-100 hover:text-rose-700 text-slate-400 text-xs font-bold transition-colors disabled:opacity-50"
+                        title="Anular / Eliminar este cobro"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* MODAL VISTA DE COMPROBANTE */}
+      {viewReceiptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-4 shadow-2xl flex flex-col space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="font-extrabold text-slate-900 text-sm">Comprobante de Pago</h4>
+              <button
+                onClick={() => setViewReceiptModal(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="rounded-2xl overflow-hidden bg-slate-950 max-h-[70vh] flex items-center justify-center">
+              <img
+                src={viewReceiptModal}
+                alt="Comprobante"
+                className="max-h-[70vh] w-auto object-contain"
+              />
+            </div>
+            <button
+              onClick={() => setViewReceiptModal(null)}
+              className="w-full py-2.5 rounded-2xl bg-slate-100 text-slate-700 font-extrabold text-xs hover:bg-slate-200"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 7. Acciones de Exportación y Descarga */}
       <section className="rounded-3xl bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100/80 p-5 sm:p-6 shadow-sm">

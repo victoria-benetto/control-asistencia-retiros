@@ -33,7 +33,7 @@ interface PaymentControlViewProps {
 const DEFAULT_FEE = 22000;
 const SURCHARGE_PERCENT = 0.10; // 10% de recargo pasados los primeros 10 días
 
-type PaymentFilter = 'ALL' | 'PAID' | 'PENDING' | 'OVERDUE';
+type PaymentFilter = 'ALL' | 'PAID' | 'PENDING' | 'OVERDUE' | 'SEGURO' | 'INSCRIPCION';
 
 interface StudentPaymentInfo {
   student: Student;
@@ -188,6 +188,11 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
     const paidCount = computedList.filter((item) => item.status === 'PAID' && !item.isPartial).length;
     const pendingCount = computedList.filter((item) => item.status === 'PENDING' || (item.status === 'PAID' && item.isPartial)).length;
     const overdueCount = computedList.filter((item) => item.status === 'OVERDUE').length;
+    const seguroCount = computedList.filter((item) => item.allPayments?.some((p) => p.concept?.toLowerCase().includes('seguro'))).length;
+    const inscripcionCount = computedList.filter((item) => item.allPayments?.some((p) => {
+      const c = (p.concept || '').toLowerCase();
+      return c.includes('inscrip') || c.includes('matr');
+    })).length;
 
     const totalCollected = payments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0); const _unusedCollected = computedList.reduce(
       (acc, item) => (item.status === 'PAID' ? acc + item.amount : acc),
@@ -232,6 +237,8 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
       transferCollected,
       totalPendingAmount,
       paidPercentage,
+      seguroCount,
+      inscripcionCount,
     };
   }, [computedList]);
 
@@ -242,6 +249,11 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
       if (activeFilter === 'PAID' && item.status !== 'PAID') return false;
       if (activeFilter === 'PENDING' && item.status !== 'PENDING') return false;
       if (activeFilter === 'OVERDUE' && item.status !== 'OVERDUE') return false;
+      if (activeFilter === 'SEGURO' && !item.allPayments?.some((p) => p.concept?.toLowerCase().includes('seguro'))) return false;
+      if (activeFilter === 'INSCRIPCION' && !item.allPayments?.some((p) => {
+        const c = (p.concept || '').toLowerCase();
+        return c.includes('inscrip') || c.includes('matr');
+      })) return false;
 
       // Filtro de turno
       if (selectedShift !== 'ALL' && item.student.shift !== selectedShift) return false;
@@ -615,6 +627,28 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
             <span className="w-2 h-2 rounded-full bg-rose-500" />
             <span>Vencidas ({metrics.overdueCount})</span>
           </button>
+
+          <button
+            onClick={() => setActiveFilter('SEGURO')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-extrabold whitespace-nowrap transition-all ${
+              activeFilter === 'SEGURO'
+                ? 'bg-indigo-700 text-white shadow-md shadow-indigo-200'
+                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+            }`}
+          >
+            <span>🛡️ Seguro (${metrics.seguroCount})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveFilter('INSCRIPCION')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-extrabold whitespace-nowrap transition-all ${
+              activeFilter === 'INSCRIPCION'
+                ? 'bg-pink-700 text-white shadow-md shadow-pink-200'
+                : 'bg-pink-50 text-pink-700 hover:bg-pink-100 border border-pink-200'
+            }`}
+          >
+            <span>📝 Inscripción (${metrics.inscripcionCount})</span>
+          </button>
         </div>
       </div>
 
@@ -751,18 +785,43 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                   </div>
 
                   {item.allPayments && item.allPayments.some((p) => isNonCuotaConcept(p.concept)) && (
-                    <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-slate-100">
+                    <div className="flex flex-col gap-1.5 pt-1.5 border-t border-slate-100">
                       {item.allPayments
                         .filter((p) => isNonCuotaConcept(p.concept))
                         .map((p) => (
-                          <span
+                          <div
                             key={p.id}
-                            className="text-[10px] bg-indigo-50 border border-indigo-200 text-indigo-800 px-2 py-0.5 rounded-lg font-black flex items-center gap-1"
+                            className="text-[11px] bg-indigo-50/90 border border-indigo-200 text-indigo-900 px-2.5 py-1 rounded-xl font-bold flex items-center justify-between gap-1 shadow-xs"
                           >
-                            <span>{p.concept?.toLowerCase().includes('seguro') ? '🛡️' : '📝'}</span>
-                            <span>{p.concept}:</span>
-                            <span className="font-extrabold text-indigo-950">${p.amount.toLocaleString('es-AR')}</span>
-                          </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span>{p.concept?.toLowerCase().includes('seguro') ? '🛡️' : '📝'}</span>
+                              <span className="font-extrabold">{p.concept}:</span>
+                              <span className="font-black text-indigo-950">${p.amount.toLocaleString('es-AR')}</span>
+                              <span className="text-[10px] text-indigo-700 bg-white/80 px-1.5 py-0.5 rounded border border-indigo-100 font-extrabold">
+                                {p.paymentMethod === 'TRANSFER' ? '💳 Transferencia' : '💵 Efectivo en Caja'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {p.receiptUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => setViewReceiptModal(p.receiptUrl!)}
+                                  className="p-1 rounded-lg hover:bg-white text-indigo-700 font-bold text-[10px]"
+                                  title="Ver comprobante"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenPaymentModal(item, p)}
+                                className="p-1 rounded-lg hover:bg-white text-indigo-700 font-bold text-[10px]"
+                                title="Editar pago"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
                         ))}
                     </div>
                   )}

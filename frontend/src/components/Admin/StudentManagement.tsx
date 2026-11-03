@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, ShieldAlert, UserPlus, X, Save, Search, Calendar, Users, Activity, CheckCircle2, History, Phone, Clock, DollarSign } from 'lucide-react';
-import { getStudents, createStudent, updateStudent, deleteStudent, getShifts, getStudentAttendances, deleteAttendance } from '../../services/api';
+import { getStudents, createStudent, updateStudent, deleteStudent, getShifts, getStudentAttendances, deleteAttendance, getPayments } from '../../services/api';
 import { Student, AdminUser, StudentStatus, OFFICIAL_SHIFTS } from '../../types';
 import { STUDENT_PLANS, StudentPlan, WEEK_DAYS, DAY_SHIFTS, formatMoney, describeSchedule, ENROLLMENT_FEE, ScheduleEntry } from '../../utils/plans';
 
@@ -61,6 +61,9 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
   const [studentAttendances, setStudentAttendances] = useState<any[]>([]);
   const [loadingAttendances, setLoadingAttendances] = useState(false);
   const [deletingAttId, setDeletingAttId] = useState<string | null>(null);
+  const [historyTab, setHistoryTab] = useState<'ATTENDANCE' | 'PAYMENTS'>('ATTENDANCE');
+  const [studentPayments, setStudentPayments] = useState<any[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -695,95 +698,226 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
               </div>
             </div>
 
-            <div className="mt-3 p-3 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 text-xs">
-              <p className="font-bold">⚠️ Corrección de asistencias erróneas:</p>
-              <p className="text-[11px] text-amber-800 mt-0.5">
-                Desde este apartado podés consultar las fechas a las que asistió la alumna y <strong>eliminar una asistencia</strong> si fue marcada de forma incorrecta.
-              </p>
+            {/* Selector de Pestaña: Asistencias vs Pagos */}
+            <div className="flex gap-2 mt-4 p-1 bg-slate-100 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => setHistoryTab('ATTENDANCE')}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                  historyTab === 'ATTENDANCE'
+                    ? 'bg-white text-indigo-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <span>📅 Asistencias</span>
+                <span className="text-[10px] bg-slate-100 px-1.5 py-0.2 rounded-full font-bold">
+                  {studentAttendances.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryTab('PAYMENTS')}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                  historyTab === 'PAYMENTS'
+                    ? 'bg-white text-purple-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <span>💳 Pagos y Seguros</span>
+                <span className="text-[10px] bg-purple-100 text-purple-800 px-1.5 py-0.2 rounded-full font-bold">
+                  {studentPayments.length}
+                </span>
+              </button>
             </div>
 
-            <div className="mt-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">
-                  Registros Encontrados ({studentAttendances.length})
-                </h4>
-              </div>
-
-              {loadingAttendances ? (
-                <div className="text-center py-8 text-xs text-slate-400 font-bold">
-                  Cargando asistencias...
+            {historyTab === 'ATTENDANCE' ? (
+              <>
+                <div className="mt-3 p-3 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 text-xs">
+                  <p className="font-bold">⚠️ Corrección de asistencias erróneas:</p>
+                  <p className="text-[11px] text-amber-800 mt-0.5">
+                    Desde este apartado podés consultar las fechas a las que asistió la alumna y <strong>eliminar una asistencia</strong> si fue marcada de forma incorrecta.
+                  </p>
                 </div>
-              ) : studentAttendances.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-400 font-semibold bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                  No hay asistencias registradas para esta alumna.
-                </div>
-              ) : (
-                <div className="max-h-[380px] overflow-y-auto space-y-2 pr-1">
-                  {studentAttendances.map((att: any) => {
-                    const isPresent = att.status === 'PRESENT';
-                    const isDeleting = deletingAttId === att.id;
-                    const dateObj = new Date(att.date + 'T12:00:00');
-                    const formattedDate = dateObj.toLocaleDateString('es-AR', {
-                      weekday: 'short',
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    });
 
-                    return (
-                      <div
-                        key={att.id}
-                        className="p-3.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50/80 flex items-center justify-between gap-3 transition-colors shadow-2xs"
-                      >
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                                isPresent
-                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                  : 'bg-rose-100 text-rose-800 border border-rose-200'
-                              }`}
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                      Registros de Asistencia ({studentAttendances.length})
+                    </h4>
+                  </div>
+
+                  {loadingAttendances ? (
+                    <div className="text-center py-8 text-xs text-slate-400 font-bold">
+                      Cargando asistencias...
+                    </div>
+                  ) : studentAttendances.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-slate-400 font-semibold bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      No hay asistencias registradas para esta alumna.
+                    </div>
+                  ) : (
+                    <div className="max-h-[380px] overflow-y-auto space-y-2 pr-1">
+                      {studentAttendances.map((att: any) => {
+                        const isPresent = att.status === 'PRESENT';
+                        const isDeleting = deletingAttId === att.id;
+                        const dateObj = new Date(att.date + 'T12:00:00');
+                        const formattedDate = dateObj.toLocaleDateString('es-AR', {
+                          weekday: 'short',
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        });
+
+                        return (
+                          <div
+                            key={att.id}
+                            className="p-3.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50/80 flex items-center justify-between gap-3 transition-colors shadow-2xs"
+                          >
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                    isPresent
+                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                      : 'bg-rose-100 text-rose-800 border border-rose-200'
+                                  }`}
+                                >
+                                  {isPresent ? 'Presente' : 'Ausente'}
+                                </span>
+                                <span className="text-xs font-black text-slate-800 capitalize">
+                                  {formattedDate}
+                                </span>
+                                <span className="text-[11px] font-mono text-slate-400">
+                                  ({att.date})
+                                </span>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-1 text-[11px] text-slate-500 font-medium pt-0.5">
+                                <span>Turno: <strong className="text-slate-700">{att.shift || historyStudent.shift}</strong></span>
+                                {att.isMakeup && (
+                                  <span className="ml-1 text-purple-700 font-bold bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200 text-[10px]">
+                                    Recuperatorio en {att.makeupShift || att.shift}
+                                  </span>
+                                )}
+                                {att.recordedBy?.fullName && (
+                                  <span className="ml-1 text-slate-400 text-[10px]">
+                                    • Marcó: {att.recordedBy.fullName}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => handleDeleteAttendance(att.id, att.date, att.shift || historyStudent.shift)}
+                              disabled={isDeleting}
+                              className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 text-xs font-black flex items-center gap-1 transition-all border border-rose-200 shadow-2xs disabled:opacity-50"
+                              title="Eliminar esta asistencia marcada erróneamente"
                             >
-                              {isPresent ? 'Presente' : 'Ausente'}
-                            </span>
-                            <span className="text-xs font-black text-slate-800 capitalize">
-                              {formattedDate}
-                            </span>
-                            <span className="text-[11px] font-mono text-slate-400">
-                              ({att.date})
-                            </span>
+                              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                              <span>{isDeleting ? 'Eliminando...' : 'Eliminar'}</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                    Historial de Pagos y Seguros ({studentPayments.length})
+                  </h4>
+                </div>
+
+                {loadingPayments ? (
+                  <div className="text-center py-8 text-xs text-slate-400 font-bold">
+                    Cargando pagos...
+                  </div>
+                ) : studentPayments.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 font-semibold bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    No hay pagos registrados para esta alumna.
+                  </div>
+                ) : (
+                  <div className="max-h-[380px] overflow-y-auto space-y-2 pr-1">
+                    {studentPayments.map((pay: any) => {
+                      const c = (pay.concept || '').toLowerCase();
+                      const isSeguro = c.includes('seguro');
+                      const isInscrip = c.includes('inscrip') || c.includes('matr');
+                      const isSuelta = c.includes('suelta') || c.includes('pase');
+                      const payDate = pay.paidAt
+                        ? new Date(pay.paidAt).toLocaleDateString('es-AR', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })
+                        : pay.month;
+
+                      return (
+                        <div
+                          key={pay.id}
+                          className="p-3.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50/80 flex items-center justify-between gap-3 transition-colors shadow-2xs"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span
+                                className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                  isSeguro
+                                    ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                                    : isInscrip
+                                    ? 'bg-pink-100 text-pink-800 border border-pink-200'
+                                    : isSuelta
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                    : 'bg-purple-100 text-purple-800 border border-purple-200'
+                                }`}
+                              >
+                                {isSeguro ? '🛡️ Seguro' : isInscrip ? '📝 Inscripción' : isSuelta ? '🎟️ Suelta' : '🩰 Cuota'}
+                              </span>
+                              <span className="text-xs font-black text-slate-800">
+                                {pay.concept || 'Cuota Mensual'}
+                              </span>
+                              <span className="text-[11px] font-semibold text-slate-400">
+                                ({pay.month})
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 font-medium">
+                              <span>📅 {payDate}</span>
+                              <span>•</span>
+                              <span className="font-extrabold text-slate-700">
+                                {pay.paymentMethod === 'TRANSFER' ? '💳 Transferencia' : '💵 Efectivo en Caja'}
+                              </span>
+                              {pay.recordedBy?.fullName && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-slate-400 text-[10px]">
+                                    Cobró: {pay.recordedBy.fullName}
+                                  </span>
+                                </>
+                              )}
+                              {pay.notes && (
+                                <span className="text-purple-700 font-bold bg-purple-50 px-1.5 py-0.2 rounded border border-purple-100 text-[10px]">
+                                  {pay.notes}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-1 text-[11px] text-slate-500 font-medium pt-0.5">
-                            <span>Turno: <strong className="text-slate-700">{att.shift || historyStudent.shift}</strong></span>
-                            {att.isMakeup && (
-                              <span className="ml-1 text-purple-700 font-bold bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200 text-[10px]">
-                                Recuperatorio en {att.makeupShift || att.shift}
-                              </span>
-                            )}
-                            {att.recordedBy?.fullName && (
-                              <span className="ml-1 text-slate-400 text-[10px]">
-                                • Marcó: {att.recordedBy.fullName}
-                              </span>
-                            )}
+                          <div className="text-right">
+                            <span className="text-base font-black text-slate-900 block">
+                              ${pay.amount.toLocaleString('es-AR')}
+                            </span>
+                            <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                              Registrado
+                            </span>
                           </div>
                         </div>
-
-                        <button
-                          onClick={() => handleDeleteAttendance(att.id, att.date, att.shift || historyStudent.shift)}
-                          disabled={isDeleting}
-                          className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 text-xs font-black flex items-center gap-1 transition-all border border-rose-200 shadow-2xs disabled:opacity-50"
-                          title="Eliminar esta asistencia marcada erróneamente"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                          <span>{isDeleting ? 'Eliminando...' : 'Eliminar'}</span>
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
