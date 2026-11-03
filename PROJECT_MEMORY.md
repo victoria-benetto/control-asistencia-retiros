@@ -4,6 +4,30 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
+## 🛡️ Hito Crítico: Aislamiento Total de Entornos (Dev vs Producción) & Cortafuegos de Seguridad
+**Fecha**: 3 de Noviembre 2026
+
+### 🚨 Diagnóstico de Causa Raíz
+- **Problema previo:** develop y main compartían la misma cadena de conexión a Supabase (schema=public). Modificaciones, pruebas o ejecuciones de tests automáticos en local o develop impactaban de forma directa sobre la base de datos de producción utilizada por el cliente.
+- **Verificación de Datos:** Se realizó auditoría directa y de solo lectura sobre Supabase confirmando que las **82 alumnas** y **808 registros de asistencia** están 100% seguros e intactos.
+
+### 🔒 Medidas de Seguridad Implementadas
+1. **Esquema Aislado dev en Supabase:**
+   - Se creó y sincronizó el esquema PostgreSQL dev en Supabase.
+   - Se clonaron de forma segura las 82 alumnas, 73 tutores, 808 asistencias, pagos y administradores como **espejo exacto** para pruebas.
+   - El entorno local (backend/.env) quedó configurado permanentemente con schema=dev.
+2. **Cortafuegos Inquebrantable de Tests (setup.ts & vitest.config.mts):**
+   - Se implementó un cortafuegos en backend/src/__tests__/setup.ts que intercepta cada ejecución de pruebas.
+   - Si DATABASE_URL o DIRECT_URL intenta conectarse a schema=public o a producción sin schema=dev, **la ejecución se aborta de inmediato con error fatal antes de ejecutar una sola consulta**.
+   - Verificado con test real: 27/27 tests de backend pasan en dev y abortan de inmediato si se intenta apuntar a public.
+3. **Flujo Estricto de Pase a Producción (Regla Obligatoria):**
+   - **Regla 1:** Todo desarrollo, prueba y commit se realiza exclusivamente en la rama develop.
+   - **Regla 2:** El deploy en Vercel Preview para develop se conecta al esquema dev.
+   - **Regla 3:** El cliente valida en Preview sobre datos espejo.
+   - **Regla 4:** **PROHIBIDO** hacer merge o push a main sin la confirmación explícita y por escrito del usuario (Aprobado para producción).
+
+---
+
 ## 📅 Hito: Módulo de Control de Pagos, Registro de Pago Detallado y ABM Pagos (Rama `develop`)
 **Fecha**: Noviembre 2026
 
