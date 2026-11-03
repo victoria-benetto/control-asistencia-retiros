@@ -165,3 +165,36 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
      - Test unitario frontend en components.spec.tsx validando la apertura del modal al seleccionar "Otro", completado de formulario y envío de savePickup con newAuthorizedPerson.
      - Test unitario backend en attendance_pickup.spec.ts validando la creación de AuthorizedPerson y registro de retiro con newAuthorizedPerson.
      - 18/18 tests frontend y 8/8 tests backend pasando exitosamente.
+
+
+## 14. Hotfix en Producción: Pagos de Seguro/Inscripción, Turnos Múltiples por Día y Eliminación Definitiva de Gastos
+- **Fecha**: Noviembre 2026.
+- **Objetivos y Mejoras Implementadas**:
+  1. **Seguro e Inscripciones vs Cuotas Mensuales**:
+     - Función `isNonCuotaConcept`: detecta conceptos de seguro (`seguro`) e inscripción/matrícula (`inscrip`, `matrícula`, `matricula`).
+     - `backend/src/routes/payment.routes.ts`:
+       - `POST /api/payments`: al registrar seguro o inscripción, se almacena con `expectedAmount = parsedAmount`, `remainingDebt: 0` y `isPartial: false`. No modifica la deuda de la cuota mensual de la alumna ni crea registros de excedente de mes siguiente.
+       - Al actualizar (`PUT`) o anular (`DELETE`) registros no-cuota, se manejan de forma aislada sin recalcular los saldos de cuotas.
+     - `frontend/src/components/Admin/RegisterPaymentView.tsx`:
+       - Input numérico de monto recibido directamente editable sin necesidad de activar edición manual previa.
+       - Detección automática de no-cuota: elimina alertas falsas de "pago parcial de cuota" o "excedente detectado".
+       - Recibo oficial de WhatsApp redactado con precisión ("Pago de [Concepto] registrado con éxito").
+     - `frontend/src/components/Admin/PaymentControlView.tsx`:
+       - Separación de `cuotaPayments` y `nonCuotaPayments`: el estado de cuota (Al día, Pago Parcial, Pendiente, Vencida) evalúa únicamente pagos de cuota.
+       - Despliegue de badges específicos para pagos de Seguro (`🛡️ Seguro: $5.000`) e Inscripción (`📝 Inscripción: $20.000`) en la tarjeta de la alumna.
+     - `frontend/src/components/Admin/RevenueReportsView.tsx`:
+       - Renombrado "Matrículas" a "Inscripciones" en métricas, filtros y gráficos.
+       - Incorporación de categoría y filtro dedicado para "Seguros Anuales".
+  2. **Selección de Turnos Múltiples en el Mismo Día (e.g. Lunes mañana y Lunes tarde)**:
+     - `frontend/src/components/Admin/StudentManagement.tsx`:
+       - Migración del estado de cronograma de `Record<string, string>` a `ScheduleEntry[]` (`{ day, shift }[]`).
+       - En la interfaz de alta/edición de alumnas, cada día despliega botones individuales para cada turno oficial disponible (ej. Lunes: `8 a 10`, `16:45 a 18`, `17:30 a 19`).
+       - La administradora puede seleccionar turnos de mañana y tarde en el mismo día (ej. Lunes mañana + Lunes tarde).
+       - Validación en backend (`validatePlanSchedule`) y frontend ajustada a la cantidad de clases semanales requerida por el plan.
+  3. **Solución a Eliminación de Gastos Fijos (Persistencia en Supabase)**:
+     - `backend/src/routes/expense.routes.ts`: `GET /` devuelve el resultado de `prisma.fixedExpense.findMany()` directamente, eliminando el fallback a `INITIAL_EXPENSES` cuando la lista de gastos en base de datos estaba vacía. Los conceptos eliminados permanecen borrados definitivamente sin resurrección visual.
+- **Verificación**:
+  - 26/26 tests backend aprobados.
+  - 18/18 tests frontend aprobados.
+  - Compilación de producción con Vite exitosa.
+  - Desplegado y sincronizado en ramas `develop` y `main` (producción).
