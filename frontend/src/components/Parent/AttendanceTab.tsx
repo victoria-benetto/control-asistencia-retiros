@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   UserCheck,
   Clock,
+  X,
 } from 'lucide-react';
 import { Student, AttendanceRecord } from '../../types';
 
@@ -15,6 +16,7 @@ interface AttendanceTabProps {
   sortedAttendances: AttendanceRecord[];
   formatDateNice: (dateStr: string) => string;
   onOpenMakeupModal: () => void;
+  onCancelMakeup?: (id: string) => void;
 }
 
 export const AttendanceTab: React.FC<AttendanceTabProps> = ({
@@ -22,6 +24,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
   sortedAttendances,
   formatDateNice,
   onOpenMakeupModal,
+  onCancelMakeup,
 }) => {
   return (
     <div className="space-y-4">
@@ -73,9 +76,9 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                   </div>
 
                   {isPending ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-100 text-purple-900 font-extrabold text-[11px] shrink-0 border border-purple-200">
-                      <RotateCw className="w-3.5 h-3.5 text-purple-700" />
-                      Recuperatorio
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 font-extrabold text-[11px] shrink-0 border border-amber-300">
+                      <Clock className="w-3.5 h-3.5 text-amber-600" />
+                      Recuperatorio Agendado (Pendiente)
                     </span>
                   ) : isPresent ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-black text-[11px] shrink-0">
@@ -92,9 +95,28 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
 
                 {/* Si es recuperatorio */}
                 {record.isMakeup && (
-                  <p className="text-[11px] text-purple-900 font-extrabold bg-purple-50 px-2.5 py-1 rounded-xl border border-purple-100">
-                    🔄 Recuperación de clase en turno: {record.makeupShift || record.shift}
-                  </p>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-2xl bg-purple-50/90 border border-purple-200">
+                    <div>
+                      <p className="text-xs text-purple-950 font-black flex items-center gap-1.5">
+                        <RotateCw className="w-3.5 h-3.5 text-purple-700" />
+                        <span>Clase de Recuperación Agendada</span>
+                      </p>
+                      <p className="text-[11px] text-purple-800 font-medium mt-0.5">
+                        Turno: <strong>{record.makeupShift || record.shift}</strong>
+                        {isPending && ' • Pendiente de marcar asistencia por la profesora'}
+                      </p>
+                    </div>
+                    {isPending && onCancelMakeup && (
+                      <button
+                        type="button"
+                        onClick={() => onCancelMakeup(record.id)}
+                        className="self-start sm:self-auto px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-black transition-all shadow-2xs active:scale-95 flex items-center gap-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Cancelar / Cambiar Fecha</span>
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 {/* Info de registro docente */}

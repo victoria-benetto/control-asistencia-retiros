@@ -474,7 +474,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
               <div
                 key={student.id}
                 className={`bg-white rounded-3xl p-4 sm:p-5 border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
-                  isActuallyMakeup ? 'border-purple-300 bg-purple-50/30' : 'border-slate-200'
+                  status === 'PENDING' ? 'border-amber-300 bg-amber-50/20 ring-1 ring-amber-300' : isActuallyMakeup ? 'border-purple-300 bg-purple-50/30' : 'border-slate-200'
                 }`}
               >
                 {/* Info Alumna */}
@@ -492,6 +492,11 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                           Recuperatorio
                         </span>
                       )}
+                      {status === 'PENDING' && (
+                        <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          🟡 Recuperatorio Pendiente
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-400 font-medium">
                       DNI: <span className="font-mono text-slate-700 font-bold">{student.dni}</span>
@@ -499,6 +504,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                     {isActuallyMakeup && (
                       <p className="text-xs text-purple-800 font-extrabold mt-1 bg-purple-100/80 px-2.5 py-1 rounded-xl border border-purple-200">
                         🔄 La alumna recupera una clase en el turno: <span className="underline">{makeupShift || shift}</span> (Turno habitual: {student.shift})
+                        {status === 'PENDING' && ' • ⏳ Marcá si asistió o faltó'}
                       </p>
                     )}
                     {student.notes && (

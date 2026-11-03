@@ -197,7 +197,7 @@ describe('Frontend Component Unit & Integration Tests', () => {
 
       // Verificar métricas del mes en Inicio
       expect(screen.getByText(/Clases del mes/i)).toBeInTheDocument();
-      expect(screen.getByText(/Para recuperar/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Para recuperar/i)[0]).toBeInTheDocument();
 
       // Navegar a la pestaña Pagos mediante el BottomNav
       const pagosTabBtn = screen.getByRole('button', { name: /pestaña pagos/i });

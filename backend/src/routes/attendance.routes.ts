@@ -247,6 +247,41 @@ router.post('/makeup-request', async (req: Request, res: Response) => {
     const targetShift = String(shift);
     const targetDate = String(date);
 
+    // 🔒 REGLA: Si ya tiene una clase de recuperación pendiente, está prohibido anotarse en otra
+    const existingPending = await prisma.attendanceRecord.findFirst({
+      where: {
+        studentId,
+        isMakeup: true,
+        status: 'PENDING',
+      },
+    });
+    if (existingPending) {
+      return res.status(400).json({
+        error: `Ya tenés una clase de recuperación agendada para el ${existingPending.date}. Cancelala si deseás elegir otra fecha.`,
+      });
+    }
+
+    // 🔒 REGLA: Solo puede recuperar tantas clases como ausencias tenga en el período
+    const absencesCount = await prisma.attendanceRecord.count({
+      where: {
+        studentId,
+        status: 'ABSENT',
+        isMakeup: false,
+      },
+    });
+    const makeupsCount = await prisma.attendanceRecord.count({
+      where: {
+        studentId,
+        isMakeup: true,
+      },
+    });
+
+    if (absencesCount > 0 && makeupsCount >= absencesCount) {
+      return res.status(400).json({
+        error: `Solo podés recuperar tantas clases como ausencias tengas (${absencesCount}). Ya alcanzaste el límite disponible.`,
+      });
+    }
+
     const record = await prisma.attendanceRecord.upsert({
       where: {
         studentId_date_shift: {
@@ -277,6 +312,31 @@ router.post('/makeup-request', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error al registrar solicitud de recuperación:', error);
     return res.status(500).json({ error: 'Error al registrar solicitud de recuperación.' });
+  }
+});
+
+/**
+ * @openapi
+ * /api/attendance/makeup-request/{id}:
+ *   delete:
+ *     summary: Cancelar una clase de recuperación agendada pendiente
+ *     tags: [Asistencia]
+ */
+router.delete('/makeup-request/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const record = await prisma.attendanceRecord.findUnique({ where: { id } });
+    if (!record) {
+      return res.status(404).json({ error: 'Clase de recuperación no encontrada.' });
+    }
+    if (!record.isMakeup || record.status !== 'PENDING') {
+      return res.status(400).json({ error: 'Solo se pueden cancelar recuperatorios que estén pendientes de asistencia.' });
+    }
+    await prisma.attendanceRecord.delete({ where: { id } });
+    return res.json({ success: true, message: 'Clase de recuperación cancelada exitosamente.' });
+  } catch (error) {
+    console.error('Error al cancelar recuperatorio:', error);
+    return res.status(500).json({ error: 'Error al cancelar la clase de recuperación.' });
   }
 });
 

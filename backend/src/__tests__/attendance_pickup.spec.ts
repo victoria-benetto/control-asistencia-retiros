@@ -322,6 +322,33 @@ describe('Attendance & Pickup Flow Integration Tests', () => {
       expect(makeupRes.body.makeupShift).toBe(makeupShift);
       expect(makeupRes.body.shift).toBe(makeupShift);
       expect(makeupRes.body.date).toBe(testDate);
+
+      // 3. Prohibido agendar un segundo recuperatorio si ya tiene uno pendiente
+      const secondMakeupRes = await request(app)
+        .post('/api/attendance/makeup-request')
+        .send({
+          studentId,
+          date: '2026-10-16',
+          shift: makeupShift,
+        });
+      expect(secondMakeupRes.status).toBe(400);
+      expect(secondMakeupRes.body.error).toContain('Ya tenés una clase de recuperación agendada');
+
+      // 4. Cancelar / borrar recuperatorio pendiente si se equivocó
+      const cancelRes = await request(app)
+        .delete(`/api/attendance/makeup-request/${makeupRes.body.id}`);
+      expect(cancelRes.status).toBe(200);
+      expect(cancelRes.body.success).toBe(true);
+
+      // 5. Tras cancelar, ahora sí puede volver a agendar en otra fecha
+      const retryMakeupRes = await request(app)
+        .post('/api/attendance/makeup-request')
+        .send({
+          studentId,
+          date: '2026-10-16',
+          shift: makeupShift,
+        });
+      expect(retryMakeupRes.status).toBe(201);
     } finally {
       if (studentId) {
         await request(app).delete(`/api/admin/students/${studentId}`).set(`x-user-dni`, '44122509');

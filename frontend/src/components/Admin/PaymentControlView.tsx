@@ -33,7 +33,7 @@ interface PaymentControlViewProps {
 const DEFAULT_FEE = 22000;
 const SURCHARGE_PERCENT = 0.10; // 10% de recargo pasados los primeros 10 días
 
-type PaymentFilter = 'ALL' | 'PAID' | 'PENDING' | 'OVERDUE' | 'SEGURO' | 'INSCRIPCION';
+type PaymentFilter = 'ALL' | 'PAID' | 'PENDING' | 'OVERDUE' | 'INSCRIPCION';
 
 interface StudentPaymentInfo {
   student: Student;
@@ -176,6 +176,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
         student,
         status: isOverdue ? 'OVERDUE' : 'PENDING',
         amount: fee,
+        allPayments: studentPayments,
         phone,
         contactName,
       };
@@ -188,10 +189,9 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
     const paidCount = computedList.filter((item) => item.status === 'PAID' && !item.isPartial).length;
     const pendingCount = computedList.filter((item) => item.status === 'PENDING' || (item.status === 'PAID' && item.isPartial)).length;
     const overdueCount = computedList.filter((item) => item.status === 'OVERDUE').length;
-    const seguroCount = computedList.filter((item) => item.allPayments?.some((p) => p.concept?.toLowerCase().includes('seguro'))).length;
     const inscripcionCount = computedList.filter((item) => item.allPayments?.some((p) => {
       const c = (p.concept || '').toLowerCase();
-      return c.includes('inscrip') || c.includes('matr');
+      return c.includes('inscrip') || c.includes('matr') || c.includes('seguro');
     })).length;
 
     const totalCollected = payments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0); const _unusedCollected = computedList.reduce(
@@ -237,7 +237,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
       transferCollected,
       totalPendingAmount,
       paidPercentage,
-      seguroCount,
+      seguroCount: inscripcionCount,
       inscripcionCount,
     };
   }, [computedList]);
@@ -249,10 +249,9 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
       if (activeFilter === 'PAID' && item.status !== 'PAID') return false;
       if (activeFilter === 'PENDING' && item.status !== 'PENDING') return false;
       if (activeFilter === 'OVERDUE' && item.status !== 'OVERDUE') return false;
-      if (activeFilter === 'SEGURO' && !item.allPayments?.some((p) => p.concept?.toLowerCase().includes('seguro'))) return false;
       if (activeFilter === 'INSCRIPCION' && !item.allPayments?.some((p) => {
         const c = (p.concept || '').toLowerCase();
-        return c.includes('inscrip') || c.includes('matr');
+        return c.includes('inscrip') || c.includes('matr') || c.includes('seguro');
       })) return false;
 
       // Filtro de turno
@@ -626,17 +625,6 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
           >
             <span className="w-2 h-2 rounded-full bg-rose-500" />
             <span>Vencidas ({metrics.overdueCount})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveFilter('SEGURO')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-extrabold whitespace-nowrap transition-all ${
-              activeFilter === 'SEGURO'
-                ? 'bg-indigo-700 text-white shadow-md shadow-indigo-200'
-                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
-            }`}
-          >
-            <span>🛡️ Seguro (${metrics.seguroCount})</span>
           </button>
 
           <button

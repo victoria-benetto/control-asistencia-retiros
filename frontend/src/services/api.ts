@@ -154,6 +154,13 @@ export async function requestMakeupClass(studentId: string, date: string, shift:
   return parseResponse(res);
 }
 
+export async function cancelMakeupClass(id: string): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/attendance/makeup-request/${id}`, {
+    method: 'DELETE',
+  });
+  return parseResponse(res);
+}
+
 export async function getAttendanceHistory(date?: string, shift?: string): Promise<AttendanceRecord[]> {
   const params = new URLSearchParams();
   if (date) params.append('date', date);

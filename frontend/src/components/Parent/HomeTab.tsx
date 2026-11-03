@@ -23,6 +23,7 @@ interface HomeTabProps {
   formatDateNice: (dateStr: string) => string;
   onSelectTab: (tab: ParentTab) => void;
   onOpenMakeupModal: () => void;
+  onCancelMakeup?: (id: string) => void;
 }
 
 export const HomeTab: React.FC<HomeTabProps> = ({
@@ -32,6 +33,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   formatDateNice,
   onSelectTab,
   onOpenMakeupModal,
+  onCancelMakeup,
 }) => {
   // Iniciales para el avatar
   const initials = useMemo(() => {
@@ -50,18 +52,26 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     );
 
     const attendedCount = attendancesThisMonth.filter((a) => a.status === 'PRESENT').length;
-    const absentCount = attendancesThisMonth.filter((a) => a.status === 'ABSENT').length;
+    const absentCount = attendancesThisMonth.filter((a) => a.status === 'ABSENT' && !a.isMakeup).length;
+    const makeupsThisMonth = attendancesThisMonth.filter((a) => a.isMakeup);
+    const pendingMakeup = makeupsThisMonth.find((a) => a.status === 'PENDING');
+    const completedMakeupsCount = makeupsThisMonth.filter((a) => a.status === 'PRESENT').length;
+
+    // Solo se puede recuperar tantas clases como ausencias tenga menos las ya agendadas o completadas
+    const remainingToRecover = Math.max(0, absentCount - completedMakeupsCount - (pendingMakeup ? 1 : 0));
 
     // Calcular el total estimado de clases del mes según el turno
     const shiftLower = (student.shift || '').toLowerCase();
     const daysPerWeek = shiftLower.includes('viernes') ? 3 : 2;
-    // Días de clases estimados en un mes típico de 4 semanas
     const totalMonthClasses = daysPerWeek * 4;
 
     return {
       totalClasses: totalMonthClasses,
       attendedClasses: attendedCount,
-      toRecoverClasses: Math.max(0, absentCount),
+      toRecoverClasses: remainingToRecover,
+      hasPendingMakeup: Boolean(pendingMakeup),
+      pendingMakeupRecord: pendingMakeup || null,
+      absentCount,
     };
   }, [student.attendances, student.shift, currentMonthStr]);
 
@@ -142,15 +152,47 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           </p>
         </div>
 
-        {/* Botón "Recuperar una clase" */}
-        <button
-          type="button"
-          onClick={onOpenMakeupModal}
-          className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-black text-xs sm:text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2"
-        >
-          <RotateCw className="w-4 h-4" />
-          <span>Recuperar una clase</span>
-        </button>
+        {/* Botón o Estado de "Recuperar una clase" */}
+        {monthlyMetrics.hasPendingMakeup ? (
+          <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200 text-purple-950 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-200/80 text-purple-900 text-xs font-black">
+                <RotateCw className="w-3.5 h-3.5 text-purple-700" />
+                Recuperatorio Agendado
+              </span>
+              {onCancelMakeup && monthlyMetrics.pendingMakeupRecord && (
+                <button
+                  type="button"
+                  onClick={() => onCancelMakeup(monthlyMetrics.pendingMakeupRecord!.id)}
+                  className="px-2.5 py-1 rounded-xl bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-black transition-all shadow-2xs active:scale-95"
+                >
+                  Cancelar / Cambiar
+                </button>
+              )}
+            </div>
+            <p className="text-xs font-bold text-slate-800">
+              📅 Fecha: {formatDateNice(monthlyMetrics.pendingMakeupRecord!.date)}
+              <br />
+              ⏰ Turno: {monthlyMetrics.pendingMakeupRecord!.makeupShift || monthlyMetrics.pendingMakeupRecord!.shift}
+            </p>
+            <p className="text-[11px] text-purple-700 font-medium">
+              ⏳ Estado: Agendado. La profesora registrará si asististe el día de la clase.
+            </p>
+          </div>
+        ) : monthlyMetrics.toRecoverClasses > 0 ? (
+          <button
+            type="button"
+            onClick={onOpenMakeupModal}
+            className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-black text-xs sm:text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2"
+          >
+            <RotateCw className="w-4 h-4" />
+            <span>Recuperar una clase ({monthlyMetrics.toRecoverClasses} disponible{monthlyMetrics.toRecoverClasses > 1 ? 's' : ''})</span>
+          </button>
+        ) : (
+          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500 font-bold">
+            No tenés clases pendientes para recuperar en este momento.
+          </div>
+        )}
       </section>
 
       {/* 2. ESTADO DE LA CLASE DE HOY */}
@@ -213,13 +255,24 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             ) : mostRecentRecord.status === 'PENDING' ? (
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-900 text-xs font-extrabold border border-purple-200">
-                    <RotateCw className="w-4 h-4 text-purple-700" />
-                    <span>RECUPERATORIO AGENDADO</span>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-black border border-amber-300">
+                    <Clock className="w-4 h-4 text-amber-700" />
+                    <span>RECUPERATORIO AGENDADO (PENDIENTE)</span>
                   </div>
+                  {onCancelMakeup && (
+                    <button
+                      type="button"
+                      onClick={() => onCancelMakeup(mostRecentRecord.id)}
+                      className="px-2.5 py-1 rounded-xl bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-black transition-all shadow-2xs active:scale-95"
+                    >
+                      Cancelar
+                    </button>
+                  )}
                 </div>
                 <p className="text-xs text-slate-600">
                   Clase de recuperación agendada en el turno: <strong>{mostRecentRecord.makeupShift || mostRecentRecord.shift}</strong>.
+                  <br />
+                  <span className="text-purple-700 font-medium">⏳ La profesora registrará si asististe el día de la clase.</span>
                 </p>
               </div>
             ) : (

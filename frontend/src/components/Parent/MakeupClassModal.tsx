@@ -6,7 +6,7 @@ import { requestMakeupClass } from '../../services/api';
 interface MakeupClassModalProps {
   isOpen: boolean;
   onClose: () => void;
-  student: Student;
+  student: Student & { attendances?: AttendanceRecord[] };
   onSuccess: (newRecord: AttendanceRecord) => void;
 }
 
@@ -26,6 +26,10 @@ export const MakeupClassModal: React.FC<MakeupClassModalProps> = ({
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 🔒 REGLA: Si ya tiene una clase de recuperación agendada, o no tiene ausencias disponibles, prohibir agendar otra
+  const pendingMakeup = (student.attendances || []).find((a) => a.isMakeup && a.status === 'PENDING');
+  const hasPendingMakeup = Boolean(pendingMakeup);
 
   // Calcular días de la semana según el turno seleccionado
   const shiftDaysOfWeek = useMemo(() => {
@@ -107,6 +111,10 @@ export const MakeupClassModal: React.FC<MakeupClassModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (hasPendingMakeup) {
+      setError('Ya tenés una clase de recuperación agendada. Cancelala primero para cambiar la fecha.');
+      return;
+    }
     if (!selectedShift || !selectedDate) {
       setError('Por favor seleccioná un horario y una fecha.');
       return;
@@ -161,6 +169,19 @@ export const MakeupClassModal: React.FC<MakeupClassModalProps> = ({
           <div className="mt-3 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {hasPendingMakeup && (
+          <div className="mt-3 p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold space-y-1">
+            <p className="font-extrabold flex items-center gap-1.5 text-amber-950">
+              ⚠️ Ya tenés un recuperatorio agendado
+            </p>
+            <p className="text-[11px] text-amber-800 font-medium">
+              Turno: <strong>{pendingMakeup?.makeupShift || pendingMakeup?.shift}</strong> • Fecha: <strong>{pendingMakeup?.date}</strong>.
+              <br />
+              Solo podés tener 1 clase para recuperar agendada a la vez. Si te equivocaste de fecha, cancelala desde tu inicio para elegir otra.
+            </p>
           </div>
         )}
 

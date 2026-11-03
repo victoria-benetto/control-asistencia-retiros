@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { Student, AttendanceRecord, PaymentRecord, PaymentConcept } from '../../types';
-import { getPayments, getPaymentConcepts } from '../../services/api';
+import { getPayments, getPaymentConcepts, cancelMakeupClass } from '../../services/api';
 import { ParentHeader } from './ParentHeader';
 import { BottomNav, ParentTab } from './BottomNav';
 import { HomeTab } from './HomeTab';
@@ -263,7 +263,18 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
   }, [payments, currentMonthStr, defaultMonthlyFee]);
 
   const handleMakeupSuccess = (newRecord: AttendanceRecord) => {
-    setLocalAttendances((prev) => [newRecord, ...prev]);
+    setLocalAttendances((prev) => [newRecord, ...prev.filter((a) => a.id !== newRecord.id)]);
+  };
+
+  const handleCancelMakeup = async (recordId: string) => {
+    if (!confirm('¿Deseás cancelar esta clase de recuperación agendada? Podrás agendar otra fecha en su lugar.')) return;
+    try {
+      await cancelMakeupClass(recordId);
+      setLocalAttendances((prev) => prev.filter((a) => a.id !== recordId));
+      alert('Clase de recuperación cancelada exitosamente.');
+    } catch (err: any) {
+      alert(err.message || 'Error al cancelar la clase de recuperación.');
+    }
   };
 
   return (
@@ -281,6 +292,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
             formatDateNice={formatDateNice}
             onSelectTab={setActiveTab}
             onOpenMakeupModal={() => setMakeupModalOpen(true)}
+            onCancelMakeup={handleCancelMakeup}
           />
         )}
 
@@ -310,6 +322,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
             sortedAttendances={sortedAttendances}
             formatDateNice={formatDateNice}
             onOpenMakeupModal={() => setMakeupModalOpen(true)}
+            onCancelMakeup={handleCancelMakeup}
           />
         )}
       </main>
@@ -321,7 +334,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
       <MakeupClassModal
         isOpen={makeupModalOpen}
         onClose={() => setMakeupModalOpen(false)}
-        student={student}
+        student={{ ...student, attendances: localAttendances }}
         onSuccess={handleMakeupSuccess}
       />
 
