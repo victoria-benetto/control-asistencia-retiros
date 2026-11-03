@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { Student, AttendanceRecord, PaymentRecord, PaymentConcept } from '../../types';
-import { getPayments, getPaymentConcepts, cancelMakeupClass } from '../../services/api';
+import { getPayments, getPaymentConcepts, cancelMakeupClass, getStudentAttendances } from '../../services/api';
 import { ParentHeader } from './ParentHeader';
 import { BottomNav, ParentTab } from './BottomNav';
 import { HomeTab } from './HomeTab';
@@ -9,6 +9,9 @@ import { PaymentsTab, MonthSummary } from './PaymentsTab';
 import { AttendanceTab } from './AttendanceTab';
 import { MakeupClassModal } from './MakeupClassModal';
 import { ReceiptModal } from './ReceiptModal';
+import { CancelMakeupModal, ToastNotification } from './CancelMakeupModal';
+
+const SESSION_STORAGE_KEY = 'vulpiare_session_active';
 
 interface ParentPortalProps {
   student: Student & {
@@ -25,6 +28,24 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
   const [viewingReceiptUrl, setViewingReceiptUrl] = useState<string | null>(null);
   const [makeupModalOpen, setMakeupModalOpen] = useState<boolean>(false);
   const [localAttendances, setLocalAttendances] = useState<AttendanceRecord[]>(student.attendances || []);
+  const [recordToCancel, setRecordToCancel] = useState<AttendanceRecord | null>(null);
+  const [isCancelling, setIsCancelling] = useState<boolean>(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const updatePersistentSessionAttendances = useCallback((updatedAttendances: AttendanceRecord[]) => {
+    try {
+      const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.type === 'PARENT' && parsed.student) {
+          parsed.student.attendances = updatedAttendances;
+          localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(parsed));
+        }
+      }
+    } catch (err) {
+      console.error('Error al sincronizar sesión persistente:', err);
+    }
+  }, []);
 
   useEffect(() => {
     setLocalAttendances(student.attendances || []);
@@ -52,13 +73,18 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
     async function loadData() {
       try {
         setLoadingPayments(true);
-        const [paymentData, conceptData] = await Promise.all([
+        const [paymentData, conceptData, attendanceData] = await Promise.all([
           getPayments(undefined, student.id).catch(() => []),
           getPaymentConcepts().catch(() => []),
+          getStudentAttendances(student.id).catch(() => null),
         ]);
         if (isMounted) {
           setPayments(paymentData || []);
           setConcepts(conceptData || []);
+          if (Array.isArray(attendanceData)) {
+            setLocalAttendances(attendanceData);
+            updatePersistentSessionAttendances(attendanceData);
+          }
         }
       } catch (err) {
         console.error('Error al cargar datos del portal de alumna:', err);
@@ -122,9 +148,13 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
     return sortedAttendances.find((a) => a.date === todayDateStr);
   }, [sortedAttendances, todayDateStr]);
 
+  const pastOrTodayAttendances = useMemo(() => {
+    return sortedAttendances.filter((a) => a.date <= todayDateStr);
+  }, [sortedAttendances, todayDateStr]);
+
   const mostRecentRecord = useMemo(() => {
-    return todayRecord || (sortedAttendances.length > 0 ? sortedAttendances[0] : null);
-  }, [todayRecord, sortedAttendances]);
+    return todayRecord || (pastOrTodayAttendances.length > 0 ? pastOrTodayAttendances[0] : null);
+  }, [todayRecord, pastOrTodayAttendances]);
 
   const isTodayClass = mostRecentRecord && mostRecentRecord.date === todayDateStr;
 
@@ -262,18 +292,68 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
     });
   }, [payments, currentMonthStr, defaultMonthlyFee]);
 
+  const monthlyMetrics = useMemo(() => {
+    const allAbsences = localAttendances.filter((a) => a.status === 'ABSENT' && !a.isMakeup);
+    const allCompletedMakeups = localAttendances.filter((a) => a.isMakeup && a.status === 'PRESENT');
+    const pendingMakeup = localAttendances.find((a) => a.isMakeup && a.status === 'PENDING');
+    const remainingToRecover = Math.max(0, allAbsences.length - allCompletedMakeups.length - (pendingMakeup ? 1 : 0));
+    return {
+      toRecoverClasses: remainingToRecover,
+      hasPendingMakeup: Boolean(pendingMakeup),
+      pendingMakeupRecord: pendingMakeup || null,
+    };
+  }, [localAttendances]);
+
   const handleMakeupSuccess = (newRecord: AttendanceRecord) => {
-    setLocalAttendances((prev) => [newRecord, ...prev.filter((a) => a.id !== newRecord.id)]);
+    setLocalAttendances((prev) => {
+      const updated = [newRecord, ...prev.filter((a) => a.id !== newRecord.id)];
+      updatePersistentSessionAttendances(updated);
+      return updated;
+    });
+    setToast({
+      message: '¡Clase de recuperación agendada exitosamente!',
+      type: 'success',
+    });
+    getStudentAttendances(student.id).then((fresh) => {
+      if (Array.isArray(fresh)) {
+        setLocalAttendances(fresh);
+        updatePersistentSessionAttendances(fresh);
+      }
+    }).catch(() => {});
   };
 
-  const handleCancelMakeup = async (recordId: string) => {
-    if (!confirm('¿Deseás cancelar esta clase de recuperación agendada? Podrás agendar otra fecha en su lugar.')) return;
+  const handleCancelMakeup = (recordId: string) => {
+    const target = localAttendances.find((a) => a.id === recordId) || ({ id: recordId } as AttendanceRecord);
+    setRecordToCancel(target);
+  };
+
+  const executeCancelMakeup = async () => {
+    if (!recordToCancel) return;
+    setIsCancelling(true);
     try {
-      await cancelMakeupClass(recordId);
-      setLocalAttendances((prev) => prev.filter((a) => a.id !== recordId));
-      alert('Clase de recuperación cancelada exitosamente.');
+      await cancelMakeupClass(recordToCancel.id);
+      const updated = localAttendances.filter((a) => a.id !== recordToCancel.id);
+      setLocalAttendances(updated);
+      updatePersistentSessionAttendances(updated);
+      setRecordToCancel(null);
+      setToast({
+        message: 'Clase de recuperación cancelada exitosamente. Tu cupo ya está disponible nuevamente.',
+        type: 'success',
+      });
+      getStudentAttendances(student.id).then((fresh) => {
+        if (Array.isArray(fresh)) {
+          setLocalAttendances(fresh);
+          updatePersistentSessionAttendances(fresh);
+        }
+      }).catch(() => {});
     } catch (err: any) {
-      alert(err.message || 'Error al cancelar la clase de recuperación.');
+      setToast({
+        message: err.message || 'Error al cancelar la clase de recuperación.',
+        type: 'error',
+      });
+      setRecordToCancel(null);
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -323,6 +403,8 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
             formatDateNice={formatDateNice}
             onOpenMakeupModal={() => setMakeupModalOpen(true)}
             onCancelMakeup={handleCancelMakeup}
+            toRecoverClasses={monthlyMetrics.toRecoverClasses}
+            hasPendingMakeup={monthlyMetrics.hasPendingMakeup}
           />
         )}
       </main>
@@ -343,6 +425,25 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
         receiptUrl={viewingReceiptUrl}
         onClose={() => setViewingReceiptUrl(null)}
       />
+
+      {/* Modal personalizado de Cancelación */}
+      <CancelMakeupModal
+        isOpen={Boolean(recordToCancel)}
+        onClose={() => setRecordToCancel(null)}
+        onConfirm={executeCancelMakeup}
+        shiftName={recordToCancel?.makeupShift || recordToCancel?.shift}
+        dateStr={recordToCancel?.date ? formatDateNice(recordToCancel.date) : undefined}
+        isCancelling={isCancelling}
+      />
+
+      {/* Notificación Toast flotante personalizada */}
+      {toast && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

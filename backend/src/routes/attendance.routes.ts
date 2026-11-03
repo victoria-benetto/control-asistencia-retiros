@@ -327,7 +327,7 @@ router.delete('/makeup-request/:id', async (req: Request, res: Response) => {
   try {
     const record = await prisma.attendanceRecord.findUnique({ where: { id } });
     if (!record) {
-      return res.status(404).json({ error: 'Clase de recuperación no encontrada.' });
+      return res.json({ success: true, message: 'La clase de recuperación ya fue cancelada.' });
     }
     if (!record.isMakeup || record.status !== 'PENDING') {
       return res.status(400).json({ error: 'Solo se pueden cancelar recuperatorios que estén pendientes de asistencia.' });

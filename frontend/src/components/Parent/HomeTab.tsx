@@ -47,18 +47,19 @@ export const HomeTab: React.FC<HomeTabProps> = ({
 
   // Métricas del mes en curso
   const monthlyMetrics = useMemo(() => {
+    const allAbsences = (student.attendances || []).filter((a) => a.status === 'ABSENT' && !a.isMakeup);
+    const allCompletedMakeups = (student.attendances || []).filter((a) => a.isMakeup && a.status === 'PRESENT');
+    const pendingMakeup = (student.attendances || []).find((a) => a.isMakeup && a.status === 'PENDING');
+
     const attendancesThisMonth = (student.attendances || []).filter((a) =>
       a.date.startsWith(currentMonthStr)
     );
 
     const attendedCount = attendancesThisMonth.filter((a) => a.status === 'PRESENT').length;
     const absentCount = attendancesThisMonth.filter((a) => a.status === 'ABSENT' && !a.isMakeup).length;
-    const makeupsThisMonth = attendancesThisMonth.filter((a) => a.isMakeup);
-    const pendingMakeup = makeupsThisMonth.find((a) => a.status === 'PENDING');
-    const completedMakeupsCount = makeupsThisMonth.filter((a) => a.status === 'PRESENT').length;
 
     // Solo se puede recuperar tantas clases como ausencias tenga menos las ya agendadas o completadas
-    const remainingToRecover = Math.max(0, absentCount - completedMakeupsCount - (pendingMakeup ? 1 : 0));
+    const remainingToRecover = Math.max(0, allAbsences.length - allCompletedMakeups.length - (pendingMakeup ? 1 : 0));
 
     // Calcular el total estimado de clases del mes según el turno
     const shiftLower = (student.shift || '').toLowerCase();

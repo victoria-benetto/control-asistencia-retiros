@@ -5,8 +5,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LoginView } from '../components/LoginView';
 import { Navbar } from '../components/Navbar';
 import { ParentPortal } from '../components/Parent/ParentPortal';
+import { AttendanceTab } from '../components/Parent/AttendanceTab';
 import { PickupsView } from '../components/Admin/PickupsView';
-import { Student, AdminUser } from '../types';
+import { Student, AdminUser, AttendanceRecord } from '../types';
 
 describe('Frontend Component Unit & Integration Tests', () => {
   beforeEach(() => {
@@ -270,7 +271,204 @@ describe('Frontend Component Unit & Integration Tests', () => {
       expect(screen.getByText(/Estado de la clase de hoy/i)).toBeInTheDocument();
       expect(screen.getByText(/DNI Alumna:/i)).toBeInTheDocument();
     });
+
+    it('cancels makeup class using custom modal, restores quota to 1, removes from home, and syncs session', async () => {
+      const studentWithMakeup: Student & { attendances: AttendanceRecord[] } = {
+        ...mockStudent,
+        attendances: [
+          {
+            id: 'att-absent-1',
+            studentId: 'student-test-1',
+            date: '2026-10-29',
+            shift: 'MARTES Y JUEVES 17:00 A 19:00',
+            status: 'ABSENT',
+            isMakeup: false,
+          },
+          {
+            id: 'makeup-rec-1',
+            studentId: 'student-test-1',
+            date: '2026-11-04',
+            shift: 'Lunes y miércoles de 8 a 10',
+            makeupShift: 'Lunes y miércoles de 8 a 10',
+            status: 'PENDING',
+            isMakeup: true,
+          },
+        ],
+      };
+
+      localStorage.setItem('vulpiare_session_active', JSON.stringify({ type: 'PARENT', student: studentWithMakeup }));
+
+      global.fetch = vi.fn().mockImplementation((url: string, opts?: any) => {
+        if (opts?.method === 'DELETE' && url.includes('/api/attendance/makeup-request/makeup-rec-1')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ success: true, message: 'Clase de recuperación cancelada.' }),
+          });
+        }
+        if (url.includes('/api/attendance/student/')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => [
+              {
+                id: 'att-absent-1',
+                studentId: 'student-test-1',
+                date: '2026-10-29',
+                shift: 'MARTES Y JUEVES 17:00 A 19:00',
+                status: 'ABSENT',
+                isMakeup: false,
+              },
+            ],
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => [] });
+      });
+
+      render(<ParentPortal student={studentWithMakeup} onLogout={vi.fn()} />);
+
+      // Verificar que inicialmente muestra que tiene un recuperatorio agendado
+      expect(screen.getByText(/Recuperatorio Agendado/i)).toBeInTheDocument();
+
+      // Hacer clic en Cancelar / Cambiar
+      const cancelBtn = screen.getByRole('button', { name: /cancelar \/ cambiar/i });
+      fireEvent.click(cancelBtn);
+
+      // Verificar que se abre el modal personalizado (NO window.confirm)
+      expect(screen.getByText(/¿Cancelar clase de recuperación\?/i)).toBeInTheDocument();
+      expect(screen.getByText(/tu cupo volverá a quedar disponible/i)).toBeInTheDocument();
+
+      // Confirmar cancelación en el modal
+      const confirmBtn = screen.getByRole('button', { name: /sí, cancelar/i });
+      fireEvent.click(confirmBtn);
+
+      // Esperar a que se procese
+      await waitFor(() => {
+        // Verificar que el toast aparece
+        expect(screen.getByText(/Clase de recuperación cancelada exitosamente/i)).toBeInTheDocument();
+        // Verificar que el botón de recuperar vuelve con 1 disponible
+        expect(screen.getByText(/Recuperar una clase \(1 disponible\)/i)).toBeInTheDocument();
+      });
+
+      // Verificar que localStorage se sincronizó
+      const saved = JSON.parse(localStorage.getItem('vulpiare_session_active') || '{}');
+      expect(saved.student.attendances.find((a: any) => a.id === 'makeup-rec-1')).toBeUndefined();
+    });
   });
+  describe('AttendanceTab Component', () => {
+    const mockStudent: Student = {
+      id: 'student-test-1',
+      dni: '12345678',
+      firstName: 'Alumna',
+      lastName: 'Prueba',
+      shift: 'MARTES Y JUEVES 17:00 A 19:00',
+      status: 'ACTIVE',
+      phone: '11223344',
+      authorizedPeople: [],
+    };
+
+    it('renders disabled button when toRecoverClasses is 0', () => {
+      render(
+        <AttendanceTab
+          student={mockStudent}
+          sortedAttendances={[]}
+          formatDateNice={(d) => d}
+          onOpenMakeupModal={vi.fn()}
+          toRecoverClasses={0}
+          hasPendingMakeup={false}
+        />
+      );
+
+      const button = screen.getByRole('button', { name: /sin clases a recuperar \(0\)/i });
+      expect(button).toBeDisabled();
+    });
+
+    it('renders disabled button when hasPendingMakeup is true', () => {
+      render(
+        <AttendanceTab
+          student={mockStudent}
+          sortedAttendances={[]}
+          formatDateNice={(d) => d}
+          onOpenMakeupModal={vi.fn()}
+          toRecoverClasses={1}
+          hasPendingMakeup={true}
+        />
+      );
+
+      const button = screen.getByRole('button', { name: /recuperatorio ya agendado/i });
+      expect(button).toBeDisabled();
+    });
+
+    it('renders enabled button when toRecoverClasses > 0 and no pending makeup', () => {
+      const onOpen = vi.fn();
+      render(
+        <AttendanceTab
+          student={mockStudent}
+          sortedAttendances={[]}
+          formatDateNice={(d) => d}
+          onOpenMakeupModal={onOpen}
+          toRecoverClasses={2}
+          hasPendingMakeup={false}
+        />
+      );
+
+      const button = screen.getByRole('button', { name: /recuperar clase \(2\)/i });
+      expect(button).not.toBeDisabled();
+      fireEvent.click(button);
+      expect(onOpen).toHaveBeenCalled();
+    });
+
+    it('renders dedicated section with ALL scheduled makeups and cancel button', () => {
+      const onCancel = vi.fn();
+      const attendances = [
+        {
+          id: 'makeup-1',
+          studentId: 'student-test-1',
+          date: '2026-11-05',
+          shift: 'JUEVES 18:00',
+          makeupShift: 'JUEVES 18:00',
+          status: 'PENDING' as const,
+          isMakeup: true,
+        },
+        {
+          id: 'makeup-2',
+          studentId: 'student-test-1',
+          date: '2026-10-20',
+          shift: 'MARTES 17:00',
+          makeupShift: 'MARTES 17:00',
+          status: 'PRESENT' as const,
+          isMakeup: true,
+        },
+        {
+          id: 'regular-1',
+          studentId: 'student-test-1',
+          date: '2026-10-15',
+          shift: 'JUEVES 17:00',
+          status: 'PRESENT' as const,
+          isMakeup: false,
+        },
+      ];
+
+      render(
+        <AttendanceTab
+          student={mockStudent}
+          sortedAttendances={attendances}
+          formatDateNice={(d) => d}
+          onOpenMakeupModal={vi.fn()}
+          onCancelMakeup={onCancel}
+          toRecoverClasses={0}
+          hasPendingMakeup={true}
+        />
+      );
+
+      expect(screen.getByRole('heading', { name: /clases de recuperación agendadas/i })).toBeInTheDocument();
+      expect(screen.getByText(/Pendiente de asistencia/i)).toBeInTheDocument();
+      expect(screen.getByText(/Asistida \/ Completada/i)).toBeInTheDocument();
+
+      const cancelBtn = screen.getAllByRole('button', { name: /cancelar \/ cambiar fecha/i })[0];
+      fireEvent.click(cancelBtn);
+      expect(onCancel).toHaveBeenCalledWith('makeup-1');
+    });
+  });
+
   describe('PickupsView Component & Otro Adulto Flow', () => {
     const mockAdmin: AdminUser = {
       id: 'admin-1',
