@@ -52,7 +52,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
           <button
             type="button"
             onClick={onOpenMakeupModal}
-            className="px-3.5 py-1.5 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-black text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
+            className="px-3.5 py-1.5 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-black text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
           >
             <RotateCw className="w-3.5 h-3.5" />
             <span>Recuperar clase ({toRecoverClasses})</span>
@@ -78,7 +78,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
 
       {/* Sección destacada: TODAS las clases de recuperación agendadas */}
       {allMakeupRecords.length > 0 && (
-        <section aria-label="Clases de recuperación agendadas" className="bg-gradient-to-br from-purple-50/90 to-pink-50/40 rounded-3xl p-4 sm:p-5 border border-purple-200/80 shadow-xs space-y-3">
+        <section aria-label="Clases de recuperación agendadas" className="bg-purple-50/80 rounded-3xl p-4 sm:p-5 border border-purple-200 shadow-xs space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs">

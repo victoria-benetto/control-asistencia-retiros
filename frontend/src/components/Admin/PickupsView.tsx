@@ -167,7 +167,7 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
   return (
     <div className="space-y-4 sm:space-y-6 pb-28 md:pb-8">
       {/* Banner Encabezado Mobile */}
-      <div className="bg-gradient-to-r from-purple-700 to-pink-600 rounded-3xl p-5 sm:p-6 text-white shadow-lg space-y-4">
+      <div className="bg-purple-900 border border-purple-800/80 rounded-3xl p-5 sm:p-6 text-white shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-[11px] font-bold backdrop-blur-sm mb-2">
@@ -455,7 +455,7 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
                       }
                     }}
                     disabled={savingId === attendanceId || !selectedPersonMap[attendanceId]}
-                    className="w-full mt-3 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-extrabold text-xs sm:text-sm shadow-md transition-all disabled:opacity-40 flex items-center justify-center gap-2 min-h-[48px] active:scale-98"
+                    className="w-full mt-3 py-3.5 px-4 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-purple-200 transition-all disabled:opacity-40 flex items-center justify-center gap-2 min-h-[48px] active:scale-98"
                   >
                     {savingId === attendanceId ? (
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -592,7 +592,7 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
                 <button
                   type="submit"
                   disabled={savingId === otherModalData.attendanceId || !otherFullName.trim() || !otherRelationship.trim()}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-extrabold text-xs shadow-md transition-all disabled:opacity-40 flex items-center gap-2 min-h-[42px] active:scale-98"
+                  className="px-5 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-xs shadow-md shadow-purple-200 transition-all disabled:opacity-40 flex items-center gap-2 min-h-[42px] active:scale-98"
                 >
                   {savingId === otherModalData.attendanceId ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

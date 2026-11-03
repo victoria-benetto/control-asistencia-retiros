@@ -115,7 +115,7 @@ export const PaymentConceptsManagement: React.FC<PaymentConceptsManagementProps>
   return (
     <div className="flex flex-col space-y-5 pb-24 max-w-4xl mx-auto">
       {/* Banner Superior */}
-      <div className="rounded-3xl bg-gradient-to-br from-amber-600 via-amber-700 to-purple-800 p-6 sm:p-7 shadow-xl text-white relative overflow-hidden">
+      <div className="rounded-3xl bg-purple-900 border border-purple-800/80 p-6 sm:p-7 shadow-lg text-white relative overflow-hidden">
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md shadow-sm mb-2">
@@ -127,16 +127,16 @@ export const PaymentConceptsManagement: React.FC<PaymentConceptsManagementProps>
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
               Gestión de Conceptos de Pago
             </h2>
-            <p className="text-xs sm:text-sm text-amber-100 mt-1 font-medium max-w-md">
+            <p className="text-xs sm:text-sm text-purple-100 mt-1 font-medium max-w-md">
               Configurá los tipos de cuotas, matrículas y clases con sus montos sugeridos para el registro rápido de pagos.
             </p>
           </div>
 
           <button
             onClick={openCreateModal}
-            className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white text-amber-900 font-extrabold text-xs shadow-lg hover:bg-amber-50 active:scale-95 transition-all self-start sm:self-center"
+            className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white text-purple-900 font-extrabold text-xs shadow-md hover:bg-purple-50 active:scale-95 transition-all self-start sm:self-center"
           >
-            <Plus className="w-4 h-4 text-amber-700" />
+            <Plus className="w-4 h-4 text-purple-700" />
             <span>+ Nuevo Concepto</span>
           </button>
         </div>
@@ -299,7 +299,7 @@ export const PaymentConceptsManagement: React.FC<PaymentConceptsManagementProps>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-600 to-amber-700 hover:opacity-95 text-white font-extrabold text-xs shadow-md shadow-amber-200 transition-all active:scale-95 disabled:opacity-50"
+                  className="flex-1 py-3 px-4 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-xs shadow-md shadow-purple-200 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {submitting ? 'Guardando...' : 'Guardar Concepto'}
                 </button>

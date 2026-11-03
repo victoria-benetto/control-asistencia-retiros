@@ -96,12 +96,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-purple-100 via-pink-50 to-purple-50 flex items-center justify-center p-4 sm:p-6">
+    <div className="min-h-[100dvh] bg-[#f8f5fc] flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-sm sm:max-w-md">
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/60 p-6 sm:p-8">
           {/* Logo Vulpiare */}
           <div className="text-center mb-6">
-            <div className="inline-block p-1 rounded-full bg-gradient-to-tr from-purple-400 to-pink-400 shadow-xl shadow-purple-200/50 mb-3">
+            <div className="inline-block p-1 rounded-full bg-purple-100 border border-purple-200 shadow-md shadow-purple-200/50 mb-3">
               <img
                 src="/vulpiare_logo.png"
                 alt="VULPIARE Logo"
@@ -150,7 +150,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 px-5 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-purple-300/50 hover:shadow-purple-400/50 transition-all disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98] min-h-[50px]"
+                className="w-full py-4 px-5 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-sm sm:text-base shadow-md shadow-purple-200 transition-all disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98] min-h-[50px]"
               >
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -256,7 +256,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 px-5 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-purple-300/50 hover:shadow-purple-400/50 transition-all disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98] min-h-[50px]"
+                className="w-full py-4 px-5 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-sm sm:text-base shadow-md shadow-purple-200 transition-all disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98] min-h-[50px]"
               >
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

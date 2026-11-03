@@ -109,15 +109,15 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift: initialShift, o
   return (
     <div className="space-y-4 sm:space-y-6 pb-28 md:pb-8">
       {/* Header Superior */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-6 text-white shadow-lg space-y-3">
+      <div className="bg-purple-900 border border-purple-800/80 rounded-3xl p-5 sm:p-6 text-white shadow-lg space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-slate-200 text-[11px] font-bold backdrop-blur-sm mb-2">
-              <History className="w-3.5 h-3.5 text-indigo-400" />
+              <History className="w-3.5 h-3.5 text-purple-300" />
               <span>Registro Histórico VULPIARE</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black">Historial de Clases y Retiros</h2>
-            <p className="text-slate-300 text-xs sm:text-sm mt-0.5">
+            <p className="text-purple-100 text-xs sm:text-sm mt-0.5">
               Consulta asistencias y retiros agrupados por turno en orden alfabético.
             </p>
           </div>

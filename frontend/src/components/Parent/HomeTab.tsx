@@ -106,7 +106,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           </div>
 
           <div className="w-14 h-14 rounded-full bg-white p-1 shadow-[0_4px_16px_-2px_rgba(30,27,38,0.08)] shrink-0">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-purple-700 via-purple-600 to-pink-600 text-white flex items-center justify-center text-base font-black shadow-inner">
+            <div className="w-12 h-12 rounded-full bg-purple-700 text-white flex items-center justify-center text-base font-black shadow-inner">
               {initials}
             </div>
           </div>
@@ -184,7 +184,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           <button
             type="button"
             onClick={onOpenMakeupModal}
-            className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-black text-xs sm:text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2"
+            className="w-full py-3.5 px-4 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-black text-xs sm:text-sm shadow-md shadow-purple-200 transition-all active:scale-98 flex items-center justify-center gap-2"
           >
             <RotateCw className="w-4 h-4" />
             <span>Recuperar una clase ({monthlyMetrics.toRecoverClasses} disponible{monthlyMetrics.toRecoverClasses > 1 ? 's' : ''})</span>
@@ -323,7 +323,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
 
                 {/* Estado de Retiro */}
                 {recentPickup ? (
-                  <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-700 to-pink-600 text-white shadow-md space-y-1.5 mt-1">
+                  <div className="p-3.5 rounded-2xl bg-purple-900 border border-purple-800/80 text-white shadow-md space-y-1.5 mt-1">
                     <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-pink-100">
                       <ShieldCheck className="w-4 h-4 text-white" />
                       <span>Retiro Confirmado</span>

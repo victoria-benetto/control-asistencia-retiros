@@ -246,7 +246,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   return (
     <div className="space-y-4 sm:space-y-6 pb-28 md:pb-8">
       {/* Banner Encabezado Mobile-First */}
-      <div className="bg-gradient-to-r from-purple-700 via-purple-600 to-pink-600 rounded-3xl p-5 sm:p-6 text-white shadow-lg space-y-4">
+      <div className="bg-purple-900 border border-purple-800/80 rounded-3xl p-5 sm:p-6 text-white shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-[11px] font-bold backdrop-blur-sm mb-2 capitalize">
@@ -423,7 +423,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
       {/* Lista de Profesoras Acompañantes / Ayudantes Registradas */}
       {assistants.length > 0 && (
-        <div className="bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-200 p-3.5 rounded-2xl flex flex-wrap items-center gap-2 shadow-xs">
+        <div className="bg-purple-50 border border-purple-200 p-3.5 rounded-2xl flex flex-wrap items-center gap-2 shadow-xs">
           <span className="text-xs font-extrabold text-pink-900 flex items-center gap-1">
             👩‍🏫 Profesoras Acompañantes en esta clase:
           </span>

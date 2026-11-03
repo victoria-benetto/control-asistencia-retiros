@@ -383,22 +383,22 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
   return (
     <div className="space-y-4 sm:space-y-6 pb-28 md:pb-8">
       {/* Header */}
-      <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 rounded-3xl p-5 sm:p-6 text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-purple-900 border border-purple-800/80 rounded-3xl p-5 sm:p-6 text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <span className="px-3 py-1 rounded-full bg-white/20 text-xs font-bold uppercase tracking-wider mb-2 inline-block">
             Módulo Exclusivo Super Admin
           </span>
           <h2 className="text-xl sm:text-2xl font-black">Alumnas</h2>
-          <p className="text-amber-100 text-xs sm:text-sm mt-0.5">
+          <p className="text-purple-100 text-xs sm:text-sm mt-0.5">
             Gestión de alumnas, planes de cuota, cronograma de turnos y facturación mensual.
           </p>
         </div>
 
         <button
           onClick={openCreateModal}
-          className="px-4 py-3 bg-white text-amber-900 hover:bg-amber-50 font-extrabold text-xs rounded-2xl shadow-md transition-all flex items-center gap-1.5 min-h-[44px]"
+          className="px-4 py-3 bg-white text-purple-900 hover:bg-purple-50 font-extrabold text-xs rounded-2xl shadow-md transition-all flex items-center gap-1.5 min-h-[44px]"
         >
-          <Plus className="w-4 h-4 text-amber-600" />
+          <Plus className="w-4 h-4 text-purple-600" />
           <span>Nueva Alumna</span>
         </button>
       </div>
@@ -1003,13 +1003,13 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
               </div>
 
               {/* Selector de Plan y Cuota Obligatoria */}
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50/60 p-4 rounded-3xl border border-amber-200/80 space-y-3">
+              <div className="bg-purple-50/70 p-4 rounded-3xl border border-purple-200/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <label className="block text-xs font-black text-amber-950 uppercase tracking-wider">
+                    <label className="block text-xs font-black text-purple-950 uppercase tracking-wider">
                       Plan y Cuota Mensual *
                     </label>
-                    <p className="text-[11px] text-amber-800 font-medium">
+                    <p className="text-[11px] text-purple-800 font-medium">
                       Determina la cuota a cobrar en el estado de cuenta y los días habilitados.
                     </p>
                   </div>

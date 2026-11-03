@@ -154,7 +154,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={() => setActiveTab('payments')}
                 className={`flex items-center gap-2 px-4 py-2.5 text-xs font-extrabold rounded-2xl transition-all whitespace-nowrap ${
                   activeTab === 'payments' || activeTab === 'register-payment'
-                    ? 'bg-gradient-to-r from-purple-700 to-pink-600 text-white shadow-md shadow-purple-200'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-200'
                     : 'text-slate-600 hover:bg-purple-50 hover:text-purple-700'
                 }`}
               >

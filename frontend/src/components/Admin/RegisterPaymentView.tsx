@@ -355,7 +355,7 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
       </div>
 
       {/* Hero Gradiente */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-700 via-purple-800 to-pink-600 p-6 shadow-xl text-white">
+      <div className="relative overflow-hidden rounded-3xl bg-purple-900 border border-purple-800/80 p-6 shadow-lg text-white">
         <div className="absolute -right-8 -bottom-8 w-40 h-40 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="relative z-10 space-y-2">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md self-start text-xs font-bold uppercase tracking-wider">
@@ -449,7 +449,7 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
         {selectedStudent && (
           <div className="flex items-center justify-between p-3.5 rounded-2xl bg-purple-50/70 border border-purple-100">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-700 to-pink-600 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-sm">
+              <div className="w-11 h-11 rounded-2xl bg-purple-700 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-sm">
                 {selectedStudent.firstName.charAt(0)}
                 {selectedStudent.lastName.charAt(0)}
               </div>
@@ -784,7 +784,7 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
           type="button"
           disabled={submitting}
           onClick={handleConfirmPayment}
-          className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-purple-700 via-purple-800 to-pink-600 hover:opacity-95 text-white font-extrabold text-sm shadow-lg shadow-purple-300 flex items-center justify-center gap-2 active:scale-98 transition-all disabled:opacity-50"
+          className="w-full py-4 px-6 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-sm shadow-md shadow-purple-200 flex items-center justify-center gap-2 active:scale-98 transition-all disabled:opacity-50"
         >
           <CheckCircle2 className="w-5 h-5" />
           <span>{submitting ? 'Registrando Pago...' : 'Confirmar y Emitir Recibo'}</span>

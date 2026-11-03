@@ -436,7 +436,7 @@ export const FixedExpensesView: React.FC<FixedExpensesViewProps> = ({ user }) =>
       )}
 
       {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-amber-600 via-purple-700 to-indigo-800 p-6 text-white shadow-xl">
+      <div className="relative overflow-hidden rounded-3xl bg-purple-900 border border-purple-800/80 p-6 text-white shadow-lg">
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-extrabold uppercase tracking-wider backdrop-blur-md">

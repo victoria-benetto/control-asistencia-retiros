@@ -135,7 +135,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
 
           {/* Banner si generó un excedente hacia el próximo mes */}
           {currentMonthSurplusChild && (
-            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-100 via-pink-100 to-purple-50 border border-purple-200 text-xs text-purple-900 flex items-start gap-2.5 shadow-2xs">
+            <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200 text-xs text-purple-900 flex items-start gap-2.5 shadow-2xs">
               <Sparkles className="w-4 h-4 text-purple-700 shrink-0 mt-0.5" />
               <div className="leading-snug">
                 <p className="font-black text-purple-950">

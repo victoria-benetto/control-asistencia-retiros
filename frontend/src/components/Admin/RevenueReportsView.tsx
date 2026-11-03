@@ -530,7 +530,7 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
   return (
     <div className="space-y-6 pb-20">
       {/* 1. Header / Banner de sección con Gradiente Primario */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-800 via-purple-700 to-pink-600 p-6 sm:p-7 text-white shadow-xl">
+      <section className="relative overflow-hidden rounded-3xl bg-purple-900 border border-purple-800/80 p-6 sm:p-7 text-white shadow-lg">
         <div className="pointer-events-none absolute -right-12 -top-12 w-48 h-48 rounded-full bg-white/10 blur-2xl"></div>
         <div className="pointer-events-none absolute -left-8 -bottom-8 w-40 h-40 rounded-full bg-pink-400/20 blur-xl"></div>
 
@@ -927,9 +927,9 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
               <div
                 className={`w-full max-w-[38px] rounded-t-2xl transition-all duration-500 shadow-sm ${
                   item.isCurrent
-                    ? 'bg-gradient-to-t from-purple-700 via-purple-600 to-pink-600 shadow-purple-300 ring-2 ring-purple-600/30'
+                    ? 'bg-purple-700 shadow-purple-200 ring-2 ring-purple-600/30'
                     : item.isRecord
-                    ? 'bg-gradient-to-t from-pink-600 to-purple-600'
+                    ? 'bg-purple-600'
                     : 'bg-slate-200 group-hover:bg-purple-200'
                 }`}
                 style={{ height: `${item.heightPercent}%` }}
@@ -1245,7 +1245,7 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
       )}
 
       {/* 7. Acciones de Exportación y Descarga */}
-      <section className="rounded-3xl bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100/80 p-5 sm:p-6 shadow-sm">
+      <section className="rounded-3xl bg-purple-50/70 border border-purple-100 p-5 sm:p-6 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-purple-700 text-white flex items-center justify-center shadow-md shadow-purple-200">

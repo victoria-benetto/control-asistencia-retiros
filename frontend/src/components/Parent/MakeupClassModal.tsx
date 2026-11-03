@@ -276,7 +276,7 @@ export const MakeupClassModal: React.FC<MakeupClassModalProps> = ({
             <button
               type="submit"
               disabled={saving || !selectedShift || !selectedDate}
-              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-extrabold text-xs shadow-md transition-all disabled:opacity-40 flex items-center gap-2 min-h-[42px] active:scale-98"
+              className="px-5 py-2.5 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-xs shadow-md shadow-purple-200 transition-all disabled:opacity-40 flex items-center gap-2 min-h-[42px] active:scale-98"
             >
               {saving ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

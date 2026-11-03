@@ -437,7 +437,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
   return (
     <div className="flex flex-col space-y-5 pb-24 max-w-5xl mx-auto">
       {/* 1. BANNER HERO GRADIENTE VULPIARE */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-700 via-purple-800 to-pink-600 p-5 sm:p-7 shadow-xl text-white">
+      <div className="relative overflow-hidden rounded-3xl bg-purple-900 border border-purple-800/80 p-5 sm:p-7 shadow-lg text-white">
         <div className="absolute -right-12 -top-12 w-48 h-48 rounded-full bg-pink-400/20 blur-2xl pointer-events-none" />
         <div className="absolute -left-10 -bottom-10 w-44 h-44 rounded-full bg-purple-300/20 blur-xl pointer-events-none" />
 
@@ -681,7 +681,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
                     <div className="relative">
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-purple-600 to-pink-500 text-white flex items-center justify-center font-black text-sm shadow-sm">
+                      <div className="w-11 h-11 rounded-full bg-purple-700 text-white flex items-center justify-center font-black text-sm shadow-sm">
                         {item.student.firstName.charAt(0)}
                         {item.student.lastName.charAt(0)}
                       </div>
@@ -896,7 +896,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                             handleOpenPaymentModal(item);
                           }
                         }}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-2xl bg-gradient-to-r from-purple-700 to-pink-600 text-white font-extrabold text-xs shadow-md shadow-purple-200 active:scale-98 hover:opacity-95 transition-all"
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-xs shadow-md shadow-purple-200 active:scale-98 transition-all"
                       >
                         <Check className="w-4 h-4" />
                         <span>Pagado</span>
@@ -1166,7 +1166,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                   type="button"
                   disabled={submittingPayment}
                   onClick={handleSavePayment}
-                  className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-purple-700 to-pink-600 hover:opacity-95 text-white font-extrabold text-xs shadow-md shadow-purple-200 transition-all active:scale-95 disabled:opacity-50"
+                  className="flex-1 py-3 px-4 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-xs shadow-md shadow-purple-200 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {submittingPayment ? 'Guardando...' : editingPayment ? (amountInput <= 0 ? 'Anular Pago ($0)' : 'Actualizar Pago') : 'Guardar Pago'}
                 </button>
@@ -1220,7 +1220,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
             </div>
 
             {/* Total Destacado */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-700 to-pink-600 text-white text-center shadow-md">
+            <div className="p-4 rounded-2xl bg-purple-900 border border-purple-800/80 text-white text-center shadow-md">
               <span className="text-xs uppercase font-extrabold text-purple-200 tracking-wider block">
                 Total Recolectado
               </span>
