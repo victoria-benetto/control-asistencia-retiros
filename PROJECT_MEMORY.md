@@ -4,6 +4,43 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
+## 🚀 Hito: Modal Personalizado de Cancelación y Vista Completa de Recuperatorios en Asistencias (Rama `develop`)
+**Fecha**: 3 de Noviembre 2026
+
+### 🎯 Objetivos Implementados
+1. **Diseño Propio para Alertas y Confirmaciones (CancelMakeupModal & ToastNotification)**:
+   - Se eliminaron las alertas nativas y diálogos del navegador (`window.confirm()` y `window.alert()`).
+   - Se diseñó el componente `CancelMakeupModal.tsx` con la estética Vulpiare:
+     - Card con bordes redondeados (`rounded-3xl`), sombra profunda y backdrop blur suave.
+     - Icono destacado de advertencia suave (`AlertTriangle` en tono rose).
+     - Detalle contextual de la fecha y turno agendado a cancelar.
+     - Mensaje explicativo: *"Al cancelar, tu cupo volverá a quedar disponible inmediatamente para que puedas elegir otra fecha u horario en su lugar"*.
+     - Botón principal de acción: *"Sí, cancelar clase"* con feedback de carga/spinner mientras procesa.
+     - Botón secundario: *"Volver / Mantener clase"*.
+   - Notificación in-app elegante flotante (`ToastNotification`) para informar el éxito o error de la operación sin interrumpir el flujo del usuario.
+
+2. **Visualización de TODAS las Clases de Recuperación en la Pestaña de Asistencias (`AttendanceTab.tsx`)**:
+   - Sección dedicada y destacada: **"Clases de Recuperación Agendadas"** (`allMakeupRecords`) ubicada arriba del historial general.
+   - Detalle de cada clase de recuperación con badge dinámico:
+     - `🟡 Pendiente de asistencia`
+     - `🟢 Asistida / Completada`
+     - `🔴 No asistió`
+   - Para las clases en estado pendiente, se incluye el botón directo **"Cancelar / Cambiar Fecha"** que dispara el nuevo modal personalizado.
+
+3. **Inhabilitación y Estado Gris del Botón de Recuperar Clase**:
+   - En `AttendanceTab.tsx` y `HomeTab.tsx`, el botón de recuperación evalúa la disponibilidad real:
+     - Si `toRecoverClasses === 0`: el botón se muestra en gris e inhabilitado (`disabled`, `cursor-not-allowed`, `bg-slate-100 text-slate-400`), con el texto **"Sin clases a recuperar (0)"**.
+     - Si la alumna ya tiene un recuperatorio agendado pendiente (`hasPendingMakeup === true`): el botón se inhabilita con el texto **"Recuperatorio ya agendado"**.
+     - Si tiene clases disponibles (`toRecoverClasses > 0 && !hasPendingMakeup`): el botón se activa con el gradiente violeta/fucsia característico permitiendo abrir el modal de reserva.
+
+4. **Blindaje de Tests y Calidad**:
+   - 23 tests de frontend pasando con `vitest`.
+   - 27 tests de backend pasando con `vitest`.
+   - Build de producción con TypeScript (`tsc && vite build`) compilado con 0 errores.
+   - Sincronización en tiempo real con `localStorage` (`vulpiare_session_active`) y refetch directo a la API de asistencias.
+
+---
+
 ## 🚀 Hito: Mejoras en Recuperatorios, Trazabilidad de Pagos y Filtro Único de Inscripción (Rama develop)
 **Fecha**: 3 de Noviembre 2026
 
