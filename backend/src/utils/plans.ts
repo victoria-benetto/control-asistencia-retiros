@@ -30,6 +30,7 @@ export function getWeekdayKey(dateStr: string): string {
 
 /**
  * Valida plan + cronograma. Devuelve el cronograma normalizado o un mensaje de error.
+ * Soporta múltiples turnos en el mismo día (ej. Lunes mañana y Lunes tarde).
  */
 export function validatePlanSchedule(plan: string, schedule: any): { schedule: ScheduleEntry[] } | { error: string } {
   const planDef = STUDENT_PLANS[plan];
@@ -37,23 +38,29 @@ export function validatePlanSchedule(plan: string, schedule: any): { schedule: S
   const list: ScheduleEntry[] = Array.isArray(schedule) ? schedule : [];
   if (planDef.days === 0) return { schedule: [] };
 
-  const days = new Set<string>();
+  const slots = new Set<string>();
   for (const entry of list) {
     if (!entry || !DAY_SHIFTS[entry.day] || !DAY_SHIFTS[entry.day].includes(entry.shift)) {
       return { error: `Turno inválido para el día ${entry?.day ?? ''}.` };
     }
-    if (days.has(entry.day)) return { error: `El día ${entry.day} está repetido.` };
-    days.add(entry.day);
+    const slotKey = `${entry.day}__${entry.shift}`;
+    if (slots.has(slotKey)) {
+      return { error: `El turno de ${entry.day} (${entry.shift}) está repetido.` };
+    }
+    slots.add(slotKey);
   }
-  if (days.size !== planDef.days) {
-    return { error: `El plan "${planDef.label}" requiere exactamente ${planDef.days} día(s).` };
+
+  // Si no es PASE_LIBRE, exigir la cantidad exacta de clases por semana
+  if (plan !== 'PASE_LIBRE' && slots.size !== planDef.days) {
+    return { error: `El plan "${planDef.label}" requiere exactamente ${planDef.days} clase(s)/turno(s) por semana.` };
   }
+
   return { schedule: list.map((e) => ({ day: e.day, shift: e.shift })) };
 }
 
 /**
  * Indica si la alumna debe figurar en la lista del turno para esa fecha.
- * Alumnas con cronograma: se usa el cronograma por día. Alumnas sin cronograma (legado): se usa su turno fijo.
+ * Alumnas con cronograma: se usa el cronograma por día y turno. Alumnas sin cronograma (legado): se usa su turno fijo.
  */
 export function studentAttendsShift(student: { shift: string; schedule?: any }, targetShift: string, dateStr: string): boolean {
   const schedule = Array.isArray(student.schedule) ? (student.schedule as ScheduleEntry[]) : null;
@@ -62,4 +69,10 @@ export function studentAttendsShift(student: { shift: string; schedule?: any }, 
   }
   const dayKey = getWeekdayKey(dateStr);
   return schedule.some((e) => e.day === dayKey && e.shift === targetShift);
+}
+
+export function isNonCuotaConcept(concept?: string | null): boolean {
+  if (!concept) return false;
+  const c = concept.toLowerCase();
+  return c.includes('seguro') || c.includes('inscrip') || c.includes('matríc') || c.includes('matric');
 }

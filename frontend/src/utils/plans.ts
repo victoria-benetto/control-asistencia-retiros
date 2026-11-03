@@ -46,3 +46,9 @@ export const describeSchedule = (schedule?: ScheduleEntry[] | null) =>
       return `${day} ${time}`;
     })
     .join(' · ');
+
+export const isNonCuotaConcept = (concept?: string | null): boolean => {
+  if (!concept) return false;
+  const c = concept.toLowerCase();
+  return c.includes('seguro') || c.includes('inscrip') || c.includes('matríc') || c.includes('matric');
+};

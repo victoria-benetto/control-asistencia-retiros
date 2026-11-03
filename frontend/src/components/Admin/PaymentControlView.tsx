@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { getStudents, getPayments, savePayment, updatePayment, deletePayment, resetMonthPayments, getShifts } from '../../services/api';
 import { Student, PaymentRecord, AdminUser, OFFICIAL_SHIFTS } from '../../types';
+import { isNonCuotaConcept } from '../../utils/plans';
 
 interface PaymentControlViewProps {
   user: AdminUser;
@@ -125,6 +126,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
     return students.map((student) => {
       // Buscar si tiene pago registrado para este mes
       const studentPayments = payments.filter((p) => p.studentId === student.id);
+      const cuotaPayments = studentPayments.filter((p) => !isNonCuotaConcept(p.concept));
 
       // Teléfono de contacto (de la alumna o de personas autorizadas de su ficha)
       let phone = '';
@@ -140,10 +142,10 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
         }
       }
 
-      if (studentPayments.length > 0) {
-        const totalPaid = studentPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+      if (cuotaPayments.length > 0) {
+        const totalPaid = cuotaPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
         const studentBaseFee = student.monthlyFee || DEFAULT_FEE;
-        const expectedAmount = studentPayments.find((p) => p.expectedAmount && p.expectedAmount > 0)?.expectedAmount || studentBaseFee;
+        const expectedAmount = cuotaPayments.find((p) => p.expectedAmount && p.expectedAmount > 0)?.expectedAmount || studentBaseFee;
         const remainingDebt = Math.max(0, expectedAmount - totalPaid);
         const isPartial = remainingDebt > 0;
 
@@ -154,14 +156,14 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
           expectedAmount,
           remainingDebt,
           isPartial,
-          paymentRecord: studentPayments[studentPayments.length - 1],
+          paymentRecord: cuotaPayments[cuotaPayments.length - 1],
           allPayments: studentPayments,
           phone,
           contactName,
         };
       }
 
-      // Si no pagó:
+      // Si no pagó cuota mensual:
       // Si el mes ya pasó o si es el mes actual pero pasaron los 10 días -> VENCIDA con 10% de recargo
       const isOverdue = isPastMonth || (isCurrentMonth && currentDay > 10);
 
@@ -747,6 +749,23 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                       ${item.amount.toLocaleString('es-AR')}
                     </span>
                   </div>
+
+                  {item.allPayments && item.allPayments.some((p) => isNonCuotaConcept(p.concept)) && (
+                    <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-slate-100">
+                      {item.allPayments
+                        .filter((p) => isNonCuotaConcept(p.concept))
+                        .map((p) => (
+                          <span
+                            key={p.id}
+                            className="text-[10px] bg-indigo-50 border border-indigo-200 text-indigo-800 px-2 py-0.5 rounded-lg font-black flex items-center gap-1"
+                          >
+                            <span>{p.concept?.toLowerCase().includes('seguro') ? '🛡️' : '📝'}</span>
+                            <span>{p.concept}:</span>
+                            <span className="font-extrabold text-indigo-950">${p.amount.toLocaleString('es-AR')}</span>
+                          </span>
+                        ))}
+                    </div>
+                  )}
 
                   {isPaid && item.allPayments && item.allPayments.length > 1 && (
                     <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">

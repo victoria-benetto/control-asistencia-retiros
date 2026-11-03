@@ -22,47 +22,7 @@ interface LocalExpense {
 
 const LOCAL_EXPENSES_FILE = path.join(__dirname, '../../data_expenses.json');
 
-const INITIAL_EXPENSES: LocalExpense[] = [
-  {
-    id: 'exp-default-1',
-    title: 'Alquiler Gimnasio Principal',
-    amount: 150000,
-    date: '2026-11-01',
-    month: '2026-11',
-    category: 'Alquiler',
-    receiptUrl: null,
-    notes: 'Pago mensual del espacio de entrenamiento y telas',
-    isRecurring: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'exp-default-2',
-    title: 'Seguro de Responsabilidad Civil & Emergencias',
-    amount: 35000,
-    date: '2026-11-05',
-    month: '2026-11',
-    category: 'Seguros',
-    receiptUrl: null,
-    notes: 'Póliza cobertura de alumnas',
-    isRecurring: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'exp-default-3',
-    title: 'Servicio de Limpieza y Mantenimiento',
-    amount: 40000,
-    date: '2026-11-03',
-    month: '2026-11',
-    category: 'Servicios',
-    receiptUrl: null,
-    notes: 'Insumos y mantenimiento del salón',
-    isRecurring: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+const INITIAL_EXPENSES: LocalExpense[] = [];
 
 function getLocalExpenses(): LocalExpense[] {
   try {
@@ -112,13 +72,7 @@ router.get('/', async (req: Request, res: Response) => {
       orderBy: { date: 'desc' },
     });
 
-    if (expenses && expenses.length > 0) {
-      return res.json(expenses);
-    }
-
-    let local = getLocalExpenses();
-    if (month) local = local.filter((e) => e.month === String(month));
-    return res.json(local);
+    return res.json(expenses);
   } catch (error) {
     console.warn('⚠️ Fallback activo en /api/expenses:', error);
     let local = getLocalExpenses();

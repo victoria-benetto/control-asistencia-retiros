@@ -171,8 +171,15 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
     if (conceptFilter !== 'TODOS') {
       list = list.filter((p) => {
         const cName = (p.concept || '').toLowerCase();
-        if (conceptFilter === 'CUOTA') return cName.includes('cuota');
-        if (conceptFilter === 'MATRICULA') return cName.includes('matrícula') || cName.includes('matricula');
+        if (conceptFilter === 'CUOTA') {
+          return cName.includes('cuota') || (!cName.includes('seguro') && !cName.includes('inscrip') && !cName.includes('matr') && !cName.includes('suelta') && !cName.includes('pase'));
+        }
+        if (conceptFilter === 'INSCRIPCION' || conceptFilter === 'MATRICULA') {
+          return cName.includes('inscrip') || cName.includes('matrícula') || cName.includes('matricula');
+        }
+        if (conceptFilter === 'SEGURO') {
+          return cName.includes('seguro');
+        }
         if (conceptFilter === 'SUELTA') return cName.includes('suelta') || cName.includes('pase');
         return true;
       });
@@ -272,13 +279,16 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
   // =========================================================================
   const conceptStats = useMemo(() => {
     let cuotasSum = 0;
-    let matriculasSum = 0;
+    let inscripcionesSum = 0;
+    let segurosSum = 0;
     let sueltasSum = 0;
 
     filteredPayments.forEach((p) => {
       const c = (p.concept || '').toLowerCase();
-      if (c.includes('matrícula') || c.includes('matricula')) {
-        matriculasSum += p.amount || 0;
+      if (c.includes('seguro')) {
+        segurosSum += p.amount || 0;
+      } else if (c.includes('inscrip') || c.includes('matrícula') || c.includes('matricula')) {
+        inscripcionesSum += p.amount || 0;
       } else if (c.includes('suelta') || c.includes('pase')) {
         sueltasSum += p.amount || 0;
       } else {
@@ -286,7 +296,7 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
       }
     });
 
-    const total = cuotasSum + matriculasSum + sueltasSum || 1;
+    const total = cuotasSum + inscripcionesSum + segurosSum + sueltasSum || 1;
 
     return [
       {
@@ -298,12 +308,20 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
         textColor: 'text-purple-700',
       },
       {
-        name: 'Matrículas Anuales',
-        subtitle: 'Inscripciones y seguros anuales',
-        amount: matriculasSum,
-        percent: Math.round((matriculasSum / total) * 100),
+        name: 'Inscripciones',
+        subtitle: 'Inscripción anual Vulpiare',
+        amount: inscripcionesSum,
+        percent: Math.round((inscripcionesSum / total) * 100),
         color: 'bg-pink-600',
         textColor: 'text-pink-700',
+      },
+      {
+        name: 'Seguros Anuales',
+        subtitle: 'Póliza cobertura y emergencias',
+        amount: segurosSum,
+        percent: Math.round((segurosSum / total) * 100),
+        color: 'bg-indigo-600',
+        textColor: 'text-indigo-700',
       },
       {
         name: 'Pases Libres / Sueltas',
@@ -569,7 +587,8 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
           {[
             { id: 'TODOS', label: 'Todos' },
             { id: 'CUOTA', label: 'Cuotas Mensuales' },
-            { id: 'MATRICULA', label: 'Matrículas' },
+            { id: 'INSCRIPCION', label: 'Inscripciones' },
+            { id: 'SEGURO', label: 'Seguros' },
             { id: 'SUELTA', label: 'Clases Sueltas & Pases' },
           ].map((chip) => (
             <button

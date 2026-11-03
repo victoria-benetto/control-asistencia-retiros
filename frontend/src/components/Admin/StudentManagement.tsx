@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, ShieldAlert, UserPlus, X, Save, Search, Calendar, Users, Activity, CheckCircle2, History, Phone, Clock, DollarSign } from 'lucide-react';
 import { getStudents, createStudent, updateStudent, deleteStudent, getShifts, getStudentAttendances, deleteAttendance } from '../../services/api';
 import { Student, AdminUser, StudentStatus, OFFICIAL_SHIFTS } from '../../types';
-import { STUDENT_PLANS, StudentPlan, WEEK_DAYS, DAY_SHIFTS, formatMoney, describeSchedule, ENROLLMENT_FEE } from '../../utils/plans';
+import { STUDENT_PLANS, StudentPlan, WEEK_DAYS, DAY_SHIFTS, formatMoney, describeSchedule, ENROLLMENT_FEE, ScheduleEntry } from '../../utils/plans';
 
 interface StudentManagementProps {
   user: AdminUser;
@@ -44,10 +44,10 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
   const [dni, setDni] = useState('');
   const [shift, setShift] = useState(OFFICIAL_SHIFTS[0]);
   const [plan, setPlan] = useState<StudentPlan>('DOS_VECES');
-  const [schedule, setSchedule] = useState<Record<string, string>>({
-    MARTES: OFFICIAL_SHIFTS[2],
-    JUEVES: OFFICIAL_SHIFTS[2],
-  });
+  const [schedule, setSchedule] = useState<ScheduleEntry[]>([
+    { day: 'MARTES', shift: OFFICIAL_SHIFTS[2] },
+    { day: 'JUEVES', shift: OFFICIAL_SHIFTS[2] },
+  ]);
   const [status, setStatus] = useState<StudentStatus>('ACTIVE');
   const [notes, setNotes] = useState('');
   const [phone, setPhone] = useState('');
@@ -88,10 +88,10 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     setDni('');
     setShift(OFFICIAL_SHIFTS[0]);
     setPlan('DOS_VECES');
-    setSchedule({
-      MARTES: OFFICIAL_SHIFTS[2],
-      JUEVES: OFFICIAL_SHIFTS[2],
-    });
+    setSchedule([
+      { day: 'MARTES', shift: OFFICIAL_SHIFTS[2] },
+      { day: 'JUEVES', shift: OFFICIAL_SHIFTS[2] },
+    ]);
     setStatus('ACTIVE');
     setNotes('');
     setPhone('');
@@ -114,29 +114,29 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     const currentPlan = (s.plan as StudentPlan) || 'DOS_VECES';
     setPlan(currentPlan);
 
-    const initialSchedule: Record<string, string> = {};
+    const initialSchedule: ScheduleEntry[] = [];
     if (Array.isArray(s.schedule) && s.schedule.length > 0) {
       s.schedule.forEach((entry) => {
         if (entry.day && entry.shift) {
-          initialSchedule[entry.day] = entry.shift;
+          initialSchedule.push({ day: entry.day, shift: entry.shift });
         }
       });
     } else {
       // Reconstrucción a partir del turno legado
       if (s.shift.includes('Martes y Jueves')) {
-        initialSchedule.MARTES = OFFICIAL_SHIFTS[2];
-        initialSchedule.JUEVES = OFFICIAL_SHIFTS[2];
+        initialSchedule.push({ day: 'MARTES', shift: OFFICIAL_SHIFTS[2] });
+        initialSchedule.push({ day: 'JUEVES', shift: OFFICIAL_SHIFTS[2] });
       } else if (s.shift.includes('Lunes y mi') && s.shift.includes('8 a 10')) {
-        initialSchedule.LUNES = OFFICIAL_SHIFTS[3];
-        initialSchedule.MIERCOLES = OFFICIAL_SHIFTS[3];
+        initialSchedule.push({ day: 'LUNES', shift: OFFICIAL_SHIFTS[3] });
+        initialSchedule.push({ day: 'MIERCOLES', shift: OFFICIAL_SHIFTS[3] });
       } else if (s.shift.includes('16:45 a 18')) {
-        initialSchedule.LUNES = OFFICIAL_SHIFTS[0];
-        initialSchedule.MIERCOLES = OFFICIAL_SHIFTS[0];
-        initialSchedule.VIERNES = OFFICIAL_SHIFTS[0];
+        initialSchedule.push({ day: 'LUNES', shift: OFFICIAL_SHIFTS[0] });
+        initialSchedule.push({ day: 'MIERCOLES', shift: OFFICIAL_SHIFTS[0] });
+        initialSchedule.push({ day: 'VIERNES', shift: OFFICIAL_SHIFTS[0] });
       } else if (s.shift.includes('17:30 a 19')) {
-        initialSchedule.LUNES = OFFICIAL_SHIFTS[1];
-        initialSchedule.MIERCOLES = OFFICIAL_SHIFTS[1];
-        initialSchedule.VIERNES = OFFICIAL_SHIFTS[1];
+        initialSchedule.push({ day: 'LUNES', shift: OFFICIAL_SHIFTS[1] });
+        initialSchedule.push({ day: 'MIERCOLES', shift: OFFICIAL_SHIFTS[1] });
+        initialSchedule.push({ day: 'VIERNES', shift: OFFICIAL_SHIFTS[1] });
       }
     }
     setSchedule(initialSchedule);
@@ -159,53 +159,36 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     const planDef = STUDENT_PLANS[newPlan];
 
     if (newPlan === 'CLASE_SUELTA') {
-      setSchedule({});
+      setSchedule([]);
       return;
     }
 
     if (newPlan === 'PASE_LIBRE') {
-      const fullSchedule: Record<string, string> = {};
-      WEEK_DAYS.forEach((d) => {
-        const currentShift = schedule[d.key];
-        const validShifts = DAY_SHIFTS[d.key];
-        const isValid = validShifts.some((s) => s.shift === currentShift);
-        fullSchedule[d.key] = isValid && currentShift ? currentShift : validShifts[0].shift;
-      });
-      setSchedule(fullSchedule);
+      if (schedule.length === 0) {
+        setSchedule(WEEK_DAYS.map((d) => ({ day: d.key, shift: DAY_SHIFTS[d.key][0].shift })));
+      }
       return;
     }
 
-    const currentKeys = Object.keys(schedule);
-    if (currentKeys.length > planDef.days) {
-      const trimmed: Record<string, string> = {};
-      currentKeys.slice(0, planDef.days).forEach((k) => {
-        trimmed[k] = schedule[k];
-      });
-      setSchedule(trimmed);
+    if (schedule.length > planDef.days) {
+      setSchedule(schedule.slice(0, planDef.days));
     }
   };
 
-  const handleToggleDay = (dayKey: string) => {
-    const isSelected = Boolean(schedule[dayKey]);
+  const handleToggleSlot = (dayKey: string, shiftVal: string) => {
+    const isSelected = schedule.some((e) => e.day === dayKey && e.shift === shiftVal);
     if (isSelected) {
-      const updated = { ...schedule };
-      delete updated[dayKey];
-      setSchedule(updated);
+      setSchedule(schedule.filter((e) => !(e.day === dayKey && e.shift === shiftVal)));
     } else {
       const planDef = STUDENT_PLANS[plan];
-      const currentCount = Object.keys(schedule).length;
-      if (planDef.days > 0 && currentCount >= planDef.days) {
-        alert(`El plan seleccionado "${planDef.label}" solo permite ${planDef.days} día(s). Desmarcá un día previo para elegir este.`);
+      if (planDef.days > 0 && plan !== 'PASE_LIBRE' && schedule.length >= planDef.days) {
+        alert(
+          `El plan seleccionado "${planDef.label}" requiere exactamente ${planDef.days} clase(s)/turno(s) semanales. Desmarcá un turno previo para agregar este.`
+        );
         return;
       }
-      const available = DAY_SHIFTS[dayKey];
-      const defaultShift = available[0].shift;
-      setSchedule({ ...schedule, [dayKey]: defaultShift });
+      setSchedule([...schedule, { day: dayKey, shift: shiftVal }]);
     }
-  };
-
-  const handleChangeDayShift = (dayKey: string, newShift: string) => {
-    setSchedule({ ...schedule, [dayKey]: newShift });
   };
 
   const openHistoryModal = async (s: Student) => {
@@ -305,7 +288,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
       shift: primaryShift,
       plan,
       monthlyFee: planDef.fee,
-      schedule: scheduleEntries,
+      schedule,
       status,
       notes: notes.trim(),
       phone: phone.trim() || undefined,
@@ -952,60 +935,63 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
                         Días y Horarios de Asistencia *
                       </label>
                       <p className="text-[11px] text-slate-500 font-medium">
-                        Seleccioná exactamente <strong>{STUDENT_PLANS[plan].days} día(s)</strong> para este plan ({Object.keys(schedule).length}/{STUDENT_PLANS[plan].days} seleccionados).
+                        {plan === 'PASE_LIBRE' ? (
+                          <span>Marcá todos los turnos a los que asiste la alumna ({schedule.length} seleccionados).</span>
+                        ) : (
+                          <span>
+                            Seleccioná exactamente <strong>{STUDENT_PLANS[plan].days} clase(s)/turno(s)</strong> ({schedule.length}/{STUDENT_PLANS[plan].days} seleccionados).
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     {WEEK_DAYS.map((d) => {
-                      const isSelected = Boolean(schedule[d.key]);
-                      const currentShiftVal = schedule[d.key];
                       const availableShifts = DAY_SHIFTS[d.key];
-                      const hasMultipleShifts = availableShifts.length > 1;
+                      const daySlots = schedule.filter((e) => e.day === d.key);
+                      const hasSelectedSlots = daySlots.length > 0;
 
                       return (
                         <div
                           key={d.key}
                           className={`p-3 rounded-2xl border transition-all ${
-                            isSelected
+                            hasSelectedSlots
                               ? 'bg-white border-amber-400 shadow-xs ring-1 ring-amber-300'
                               : 'bg-white/60 border-slate-200 hover:bg-white'
                           }`}
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => handleToggleDay(d.key)}
-                                className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
-                              />
+                            <div className="flex items-center gap-2">
                               <span className="text-xs font-black text-slate-900">{d.label}</span>
-                              {!hasMultipleShifts && isSelected && (
-                                <span className="text-[11px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-lg">
-                                  {availableShifts[0].label}
+                              {hasSelectedSlots && (
+                                <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                                  {daySlots.length} {daySlots.length === 1 ? 'turno' : 'turnos'}
                                 </span>
                               )}
-                            </label>
+                            </div>
 
-                            {/* Selector anidado de horario si el día tiene múltiples turnos y está seleccionado */}
-                            {isSelected && hasMultipleShifts && (
-                              <div className="flex items-center gap-1.5 pl-6 sm:pl-0">
-                                <span className="text-[11px] font-bold text-slate-400">Horario:</span>
-                                <select
-                                  value={currentShiftVal || availableShifts[0].shift}
-                                  onChange={(e) => handleChangeDayShift(d.key, e.target.value)}
-                                  className="px-2.5 py-1.5 rounded-xl bg-amber-50/80 border border-amber-200 text-xs font-black text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
-                                >
-                                  {availableShifts.map((sh) => (
-                                    <option key={sh.shift} value={sh.shift}>
-                                      {sh.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            )}
+                            {/* Chips de turnos disponibles para este día */}
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {availableShifts.map((sh) => {
+                                const isSlotActive = schedule.some((e) => e.day === d.key && e.shift === sh.shift);
+                                return (
+                                  <button
+                                    key={sh.shift}
+                                    type="button"
+                                    onClick={() => handleToggleSlot(d.key, sh.shift)}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer select-none ${
+                                      isSlotActive
+                                        ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400'
+                                        : 'bg-slate-100 text-slate-700 hover:bg-amber-100 hover:text-amber-900'
+                                    }`}
+                                  >
+                                    <span>{isSlotActive ? '✓' : '+'}</span>
+                                    <span>{sh.label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                       );

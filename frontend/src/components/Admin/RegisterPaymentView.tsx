@@ -23,6 +23,7 @@ import {
   getPayments,
 } from '../../services/api';
 import { Student, PaymentConcept, AdminUser, PaymentMethod, PaymentRecord } from '../../types';
+import { isNonCuotaConcept } from '../../utils/plans';
 
 function getNextMonth(monthStr: string): string {
   const [yearStr, monthNumStr] = (monthStr || '').split('-');
@@ -196,24 +197,29 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
     return contactWithPhone?.phone?.trim() || '';
   }, [selectedStudent]);
 
+  const isNonCuota = Boolean(selectedConcept && isNonCuotaConcept(selectedConcept.name));
+
   // Cómputo de Pago Parcial, Deuda Restante y Excedente para el Próximo Mes
   const alreadyPaidThisMonth = useMemo(() => {
+    if (isNonCuota) return 0;
     const list = Array.isArray(existingMonthPayments) ? existingMonthPayments : [];
-    return list.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-  }, [existingMonthPayments]);
+    return list.filter((p) => !isNonCuotaConcept(p.concept)).reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+  }, [existingMonthPayments, isNonCuota]);
 
   const defaultFee = selectedStudent?.monthlyFee || 22000;
-  const expectedAmount = selectedConcept
+  const expectedAmount = isNonCuota
+    ? amountReceived
+    : selectedConcept
     ? (selectedConcept.name.toLowerCase().includes('cuota') && selectedStudent?.monthlyFee ? selectedStudent.monthlyFee : selectedConcept.amount)
     : defaultFee;
   const totalAfterThisPayment = alreadyPaidThisMonth + amountReceived;
-  const isPartialPayment = totalAfterThisPayment < expectedAmount;
+  const isPartialPayment = !isNonCuota && totalAfterThisPayment < expectedAmount;
   const remainingDebt = isPartialPayment ? expectedAmount - totalAfterThisPayment : 0;
 
   // Detección de excedente que se acreditará al mes siguiente
-  const neededToCompleteMonth = Math.max(0, expectedAmount - alreadyPaidThisMonth);
-  const surplus = Math.max(0, amountReceived - neededToCompleteMonth);
-  const isSurplus = surplus > 0;
+  const neededToCompleteMonth = isNonCuota ? 0 : Math.max(0, expectedAmount - alreadyPaidThisMonth);
+  const surplus = isNonCuota ? 0 : Math.max(0, amountReceived - neededToCompleteMonth);
+  const isSurplus = !isNonCuota && surplus > 0;
   const nextMonthKey = useMemo(() => getNextMonth(paymentDate.substring(0, 7)), [paymentDate]);
   const nextMonthName = useMemo(() => formatMonthLabel(nextMonthKey), [nextMonthKey]);
 

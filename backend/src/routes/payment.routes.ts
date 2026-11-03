@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
+import { isNonCuotaConcept } from '../utils/plans';
 import fs from 'fs';
 import path from 'path';
 
@@ -326,11 +327,61 @@ router.post('/', async (req: Request, res: Response) => {
 
     const paymentDate = paidAt ? new Date(paidAt) : new Date();
 
+    if (isNonCuotaConcept(concept)) {
+      // Seguro, Inscripción o Matrícula: Se registran de forma independiente sin alterar la cuota mensual ni generar excedentes
+      try {
+        const record = await (prisma as any).paymentRecord.create({
+          data: {
+            studentId,
+            month,
+            amount: parsedAmount,
+            expectedAmount: expectedAmount !== undefined ? Number(expectedAmount) : parsedAmount,
+            remainingDebt: 0,
+            isPartial: false,
+            concept: concept || 'Seguro Anual',
+            operationNumber: operationNumber || null,
+            paymentMethod,
+            receiptUrl: receiptUrl || null,
+            notes: notes || null,
+            paidAt: paymentDate,
+            recordedByAdminId: recordedByAdminId || null,
+          },
+          include: { student: true, recordedBy: { select: { fullName: true } } },
+        });
+        return res.status(200).json(record);
+      } catch (dbErr) {
+        console.warn('⚠️ Fallback guardando pago no-cuota local:', dbErr);
+        const localPayment: LocalPayment = {
+          id: 'pay-local-' + Date.now(),
+          studentId,
+          month,
+          amount: parsedAmount,
+          expectedAmount: expectedAmount !== undefined ? Number(expectedAmount) : parsedAmount,
+          remainingDebt: 0,
+          isPartial: false,
+          concept: concept || 'Seguro Anual',
+          operationNumber: operationNumber || undefined,
+          paymentMethod,
+          receiptUrl: receiptUrl || null,
+          notes: notes || null,
+          paidAt: paymentDate.toISOString(),
+          recordedByAdminId: recordedByAdminId || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        const list = getLocalPayments();
+        list.unshift(localPayment);
+        saveLocalPayments(list);
+        return res.status(200).json(localPayment);
+      }
+    }
+
     try {
       // 1. Pagos previos en el mes seleccionado
-      const prevPayments = await (prisma as any).paymentRecord.findMany({
+      const allPrevInMonth = await (prisma as any).paymentRecord.findMany({
         where: { studentId, month },
       });
+      const prevPayments = allPrevInMonth.filter((p: any) => !isNonCuotaConcept(p.concept));
       const prevTotal = prevPayments.reduce((acc: number, p: any) => acc + (Number(p.amount) || 0), 0);
       // Cuota del plan de la alumna (si tiene plan asignado) como monto esperado por defecto
       let studentPlan: any = null;
@@ -415,9 +466,10 @@ router.post('/', async (req: Request, res: Response) => {
 
       // Acreditar el saldo sobrante como pago al mes que le sigue
       const nextMonth = getNextMonth(month);
-      const nextPrevPayments = await (prisma as any).paymentRecord.findMany({
+      const allNextPrevInMonth = await (prisma as any).paymentRecord.findMany({
         where: { studentId, month: nextMonth },
       });
+      const nextPrevPayments = allNextPrevInMonth.filter((p: any) => !isNonCuotaConcept(p.concept));
       const nextPrevTotal = nextPrevPayments.reduce((acc: number, p: any) => acc + (Number(p.amount) || 0), 0);
       const nextExpected = nextPrevPayments[0]?.expectedAmount || targetExpected;
       const nextTotal = nextPrevTotal + surplus;
@@ -582,6 +634,14 @@ async function deletePaymentWithSurplus(id: string, res: Response) {
     const toDelete = await (prisma as any).paymentRecord.findUnique({ where: { id } });
     if (!toDelete) {
       return res.status(404).json({ error: 'Pago no encontrado' });
+    }
+
+    if (isNonCuotaConcept(toDelete.concept)) {
+      await (prisma as any).paymentRecord.delete({ where: { id } });
+      let list = getLocalPayments();
+      list = list.filter((p) => p.id !== id);
+      saveLocalPayments(list);
+      return res.json({ success: true, message: 'Pago no-cuota anulado correctamente.' });
     }
 
     // Buscar y eliminar excedentes hijos generados por este pago en meses posteriores
@@ -800,6 +860,20 @@ router.put('/:id', async (req: Request, res: Response) => {
       if (receiptUrl !== undefined) updateData.receiptUrl = receiptUrl;
       if (notes !== undefined) updateData.notes = notes;
       if (paidAt !== undefined) updateData.paidAt = new Date(paidAt);
+
+      if (isNonCuotaConcept(concept || target.concept)) {
+        const updated = await (prisma as any).paymentRecord.update({
+          where: { id },
+          data: {
+            ...updateData,
+            ...(parsedAmount !== undefined ? { amount: parsedAmount, expectedAmount: parsedAmount } : {}),
+            remainingDebt: 0,
+            isPartial: false,
+          },
+          include: { student: true, recordedBy: { select: { fullName: true } } },
+        });
+        return res.json(updated);
+      }
 
       if (parsedAmount === undefined) {
         const updated = await (prisma as any).paymentRecord.update({
