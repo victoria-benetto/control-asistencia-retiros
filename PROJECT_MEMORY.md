@@ -198,3 +198,25 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
   - 18/18 tests frontend aprobados.
   - Compilación de producción con Vite exitosa.
   - Desplegado y sincronizado en ramas `develop` y `main` (producción).
+
+
+## 15. Trazabilidad y Detalle de Pagos de Seguro/Inscripciones en Reportes y Ficha de Alumna
+- **Fecha**: Noviembre 2026.
+- **Objetivos y Mejoras Implementadas**:
+  1. **Reportes de Ingresos y Balance (`RevenueReportsView.tsx`)**:
+     - Incorporada la nueva sección **"Registro Detallado de Pagos y Cobros"** que lista individualmente cada transacción del período seleccionado.
+     - Al seleccionar el filtro de **"Seguros"** (o "Inscripciones", "Cuotas", etc.), muestra exactamente qué alumna pagó, el monto ($20.000), el medio de pago (`💵 Efectivo` o `💳 Transferencia`), fecha, quién lo cobró y observaciones/comprobantes.
+     - Buscador reactivo integrado para buscar pagos por alumna, DNI o medio de pago.
+     - Botón de anulación individual por si un cobro fue registrado por equivocación.
+  2. **Control de Pagos (`PaymentControlView.tsx`)**:
+     - Agregados filtros en chips para `🛡️ Seguro` y `📝 Inscripción` en la barra superior.
+     - En la tarjeta de la alumna, el badge de pago de seguro o inscripción ahora detalla claramente el medio de pago (`💵 Efectivo en Caja` o `💳 Transferencia`), con acceso directo para ver comprobante o editar el pago.
+  3. **Ficha de la Alumna (`StudentManagement.tsx`)**:
+     - En el modal de **Historial** de cada alumna, se incorporaron dos pestañas conmutables:
+       - `📅 Asistencias`: historial de asistencia y eliminación de asistencias erróneas.
+       - `💳 Pagos y Seguros`: listado cronológico de todos los pagos registrados para esa alumna (Seguros, Cuotas, Inscripciones), con fecha, monto, concepto, medio de pago y notas.
+- **Verificación**:
+  - 26/26 tests backend aprobados.
+  - 18/18 tests frontend aprobados.
+  - Compilación de producción con Vite exitosa.
+  - Desplegado y sincronizado en `develop` y `main` (producción).
