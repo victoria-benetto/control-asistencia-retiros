@@ -113,7 +113,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
   const handleToggleAttendance = async (
     studentId: string,
-    currentStatus: 'PRESENT' | 'ABSENT' | null,
+    currentStatus: 'PRESENT' | 'ABSENT' | 'PENDING' | null,
     targetStatus: 'PRESENT' | 'ABSENT',
     isMakeup: boolean = false
   ) => {
@@ -219,12 +219,12 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
   const presentCount = data?.students.filter((s) => s.status === 'PRESENT').length || 0;
   const absentCount = data?.students.filter((s) => s.status === 'ABSENT').length || 0;
-  const pendingCount = data?.students.filter((s) => !s.status).length || 0;
+  const pendingCount = data?.students.filter((s) => !s.status || s.status === 'PENDING').length || 0;
 
   const filteredStudents = data?.students.filter((s) => {
     if (statusFilter === 'PRESENT' && s.status !== 'PRESENT') return false;
     if (statusFilter === 'ABSENT' && s.status !== 'ABSENT') return false;
-    if (statusFilter === 'PENDING' && s.status !== null) return false;
+    if (statusFilter === 'PENDING' && s.status !== null && s.status !== 'PENDING') return false;
 
     if (search.trim()) {
       const q = search.trim().toLowerCase();

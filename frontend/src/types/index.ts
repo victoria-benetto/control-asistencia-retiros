@@ -70,7 +70,7 @@ export interface AttendanceRecord {
   studentId?: string;
   date: string;
   shift?: string;
-  status: 'PRESENT' | 'ABSENT';
+  status: 'PRESENT' | 'ABSENT' | 'PENDING';
   isMakeup?: boolean;
   makeupShift?: string;
   createdAt?: string;
@@ -85,7 +85,7 @@ export interface AttendanceRecord {
 export interface TodayStudentAttendance {
   student: Student;
   attendanceId: string | null;
-  status: 'PRESENT' | 'ABSENT' | null;
+  status: 'PRESENT' | 'ABSENT' | 'PENDING' | null;
   isMakeup?: boolean;
   makeupShift?: string;
   date: string;

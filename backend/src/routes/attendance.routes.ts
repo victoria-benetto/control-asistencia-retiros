@@ -178,8 +178,8 @@ router.post('/', async (req: Request, res: Response) => {
     const { studentId, status, date, isMakeup, makeupShift, shift, recordedByAdminId } = req.body;
     const targetDate = date || getTodayDateString();
 
-    if (!studentId || !['PRESENT', 'ABSENT'].includes(status)) {
-      return res.status(400).json({ error: 'studentId y estado válido (PRESENT/ABSENT) son requeridos.' });
+    if (!studentId || !['PRESENT', 'ABSENT', 'PENDING'].includes(status)) {
+      return res.status(400).json({ error: 'studentId y estado válido (PRESENT/ABSENT/PENDING) son requeridos.' });
     }
 
     const student = await prisma.student.findUnique({ where: { id: studentId } });
@@ -222,6 +222,61 @@ router.post('/', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error al guardar asistencia:', error);
     return res.status(500).json({ error: 'Error al registrar la asistencia en Supabase.' });
+  }
+});
+
+/**
+ * @openapi
+ * /api/attendance/makeup-request:
+ *   post:
+ *     summary: Solicitar o agendar una clase recuperatoria
+ *     tags: [Asistencia]
+ */
+router.post('/makeup-request', async (req: Request, res: Response) => {
+  try {
+    const { studentId, date, shift } = req.body;
+    if (!studentId || !date || !shift) {
+      return res.status(400).json({ error: 'studentId, date y shift son requeridos.' });
+    }
+
+    const student = await prisma.student.findUnique({ where: { id: studentId } });
+    if (!student) {
+      return res.status(404).json({ error: 'Alumna no encontrada.' });
+    }
+
+    const targetShift = String(shift);
+    const targetDate = String(date);
+
+    const record = await prisma.attendanceRecord.upsert({
+      where: {
+        studentId_date_shift: {
+          studentId,
+          date: targetDate,
+          shift: targetShift,
+        },
+      },
+      update: {
+        status: 'PENDING',
+        isMakeup: true,
+        makeupShift: targetShift,
+      },
+      create: {
+        studentId,
+        date: targetDate,
+        shift: targetShift,
+        status: 'PENDING',
+        isMakeup: true,
+        makeupShift: targetShift,
+      },
+      include: {
+        student: true,
+      },
+    });
+
+    return res.status(201).json(record);
+  } catch (error) {
+    console.error('Error al registrar solicitud de recuperación:', error);
+    return res.status(500).json({ error: 'Error al registrar solicitud de recuperación.' });
   }
 });
 

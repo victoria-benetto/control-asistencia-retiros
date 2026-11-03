@@ -136,11 +136,20 @@ export async function getTodayAttendance(shift?: string, date?: string): Promise
   return parseResponse(res);
 }
 
-export async function saveAttendance(studentId: string, status: 'PRESENT' | 'ABSENT', recordedByAdminId?: string, date?: string, isMakeup?: boolean, makeupShift?: string, shift?: string): Promise<any> {
+export async function saveAttendance(studentId: string, status: 'PRESENT' | 'ABSENT' | 'PENDING', recordedByAdminId?: string, date?: string, isMakeup?: boolean, makeupShift?: string, shift?: string): Promise<any> {
   const res = await fetch(`${API_BASE}/attendance`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ studentId, status, recordedByAdminId, date, isMakeup, makeupShift, shift }),
+  });
+  return parseResponse(res);
+}
+
+export async function requestMakeupClass(studentId: string, date: string, shift: string): Promise<AttendanceRecord> {
+  const res = await fetch(`${API_BASE}/attendance/makeup-request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentId, date, shift }),
   });
   return parseResponse(res);
 }

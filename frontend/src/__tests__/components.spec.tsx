@@ -195,7 +195,15 @@ describe('Frontend Component Unit & Integration Tests', () => {
       expect(screen.getAllByText(/MARTES Y JUEVES 17:00 A 19:00/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/¡PRESENTE en clase!/i)).toBeInTheDocument();
 
-      // Verificar estado de cuenta y cuotas
+      // Verificar métricas del mes en Inicio
+      expect(screen.getByText(/Clases del mes/i)).toBeInTheDocument();
+      expect(screen.getByText(/Para recuperar/i)).toBeInTheDocument();
+
+      // Navegar a la pestaña Pagos mediante el BottomNav
+      const pagosTabBtn = screen.getByRole('button', { name: /pestaña pagos/i });
+      fireEvent.click(pagosTabBtn);
+
+      // Verificar estado de cuenta y cuotas en la pestaña Pagos
       await waitFor(() => {
         expect(screen.getAllByText(/Cuota al día/i).length).toBeGreaterThan(0);
         expect(screen.getByText(/Estado de Cuenta y Cuotas/i)).toBeInTheDocument();
@@ -210,7 +218,7 @@ describe('Frontend Component Unit & Integration Tests', () => {
       expect(screen.queryByText(/Atención a familias/i)).not.toBeInTheDocument();
     });
 
-    it('navigates to full history screen when clicking ver mas and returns with back button', async () => {
+    it('switches between bottom navigation tabs (Inicio, Pagos, Asistencias) and opens makeup modal', async () => {
       const onLogout = vi.fn();
       global.fetch = vi.fn().mockImplementation((url: string) => {
         if (url.includes('/api/payments/concepts')) {
@@ -224,8 +232,6 @@ describe('Frontend Component Unit & Integration Tests', () => {
             ok: true,
             json: async () => [
               { id: 'p1', studentId: 's-1', month: '2026-10', amount: 22000, paymentMethod: 'CASH' },
-              { id: 'p2', studentId: 's-1', month: '2026-09', amount: 22000, paymentMethod: 'CASH' },
-              { id: 'p3', studentId: 's-1', month: '2026-08', amount: 22000, paymentMethod: 'CASH' },
             ],
           });
         }
@@ -234,21 +240,35 @@ describe('Frontend Component Unit & Integration Tests', () => {
 
       render(<ParentPortal student={mockStudent} onLogout={onLogout} />);
 
-      await waitFor(() => {
-        const verMasButtons = screen.getAllByRole('button', { name: /ver más/i });
-        expect(verMasButtons.length).toBeGreaterThan(0);
-      });
+      // 1. En Inicio: está la tarjeta grande de perfil y estado de la clase
+      expect(screen.getByText(/Estado de la clase de hoy/i)).toBeInTheDocument();
+      expect(screen.getByText(/DNI Alumna:/i)).toBeInTheDocument();
 
-      // Navegar a asistencias completas (el botón "Ver más" de asistencias)
-      const verMasButtons = screen.getAllByRole('button', { name: /ver más/i });
-      fireEvent.click(verMasButtons[verMasButtons.length - 1]);
+      // 2. Cambiar a Asistencias con BottomNav
+      const asistenciasTabBtn = screen.getByRole('button', { name: /pestaña asistencias/i });
+      fireEvent.click(asistenciasTabBtn);
 
       expect(screen.getByText(/Historial de Asistencias/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /volver/i })).toBeInTheDocument();
+      // En Asistencias NO debe renderizarse la tarjeta grande de perfil
+      expect(screen.queryByText(/DNI Alumna:/i)).not.toBeInTheDocument();
 
-      // Volver a la pantalla principal
-      fireEvent.click(screen.getByRole('button', { name: /volver/i }));
+      // 3. Abrir modal de recuperar clase
+      const recuperarBtn = screen.getByRole('button', { name: /recuperar clase/i });
+      fireEvent.click(recuperarBtn);
+
+      expect(screen.getByText(/Paso 1: ¿A qué horario vas a asistir?/i)).toBeInTheDocument();
+      expect(screen.getByText(/Paso 2: ¿Qué día vas a ir?/i)).toBeInTheDocument();
+
+      // Cerrar modal
+      const closeBtn = screen.getByRole('button', { name: /^cancelar$/i });
+      fireEvent.click(closeBtn);
+
+      // 4. Volver a Inicio
+      const inicioTabBtn = screen.getByRole('button', { name: /pestaña inicio/i });
+      fireEvent.click(inicioTabBtn);
+
       expect(screen.getByText(/Estado de la clase de hoy/i)).toBeInTheDocument();
+      expect(screen.getByText(/DNI Alumna:/i)).toBeInTheDocument();
     });
   });
   describe('PickupsView Component & Otro Adulto Flow', () => {

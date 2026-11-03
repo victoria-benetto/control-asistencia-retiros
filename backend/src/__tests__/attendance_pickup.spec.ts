@@ -286,4 +286,46 @@ describe('Attendance & Pickup Flow Integration Tests', () => {
       }
     }
   }, 20000);
+  it('POST /api/attendance/makeup-request registers a pending makeup class', async () => {
+    const testShift = 'Lunes y miércoles de 8 a 10';
+    const makeupShift = 'Martes y Jueves de 16 a 18';
+    const testDni = `91${Date.now().toString().slice(-6)}`;
+    const testDate = '2026-11-12';
+
+    // 1. Create a student
+    const sRes = await request(app)
+      .post('/api/admin/students')
+      .set('x-user-dni', '44122509')
+      .send({
+        firstName: 'Valentina',
+        lastName: 'RecuperatorioTest',
+        dni: testDni,
+        shift: testShift,
+        status: 'ACTIVE',
+      });
+    const studentId = sRes.body.id;
+
+    try {
+      // 2. Request a makeup class
+      const makeupRes = await request(app)
+        .post('/api/attendance/makeup-request')
+        .send({
+          studentId,
+          date: testDate,
+          shift: makeupShift,
+        });
+
+      expect(makeupRes.status).toBe(201);
+      expect(makeupRes.body.studentId).toBe(studentId);
+      expect(makeupRes.body.status).toBe('PENDING');
+      expect(makeupRes.body.isMakeup).toBe(true);
+      expect(makeupRes.body.makeupShift).toBe(makeupShift);
+      expect(makeupRes.body.shift).toBe(makeupShift);
+      expect(makeupRes.body.date).toBe(testDate);
+    } finally {
+      if (studentId) {
+        await request(app).delete(`/api/admin/students/${studentId}`).set(`x-user-dni`, '44122509');
+      }
+    }
+  }, 20000);
 });

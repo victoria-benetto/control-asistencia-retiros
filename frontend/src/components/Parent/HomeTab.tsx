@@ -1,0 +1,382 @@
+import React, { useMemo } from 'react';
+import {
+  Calendar,
+  Clock,
+  ShieldCheck,
+  CheckCircle2,
+  XCircle,
+  RotateCw,
+  Wallet,
+  ArrowRight,
+  AlertCircle,
+  Sparkles,
+} from 'lucide-react';
+import { Student, AttendanceRecord } from '../../types';
+import { ParentTab } from './BottomNav';
+
+interface HomeTabProps {
+  student: Student & {
+    attendances: AttendanceRecord[];
+  };
+  mostRecentRecord: AttendanceRecord | null;
+  isTodayClass: boolean;
+  formatDateNice: (dateStr: string) => string;
+  onSelectTab: (tab: ParentTab) => void;
+  onOpenMakeupModal: () => void;
+}
+
+export const HomeTab: React.FC<HomeTabProps> = ({
+  student,
+  mostRecentRecord,
+  isTodayClass,
+  formatDateNice,
+  onSelectTab,
+  onOpenMakeupModal,
+}) => {
+  // Iniciales para el avatar
+  const initials = useMemo(() => {
+    const fn = (student.firstName || '').trim();
+    const ln = (student.lastName || '').trim();
+    return `${fn ? fn[0] : ''}${ln ? ln[0] : ''}`.toUpperCase() || 'AL';
+  }, [student.firstName, student.lastName]);
+
+  const now = new Date();
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  // Métricas del mes en curso
+  const monthlyMetrics = useMemo(() => {
+    const attendancesThisMonth = (student.attendances || []).filter((a) =>
+      a.date.startsWith(currentMonthStr)
+    );
+
+    const attendedCount = attendancesThisMonth.filter((a) => a.status === 'PRESENT').length;
+    const absentCount = attendancesThisMonth.filter((a) => a.status === 'ABSENT').length;
+
+    // Calcular el total estimado de clases del mes según el turno
+    const shiftLower = (student.shift || '').toLowerCase();
+    const daysPerWeek = shiftLower.includes('viernes') ? 3 : 2;
+    // Días de clases estimados en un mes típico de 4 semanas
+    const totalMonthClasses = daysPerWeek * 4;
+
+    return {
+      totalClasses: totalMonthClasses,
+      attendedClasses: attendedCount,
+      toRecoverClasses: Math.max(0, absentCount),
+    };
+  }, [student.attendances, student.shift, currentMonthStr]);
+
+  const recentPickup = mostRecentRecord?.pickups && mostRecentRecord.pickups.length > 0
+    ? mostRecentRecord.pickups[0]
+    : null;
+
+  const hasAuthorizedPeople = student.authorizedPeople && student.authorizedPeople.length > 0;
+
+  return (
+    <div className="space-y-6">
+      {/* 1. TARJETA PRINCIPAL DE PERFIL DE LA ALUMNA */}
+      <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_4px_20px_-2px_rgba(30,27,38,0.06)] border border-purple-50 flex flex-col gap-4 relative overflow-hidden">
+        <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full bg-purple-100/50 blur-2xl pointer-events-none"></div>
+
+        {/* Badge Turno */}
+        <div className="inline-flex items-center gap-1.5 self-start px-3 py-1 rounded-full bg-purple-100 text-purple-900 text-xs font-extrabold tracking-wide shadow-xs">
+          <Clock className="w-3.5 h-3.5 text-purple-700" />
+          <span>Turno {student.shift}</span>
+        </div>
+
+        {/* Nombre y Avatar */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight truncate">
+              {student.firstName} {student.lastName}
+            </h1>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              DNI Alumna: <span className="font-mono text-slate-700 font-bold">{student.dni}</span>
+            </p>
+          </div>
+
+          <div className="w-14 h-14 rounded-full bg-white p-1 shadow-[0_4px_16px_-2px_rgba(30,27,38,0.08)] shrink-0">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-purple-700 via-purple-600 to-pink-600 text-white flex items-center justify-center text-base font-black shadow-inner">
+              {initials}
+            </div>
+          </div>
+        </div>
+
+        {/* Grilla de Métricas Mensuales (3 tarjetas con fondos suaves y bordes redondeados) */}
+        <div className="grid grid-cols-3 gap-2.5 pt-1">
+          {/* 1. Clases del mes */}
+          <div className="bg-purple-50/80 border border-purple-100/80 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-xs">
+            <span className="text-lg sm:text-2xl font-black text-purple-900 leading-tight">
+              {monthlyMetrics.totalClasses}
+            </span>
+            <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-purple-700 mt-0.5">
+              Clases del mes
+            </span>
+          </div>
+
+          {/* 2. Clases asistidas */}
+          <div className="bg-emerald-50/80 border border-emerald-100/80 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-xs">
+            <span className="text-lg sm:text-2xl font-black text-emerald-800 leading-tight">
+              {monthlyMetrics.attendedClasses}
+            </span>
+            <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-emerald-700 mt-0.5">
+              Asistidas
+            </span>
+          </div>
+
+          {/* 3. Para recuperar */}
+          <div className="bg-rose-50/80 border border-rose-100/80 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-xs">
+            <span className="text-lg sm:text-2xl font-black text-rose-800 leading-tight">
+              {monthlyMetrics.toRecoverClasses}
+            </span>
+            <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-rose-700 mt-0.5">
+              Para recuperar
+            </span>
+          </div>
+        </div>
+
+        {/* Aviso de vencimiento de recuperatorios */}
+        <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-[11px] text-amber-900 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="leading-snug">
+            Las clases ausentes se pueden recuperar dentro del mismo mes en curso; de lo contrario, se vencen al finalizar el período y no son acumulables.
+          </p>
+        </div>
+
+        {/* Botón "Recuperar una clase" */}
+        <button
+          type="button"
+          onClick={onOpenMakeupModal}
+          className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-black text-xs sm:text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2"
+        >
+          <RotateCw className="w-4 h-4" />
+          <span>Recuperar una clase</span>
+        </button>
+      </section>
+
+      {/* 2. ESTADO DE LA CLASE DE HOY */}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="w-4 h-4 text-purple-700" />
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-500">
+              Estado de la clase de hoy
+            </h2>
+          </div>
+          <span className="text-xs text-purple-700 font-bold">
+            {mostRecentRecord ? formatDateNice(mostRecentRecord.date) : 'Hoy'}
+          </span>
+        </div>
+
+        <div className="rounded-3xl p-5 bg-white shadow-[0_4px_16px_-2px_rgba(30,27,38,0.05)] border border-purple-50 relative overflow-hidden">
+          <div
+            className={`absolute top-0 left-0 bottom-0 w-2 ${
+              !mostRecentRecord
+                ? 'bg-amber-400'
+                : mostRecentRecord.status === 'PRESENT'
+                ? 'bg-emerald-500'
+                : mostRecentRecord.status === 'PENDING'
+                ? 'bg-purple-500'
+                : 'bg-rose-500'
+            }`}
+          ></div>
+
+          <div className="flex flex-col gap-3 pl-2">
+            {!mostRecentRecord ? (
+              <div className="flex items-center gap-3 text-slate-700">
+                <Clock className="w-6 h-6 text-amber-500 shrink-0" />
+                <div>
+                  <p className="font-extrabold text-sm text-slate-900">
+                    Asistencia aún no registrada hoy
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Apenas la profesora tome la asistencia del turno ({student.shift}), se actualizará acá.
+                  </p>
+                </div>
+              </div>
+            ) : mostRecentRecord.status === 'ABSENT' ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-800 text-xs font-extrabold border border-rose-200">
+                    <XCircle className="w-4 h-4 text-rose-600" />
+                    <span>AUSENTE en clase</span>
+                  </div>
+                  {!isTodayClass && (
+                    <span className="text-[11px] text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full font-bold border border-amber-200">
+                      Última clase registrada
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-600">
+                  Registrada como ausente en el turno {mostRecentRecord.makeupShift || student.shift}.
+                </p>
+              </div>
+            ) : mostRecentRecord.status === 'PENDING' ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-900 text-xs font-extrabold border border-purple-200">
+                    <RotateCw className="w-4 h-4 text-purple-700" />
+                    <span>RECUPERATORIO AGENDADO</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-600">
+                  Clase de recuperación agendada en el turno: <strong>{mostRecentRecord.makeupShift || mostRecentRecord.shift}</strong>.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-black border border-emerald-200">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>¡PRESENTE en clase!</span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {!isTodayClass && (
+                      <span className="text-[10px] text-purple-800 bg-purple-50 px-2 py-0.5 rounded-full font-bold border border-purple-200">
+                        Última clase
+                      </span>
+                    )}
+                    {mostRecentRecord.createdAt && (
+                      <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full font-medium">
+                        {new Date(mostRecentRecord.createdAt).toLocaleTimeString('es-AR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}{' '}
+                        hs
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <div className="bg-slate-50 p-2.5 rounded-2xl flex flex-col justify-center">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Horario Asignado
+                    </span>
+                    <span className="text-xs font-bold text-slate-800 mt-0.5 leading-snug">
+                      {mostRecentRecord.makeupShift || student.shift}
+                    </span>
+                  </div>
+                  <div className="bg-slate-50 p-2.5 rounded-2xl flex flex-col justify-center">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Docente a Cargo
+                    </span>
+                    <span className="text-xs font-bold text-slate-800 mt-0.5 truncate leading-snug">
+                      {mostRecentRecord.recordedBy?.fullName || 'Profesora'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Estado de Retiro */}
+                {recentPickup ? (
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-700 to-pink-600 text-white shadow-md space-y-1.5 mt-1">
+                    <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-pink-100">
+                      <ShieldCheck className="w-4 h-4 text-white" />
+                      <span>Retiro Confirmado</span>
+                    </div>
+                    <p className="text-sm font-black">
+                      Retirada por: {recentPickup.authorizedPerson.fullName}
+                    </p>
+                    <p className="text-xs text-pink-100">
+                      Vínculo: <strong>{recentPickup.authorizedPerson.relationship}</strong> (DNI:{' '}
+                      {recentPickup.authorizedPerson.dni})
+                    </p>
+                    <div className="pt-2 border-t border-white/20 flex flex-wrap items-center justify-between gap-1 text-[11px] font-semibold text-pink-100">
+                      <span>
+                        Hora:{' '}
+                        <strong>
+                          {new Date(recentPickup.pickupTime).toLocaleTimeString('es-AR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}{' '}
+                          hs
+                        </strong>
+                      </span>
+                      <span>Docente: <strong>{recentPickup.recordedBy?.fullName || 'A cargo'}</strong></span>
+                    </div>
+                  </div>
+                ) : hasAuthorizedPeople ? (
+                  <div className="flex items-center gap-2.5 pt-1 text-slate-700">
+                    <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0 text-amber-700">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <p className="font-extrabold text-xs text-slate-900">
+                        Pendiente de retiro
+                      </p>
+                      <p className="text-[11px] text-slate-500 truncate">
+                        Autorizados: {student.authorizedPeople.map((p) => p.fullName).join(', ')}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2.5 pt-1 text-slate-600">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-700">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                    <p className="text-xs font-semibold">
+                      Presente y listo. No requiere persona a cargo para retiro.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* 3. ACCESOS DIRECTOS RÁPIDOS HACIA PAGOS Y ASISTENCIAS */}
+      <section className="space-y-3 pt-2">
+        <h2 className="text-xs font-black uppercase tracking-wider text-slate-500 px-1">
+          Accesos Rápidos
+        </h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Acceso a Pagos */}
+          <button
+            type="button"
+            onClick={() => onSelectTab('payments')}
+            className="p-4 rounded-3xl bg-white border border-purple-100 shadow-[0_4px_16px_-2px_rgba(30,27,38,0.04)] hover:border-purple-300 transition-all text-left flex items-center justify-between group active:scale-98"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Wallet className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-xs font-black text-slate-900 truncate">
+                  Estado de Cuenta y Cuotas
+                </h3>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  Ver aranceles, pagos e historial
+                </p>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-purple-600 shrink-0 group-hover:translate-x-1 transition-transform" />
+          </button>
+
+          {/* Acceso a Asistencias */}
+          <button
+            type="button"
+            onClick={() => onSelectTab('attendance')}
+            className="p-4 rounded-3xl bg-white border border-purple-100 shadow-[0_4px_16px_-2px_rgba(30,27,38,0.04)] hover:border-purple-300 transition-all text-left flex items-center justify-between group active:scale-98"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-xs font-black text-slate-900 truncate">
+                  Historial de Asistencias
+                </h3>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  Revisar todas las clases y retiros
+                </p>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-purple-600 shrink-0 group-hover:translate-x-1 transition-transform" />
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+};
