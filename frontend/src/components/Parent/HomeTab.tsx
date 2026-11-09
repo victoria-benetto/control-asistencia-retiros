@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Student, AttendanceRecord } from '../../types';
+import { PaymentReminderInfo } from '../../utils/paymentNotifications';
 import { ParentTab } from './BottomNav';
 
 interface HomeTabProps {
@@ -24,6 +25,14 @@ interface HomeTabProps {
   onSelectTab: (tab: ParentTab) => void;
   onOpenMakeupModal: () => void;
   onCancelMakeup?: (id: string) => void;
+  reminderInfo?: PaymentReminderInfo | null;
+  notificationPermission?: string;
+  onRequestNotification?: () => void;
+  currentStatusInfo?: {
+    status: 'UP_TO_DATE' | 'PARTIAL' | 'PENDING' | 'OVERDUE';
+    label: string;
+    badgeClass: string;
+  };
 }
 
 export const HomeTab: React.FC<HomeTabProps> = ({
@@ -34,6 +43,10 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   onSelectTab,
   onOpenMakeupModal,
   onCancelMakeup,
+  reminderInfo,
+  notificationPermission,
+  onRequestNotification,
+  currentStatusInfo,
 }) => {
   // Iniciales para el avatar
   const initials = useMemo(() => {
@@ -88,6 +101,75 @@ export const HomeTab: React.FC<HomeTabProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Banner de Recordatorio de Vencimiento de Cuota (Día 9 y 10) */}
+      {reminderInfo && (
+        <section
+          aria-label="Aviso de vencimiento de cuota"
+          className={`rounded-3xl p-4 sm:p-5 border shadow-sm flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 ${
+            reminderInfo.day === 10
+              ? 'bg-rose-50/90 border-rose-200 text-rose-950'
+              : 'bg-amber-50/90 border-amber-200 text-amber-950'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${
+                reminderInfo.day === 10 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
+              }`}
+            >
+              {reminderInfo.day === 10 ? (
+                <AlertCircle className="w-5 h-5 text-rose-600" />
+              ) : (
+                <Clock className="w-5 h-5 text-amber-600" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span
+                  className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                    reminderInfo.day === 10
+                      ? 'bg-rose-100 text-rose-800 border-rose-300'
+                      : 'bg-amber-100 text-amber-800 border-amber-300'
+                  }`}
+                >
+                  {reminderInfo.inAppBadge}
+                </span>
+                <span className="text-[11px] font-bold text-slate-500">
+                  Cuota Mensual
+                </span>
+              </div>
+              <h3 className="text-sm font-black text-slate-900 mt-1">
+                {reminderInfo.title}
+              </h3>
+              <p className="text-xs text-slate-700 font-medium mt-0.5 leading-relaxed">
+                {reminderInfo.inAppMessage}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/60">
+            <button
+              type="button"
+              onClick={() => onSelectTab('payments')}
+              className="text-xs font-black text-purple-700 hover:text-purple-900 flex items-center gap-1 cursor-pointer"
+            >
+              <span>Ver medios de pago y aranceles</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+
+            {notificationPermission !== 'granted' && onRequestNotification && (
+              <button
+                type="button"
+                onClick={onRequestNotification}
+                className="px-3 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-[11px] font-extrabold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <span>🔔 Activar avisos en mi celular</span>
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* 1. TARJETA PRINCIPAL DE PERFIL DE LA ALUMNA */}
       <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_4px_20px_-2px_rgba(30,27,38,0.06)] border border-purple-50 flex flex-col gap-4 relative overflow-hidden">
         <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full bg-purple-100/50 blur-2xl pointer-events-none"></div>
@@ -403,9 +485,16 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 <Wallet className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-xs font-black text-slate-900 truncate">
-                  Estado de Cuenta y Cuotas
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-black text-slate-900 truncate">
+                    Estado de Cuenta y Cuotas
+                  </h3>
+                  {currentStatusInfo && (
+                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${currentStatusInfo.badgeClass}`}>
+                      {currentStatusInfo.label}
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-slate-500 font-medium">
                   Ver aranceles, pagos e historial
                 </p>

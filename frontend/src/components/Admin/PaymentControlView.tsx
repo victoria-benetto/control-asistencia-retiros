@@ -723,7 +723,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                   isPaid
                     ? isPartial
                       ? 'border-amber-300 bg-amber-50/10'
-                      : 'border-purple-200 hover:border-purple-300'
+                      : 'border-emerald-200 bg-emerald-50/10 hover:border-emerald-300'
                     : isOverdue
                     ? 'border-rose-200 bg-rose-50/20'
                     : 'border-slate-200'
@@ -742,7 +742,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                           isPaid
                             ? isPartial
                               ? 'bg-amber-500'
-                              : 'bg-purple-600'
+                              : 'bg-emerald-600'
                             : isOverdue
                             ? 'bg-rose-500'
                             : 'bg-amber-500'
@@ -767,11 +767,11 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                       className={`px-2.5 py-1 rounded-full font-extrabold text-[11px] flex items-center gap-1 border ${
                         isPartial
                           ? 'bg-amber-100 text-amber-900 border-amber-200'
-                          : 'bg-purple-100 text-purple-900 border-purple-200'
+                          : 'bg-emerald-100 text-emerald-800 border-emerald-200'
                       }`}
                     >
-                      <CheckCircle className="w-3.5 h-3.5 text-purple-600" />
-                      <span>{isPartial ? 'Pago Parcial' : 'Al día'}</span>
+                      <CheckCircle className={`w-3.5 h-3.5 ${isPartial ? 'text-amber-600' : 'text-emerald-600'}`} />
+                      <span>{isPartial ? 'Pago Parcial' : 'Pagado'}</span>
                     </span>
                   )}
                   {isPending && (
@@ -814,7 +814,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                         isPaid
                           ? isPartial
                             ? 'text-amber-800'
-                            : 'text-purple-700'
+                            : 'text-emerald-700'
                           : isOverdue
                           ? 'text-rose-600'
                           : 'text-slate-900'

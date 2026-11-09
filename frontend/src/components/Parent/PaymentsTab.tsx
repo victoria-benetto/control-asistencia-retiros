@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Student, PaymentRecord } from '../../types';
+import { PaymentReminderInfo } from '../../utils/paymentNotifications';
 
 export interface MonthSummary {
   month: string;
@@ -47,6 +48,9 @@ interface PaymentsTabProps {
   onViewReceipt: (url: string) => void;
   formatMonthNice: (monthStr: string) => string;
   formatDateNice: (dateStr: string) => string;
+  reminderInfo?: PaymentReminderInfo | null;
+  notificationPermission?: string;
+  onRequestNotification?: () => void;
 }
 
 export const PaymentsTab: React.FC<PaymentsTabProps> = ({
@@ -65,6 +69,9 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
   onViewReceipt,
   formatMonthNice,
   formatDateNice,
+  reminderInfo,
+  notificationPermission,
+  onRequestNotification,
 }) => {
   const StatusIcon = currentStatusInfo.icon;
 
@@ -78,6 +85,56 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
             Estado de Cuenta y Cuotas
           </h2>
         </div>
+
+        {/* Banner de Recordatorio de Vencimiento de Cuota (Día 9 y 10) */}
+        {reminderInfo && (
+          <div
+            className={`rounded-3xl p-4 sm:p-5 border shadow-sm flex flex-col gap-2.5 animate-in fade-in slide-in-from-top-2 ${
+              reminderInfo.day === 10
+                ? 'bg-rose-50/90 border-rose-200 text-rose-950'
+                : 'bg-amber-50/90 border-amber-200 text-amber-950'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${
+                  reminderInfo.day === 10 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
+                }`}
+              >
+                {reminderInfo.day === 10 ? (
+                  <AlertCircle className="w-5 h-5 text-rose-600" />
+                ) : (
+                  <Clock className="w-5 h-5 text-amber-600" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <span
+                  className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border inline-block mb-1 ${
+                    reminderInfo.day === 10
+                      ? 'bg-rose-100 text-rose-800 border-rose-300'
+                      : 'bg-amber-100 text-amber-800 border-amber-300'
+                  }`}
+                >
+                  {reminderInfo.inAppBadge}
+                </span>
+                <p className="text-xs text-slate-800 font-bold leading-relaxed">
+                  {reminderInfo.inAppMessage}
+                </p>
+              </div>
+            </div>
+            {notificationPermission !== 'granted' && onRequestNotification && (
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={onRequestNotification}
+                  className="px-3 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-[11px] font-extrabold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  <span>🔔 Activar avisos en mi celular</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tarjeta Destacada de Cuota del Período en Curso */}
         <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_4px_20px_-2px_rgba(30,27,38,0.06)] border border-purple-50 space-y-4">

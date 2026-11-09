@@ -10,6 +10,7 @@ import { AttendanceTab } from './AttendanceTab';
 import { MakeupClassModal } from './MakeupClassModal';
 import { ReceiptModal } from './ReceiptModal';
 import { CancelMakeupModal, ToastNotification } from './CancelMakeupModal';
+import { getPaymentReminderInfo, checkAndTriggerPaymentNotification, requestPaymentNotificationPermission, PaymentReminderInfo } from '../../utils/paymentNotifications';
 
 const SESSION_STORAGE_KEY = 'vulpiare_session_active';
 
@@ -176,8 +177,10 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
     if (currentMonthPayments.length > 0 && currentMonthPayments[0].expectedAmount) {
       return currentMonthPayments[0].expectedAmount;
     }
-    return defaultMonthlyFee;
-  }, [currentMonthPayments, defaultMonthlyFee]);
+    // El 10% de recargo rige a partir del día 11 (hasta las 23:59 del 10 se abona precio base)
+    const isOverdue = currentDayOfMonth > 10;
+    return isOverdue ? Math.round(defaultMonthlyFee * 1.1) : defaultMonthlyFee;
+  }, [currentMonthPayments, defaultMonthlyFee, currentDayOfMonth]);
 
   const currentRemainingDebt = Math.max(0, currentExpectedFee - currentMonthPaid);
 
@@ -197,7 +200,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
     if (currentMonthPaid >= currentExpectedFee) {
       return {
         status: 'UP_TO_DATE' as const,
-        label: 'Cuota al día',
+        label: 'Pagado',
         badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
         icon: CheckCircle2,
       };
@@ -213,7 +216,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
     if (currentDayOfMonth <= 10) {
       return {
         status: 'PENDING' as const,
-        label: 'Pendiente',
+        label: 'Vence el 10',
         badgeClass: 'bg-amber-100 text-amber-800 border-amber-200',
         icon: Clock,
       };
@@ -229,6 +232,41 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
   const currentMonthConcept = currentMonthPayments[0]?.concept || 'Acrobacia y Danza aérea';
   const currentMonthReceipt = currentMonthPayments.find((p) => p.receiptUrl)?.receiptUrl || null;
   const latestCurrentPayment = currentMonthPayments[0] || null;
+
+  // Recordatorio de cuota para los días 9 y 10
+  const reminderInfo = useMemo(() => {
+    const isPaid = currentMonthPaid >= currentExpectedFee;
+    return getPaymentReminderInfo(currentDayOfMonth, isPaid);
+  }, [currentDayOfMonth, currentMonthPaid, currentExpectedFee]);
+
+  const [notificationPermission, setNotificationPermission] = useState<string>(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      return Notification.permission;
+    }
+    return 'unsupported';
+  });
+
+  useEffect(() => {
+    const isPaid = currentMonthPaid >= currentExpectedFee;
+    checkAndTriggerPaymentNotification(student.id, currentDayOfMonth, isPaid, todayDateStr);
+  }, [student.id, currentDayOfMonth, currentMonthPaid, currentExpectedFee, todayDateStr]);
+
+  const handleRequestNotification = async () => {
+    const isPaid = currentMonthPaid >= currentExpectedFee;
+    const perm = await requestPaymentNotificationPermission(student.id, currentDayOfMonth, isPaid, todayDateStr);
+    setNotificationPermission(perm);
+    if (perm === 'granted') {
+      setToast({
+        message: '¡Notificaciones activadas! Te recordaremos el vencimiento de tu cuota los días 9 y 10.',
+        type: 'success',
+      });
+    } else if (perm === 'denied') {
+      setToast({
+        message: 'Las notificaciones están bloqueadas en la configuración de tu navegador.',
+        type: 'error',
+      });
+    }
+  };
 
   // Historial de cuotas agrupadas por mes
   const monthSummaries = useMemo<MonthSummary[]>(() => {
@@ -378,6 +416,10 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
             onSelectTab={setActiveTab}
             onOpenMakeupModal={() => setMakeupModalOpen(true)}
             onCancelMakeup={handleCancelMakeup}
+            reminderInfo={reminderInfo}
+            notificationPermission={notificationPermission}
+            onRequestNotification={handleRequestNotification}
+            currentStatusInfo={currentStatusInfo}
           />
         )}
 
@@ -398,6 +440,9 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
             onViewReceipt={setViewingReceiptUrl}
             formatMonthNice={formatMonthNice}
             formatDateNice={formatDateNice}
+            reminderInfo={reminderInfo}
+            notificationPermission={notificationPermission}
+            onRequestNotification={handleRequestNotification}
           />
         )}
 

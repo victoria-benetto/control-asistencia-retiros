@@ -206,7 +206,7 @@ describe('Frontend Component Unit & Integration Tests', () => {
 
       // Verificar estado de cuenta y cuotas en la pestaña Pagos
       await waitFor(() => {
-        expect(screen.getAllByText(/Cuota al día/i).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Pagado|Cuota al día/i).length).toBeGreaterThan(0);
         expect(screen.getByText(/Estado de Cuenta y Cuotas/i)).toBeInTheDocument();
         expect(screen.getByText(/comunicate con la profesora Victoria/i)).toBeInTheDocument();
         // Verificar que en el historial aparecen TANTO Noviembre como Diciembre (excedente)
