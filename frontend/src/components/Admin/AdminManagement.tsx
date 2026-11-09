@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, ShieldAlert, X, Save, Lock, Eye, EyeOff } from 'lucide-react';
 import { getTeachers, createTeacher, updateTeacher, deleteTeacher } from '../../services/api';
 import { AdminUser } from '../../types';
+import { ConfirmModal, ToastNotification } from '../Common/ConfirmModal';
 
 interface AdminManagementProps {
   user: AdminUser;
@@ -31,6 +32,23 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
     setVisiblePasswords((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // Modales estilizados de confirmación y toast Vulpiare
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string | React.ReactNode;
+    note?: string | React.ReactNode;
+    confirmText?: string;
+    variant?: 'danger' | 'purple';
+    isLoading?: boolean;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: 'success' | 'error' | 'info';
+  } | null>(null);
+
   // Form State
   const [fullName, setFullName] = useState('');
   const [dni, setDni] = useState('');
@@ -45,7 +63,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
       const data = await getTeachers(user.dni);
       setTeachers(data);
     } catch (err) {
-      alert('Error al obtener lista de profesores.');
+      setToast({ message: 'Error al obtener lista de profesores.', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -83,7 +101,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim() || !dni.trim()) {
-      alert('Nombre y DNI son requeridos.');
+      setToast({ message: 'Nombre y DNI son requeridos.', type: 'error' });
       return;
     }
 
@@ -111,18 +129,30 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
       setModalOpen(false);
       fetchTeachersList();
     } catch (err: any) {
-      alert(err.message || 'Error al guardar profesor.');
+      setToast({ message: err.message || 'Error al guardar profesor.', type: 'error' });
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`¿Estás seguro de eliminar la cuenta de ${name}?`)) return;
-    try {
-      await deleteTeacher(user.dni, id);
-      fetchTeachersList();
-    } catch (err: any) {
-      alert(err.message || 'Error al eliminar.');
-    }
+  const handleDelete = (id: string, name: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: '¿Eliminar cuenta de profesor/a?',
+      message: `¿Estás seguro de eliminar la cuenta de ${name}?`,
+      note: '💡 La profesora ya no podrá ingresar al sistema con su DNI.',
+      confirmText: 'Sí, eliminar cuenta',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await deleteTeacher(user.dni, id);
+          setConfirmModal(null);
+          fetchTeachersList();
+          setToast({ message: 'Cuenta eliminada exitosamente.', type: 'success' });
+        } catch (err: any) {
+          setConfirmModal(null);
+          setToast({ message: err.message || 'Error al eliminar.', type: 'error' });
+        }
+      },
+    });
   };
 
   return (
@@ -366,6 +396,29 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({ user }) => {
             </form>
           </div>
         </div>
+      )}
+      {/* Modal estilizado de confirmación */}
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          note={confirmModal.note}
+          confirmText={confirmModal.confirmText}
+          variant={confirmModal.variant}
+          isLoading={confirmModal.isLoading}
+          onConfirm={confirmModal.onConfirm}
+          onClose={() => setConfirmModal(null)}
+        />
+      )}
+
+      {/* Toast de notificación flotante */}
+      {toast && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

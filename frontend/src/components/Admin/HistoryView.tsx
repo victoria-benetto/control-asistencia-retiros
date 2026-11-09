@@ -1,3 +1,4 @@
+import { ToastNotification } from '../Common/ConfirmModal';
 import React, { useState, useEffect } from 'react';
 import { History, Calendar, CheckCircle2, XCircle, ShieldCheck, Search, RefreshCw, Clock, Layers, UserCheck } from 'lucide-react';
 import { getAttendanceHistory, getShiftAssistants } from '../../services/api';
@@ -25,6 +26,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift: initialShift, o
   const [selectedDate, setSelectedDate] = useState<string>(getTodayISO());
   const [selectedShift, setSelectedShift] = useState<string>(initialShift || 'ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT'>('ALL');
+  const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' } | null>(null);
 
   const fetchHistoryData = async () => {
     setLoading(true);
@@ -41,7 +43,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift: initialShift, o
       );
       setAssistants(astData);
     } catch (err) {
-      alert('Error al consultar historial.');
+      setToast({ message: 'Error al consultar historial.', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -400,6 +402,14 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ shift: initialShift, o
             );
           })}
         </div>
+      )}
+      {/* Toast Notificación */}
+      {toast && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

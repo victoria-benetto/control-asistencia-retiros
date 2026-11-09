@@ -1,3 +1,4 @@
+import { ToastNotification } from '../Common/ConfirmModal';
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle2, XCircle, Clock, RefreshCw, UserCheck, Plus, Search, X, Calendar, UserPlus } from 'lucide-react';
 import { getTodayAttendance, saveAttendance, getStudents, getPublicTeachers, getShiftAssistants, addShiftAssistant, removeShiftAssistant } from '../../services/api';
@@ -44,6 +45,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   const [assistantModalOpen, setAssistantModalOpen] = useState(false);
   const [teachersList, setTeachersList] = useState<AdminUser[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' } | null>(null);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'PENDING'>('ALL');
@@ -171,7 +173,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
       }
     } catch (err) {
       if (prevData) setData(prevData);
-      alert('Error al guardar asistencia.');
+      setToast({ message: 'Error al guardar asistencia.', type: 'error' });
     } finally {
       setSavingId(null);
     }
@@ -184,7 +186,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
       const list = await getStudents();
       setAllStudents(list);
     } catch (e) {
-      alert('Error al obtener lista de alumnas para recuperatorio.');
+      setToast({ message: 'Error al obtener lista de alumnas para recuperatorio.', type: 'error' });
     } finally {
       setLoadingAllStudents(false);
     }
@@ -202,7 +204,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
       const teachers = await getPublicTeachers();
       setTeachersList(teachers);
     } catch (e) {
-      alert('Error al cargar lista de profesoras.');
+      setToast({ message: 'Error al cargar lista de profesoras.', type: 'error' });
     } finally {
       setLoadingTeachers(false);
     }
@@ -218,7 +220,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
         cacheRef.current.set(`${selectedDate}__${shift}`, { data, assistants: updatedAssistants });
       }
     } catch (e) {
-      alert('Error al agregar profesora acompañante.');
+      setToast({ message: 'Error al agregar profesora acompañante.', type: 'error' });
     }
   };
 
@@ -231,7 +233,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
         cacheRef.current.set(`${selectedDate}__${shift}`, { data, assistants: updated });
       }
     } catch (e) {
-      alert('Error al quitar profesora acompañante.');
+      setToast({ message: 'Error al quitar profesora acompañante.', type: 'error' });
     }
   };
 
@@ -727,6 +729,14 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
             )}
           </div>
         </div>
+      )}
+      {/* Toast Notificación */}
+      {toast && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

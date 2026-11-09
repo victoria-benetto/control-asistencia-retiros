@@ -30,6 +30,7 @@ import {
   replicateMonthExpenses,
 } from '../../services/api';
 import { trackExpenseCreated, trackExpenseReplicated } from '../../services/analytics';
+import { ConfirmModal, ToastNotification } from '../Common/ConfirmModal';
 
 interface FixedExpensesViewProps {
   user: AdminUser;
@@ -71,6 +72,23 @@ export const FixedExpensesView: React.FC<FixedExpensesViewProps> = ({ user }) =>
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  // Modal estilizado de confirmación y notificaciones toast Vulpiare
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string | React.ReactNode;
+    note?: string | React.ReactNode;
+    confirmText?: string;
+    variant?: 'danger' | 'purple';
+    isLoading?: boolean;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: 'success' | 'error' | 'info';
+  } | null>(null);
 
   // Estados para Réplica de Gastos (Selección múltiple o individual)
   const [replicateTargetMonth, setReplicateTargetMonth] = useState<string>(() => {
@@ -261,16 +279,26 @@ export const FixedExpensesView: React.FC<FixedExpensesViewProps> = ({ user }) =>
   };
 
   // Eliminar gasto
-  const handleDeleteExpense = async (id: string, title: string) => {
-    if (!window.confirm(`¿Estás seguro de que deseas eliminar el gasto "${title}"?`)) return;
-
-    try {
-      await deleteExpense(id);
-      showToast('Gasto fijo eliminado.');
-      await loadExpenses();
-    } catch (err: any) {
-      alert('Error al eliminar gasto: ' + err.message);
-    }
+  const handleDeleteExpense = (id: string, title: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: '¿Eliminar este gasto fijo?',
+      message: `¿Estás seguro de que deseas eliminar el gasto "${title}"?`,
+      note: '💡 Esta acción descontará este egreso de los balances contables de este mes.',
+      confirmText: 'Sí, eliminar gasto',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await deleteExpense(id);
+          setConfirmModal(null);
+          setToast({ message: 'Gasto fijo eliminado con éxito.', type: 'success' });
+          await loadExpenses();
+        } catch (err: any) {
+          setConfirmModal(null);
+          setToast({ message: 'Error al eliminar gasto: ' + err.message, type: 'error' });
+        }
+      },
+    });
   };
 
   // =========================================================================
@@ -329,11 +357,11 @@ export const FixedExpensesView: React.FC<FixedExpensesViewProps> = ({ user }) =>
   // Confirmar réplica de gastos seleccionados
   const handleConfirmReplicateSelected = async () => {
     if (replicateSelectedIds.length === 0) {
-      alert('Por favor seleccioná al menos un gasto para replicar.');
+      setToast({ message: 'Por favor seleccioná al menos un gasto para replicar.', type: 'error' });
       return;
     }
     if (!replicateTargetMonth) {
-      alert('Por favor seleccioná el mes de destino.');
+      setToast({ message: 'Por favor seleccioná el mes de destino.', type: 'error' });
       return;
     }
 
@@ -364,7 +392,7 @@ export const FixedExpensesView: React.FC<FixedExpensesViewProps> = ({ user }) =>
         await loadExpenses();
       }
     } catch (err: any) {
-      alert('Error al replicar gastos: ' + err.message);
+      setToast({ message: 'Error al replicar gastos: ' + err.message, type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -393,11 +421,11 @@ export const FixedExpensesView: React.FC<FixedExpensesViewProps> = ({ user }) =>
     if (!singleReplicateExpense) return;
     const num = Number(singleReplicateAmount);
     if (isNaN(num) || num <= 0) {
-      alert('Por favor ingresá un monto válido mayor a 0.');
+      setToast({ message: 'Por favor ingresá un monto válido mayor a 0.', type: 'error' });
       return;
     }
     if (!singleReplicateTargetMonth) {
-      alert('Por favor seleccioná el mes de destino.');
+      setToast({ message: 'Por favor seleccioná el mes de destino.', type: 'error' });
       return;
     }
 
@@ -419,7 +447,7 @@ export const FixedExpensesView: React.FC<FixedExpensesViewProps> = ({ user }) =>
         await loadExpenses();
       }
     } catch (err: any) {
-      alert('Error al replicar gasto: ' + err.message);
+      setToast({ message: 'Error al replicar gasto: ' + err.message, type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -1170,6 +1198,29 @@ export const FixedExpensesView: React.FC<FixedExpensesViewProps> = ({ user }) =>
             </div>
           </div>
         </div>
+      )}
+      {/* Modal estilizado de confirmación */}
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          note={confirmModal.note}
+          confirmText={confirmModal.confirmText}
+          variant={confirmModal.variant}
+          isLoading={confirmModal.isLoading}
+          onConfirm={confirmModal.onConfirm}
+          onClose={() => setConfirmModal(null)}
+        />
+      )}
+
+      {/* Toast de notificación flotante */}
+      {toast && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

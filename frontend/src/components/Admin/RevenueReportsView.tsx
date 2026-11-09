@@ -29,6 +29,7 @@ import {
 import { AdminUser, PaymentRecord, Student, FixedExpense, PaymentConcept } from '../../types';
 import { getPayments, getStudents, getExpenses, getPaymentConcepts, deletePayment } from '../../services/api';
 import { trackFinancialReportViewed, trackReportExported } from '../../services/analytics';
+import { ConfirmModal, ToastNotification } from '../Common/ConfirmModal';
 
 interface RevenueReportsViewProps {
   user: AdminUser;
@@ -67,6 +68,23 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
   // Estado de feedback de exportación
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
   const [tableSearch, setTableSearch] = useState<string>('');
+
+  // Modales personalizados de confirmación y toast estilo Vulpiare
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string | React.ReactNode;
+    note?: string | React.ReactNode;
+    confirmText?: string;
+    variant?: 'danger' | 'purple';
+    isLoading?: boolean;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: 'success' | 'error' | 'info';
+  } | null>(null);
   const [viewReceiptModal, setViewReceiptModal] = useState<string | null>(null);
   const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
 
@@ -449,19 +467,28 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
     }
   }, [selectedMonth, selectedYear, viewScope, loading, totalRevenue, totalExpenses, netBalance, paidCount, unpaidStudents.length]);
 
-  const handleDeletePayment = async (paymentId: string) => {
-    if (!window.confirm('¿Estás segura de anular este registro de pago? Esta acción eliminará el cobro de los reportes.')) {
-      return;
-    }
-    setDeletingPaymentId(paymentId);
-    try {
-      await deletePayment(paymentId);
-      setPayments((prev) => prev.filter((p) => p.id !== paymentId));
-    } catch (err: any) {
-      alert('Error al anular pago: ' + (err.message || 'Error desconocido'));
-    } finally {
-      setDeletingPaymentId(null);
-    }
+  const handleDeletePayment = (paymentId: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: '¿Anular registro de pago?',
+      message: 'Estás a punto de anular este registro de pago de forma permanente.',
+      note: '💡 Esta acción descontará inmediatamente el cobro de los reportes y balances contables.',
+      confirmText: 'Sí, anular cobro',
+      variant: 'danger',
+      onConfirm: async () => {
+        setDeletingPaymentId(paymentId);
+        try {
+          await deletePayment(paymentId);
+          setPayments((prev) => prev.filter((p) => p.id !== paymentId));
+          setToast({ message: 'Registro de cobro anulado exitosamente.', type: 'success' });
+        } catch (err: any) {
+          setToast({ message: 'Error al anular pago: ' + (err.message || 'Error desconocido'), type: 'error' });
+        } finally {
+          setDeletingPaymentId(null);
+          setConfirmModal(null);
+        }
+      },
+    });
   };
 
   const filteredTablePayments = useMemo(() => {
@@ -1279,6 +1306,30 @@ export const RevenueReportsView: React.FC<RevenueReportsViewProps> = ({
           </div>
         </div>
       </section>
+
+      {/* Modal estilizado de confirmación */}
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          note={confirmModal.note}
+          confirmText={confirmModal.confirmText}
+          variant={confirmModal.variant}
+          isLoading={confirmModal.isLoading}
+          onConfirm={confirmModal.onConfirm}
+          onClose={() => setConfirmModal(null)}
+        />
+      )}
+
+      {/* Toast de notificación flotante */}
+      {toast && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

@@ -1,3 +1,4 @@
+import { ToastNotification } from '../Common/ConfirmModal';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   ArrowLeft,
@@ -108,6 +109,7 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
   const [notes, setNotes] = useState<string>('');
   const [existingMonthPayments, setExistingMonthPayments] = useState<PaymentRecord[]>([]);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' } | null>(null);
 
   // Cargar alumnas activas y conceptos
   useEffect(() => {
@@ -235,7 +237,7 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('La imagen no debe superar los 5MB.');
+      setToast({ message: 'La imagen no debe superar los 5MB.', type: 'error' });
       return;
     }
 
@@ -249,16 +251,16 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
   // Confirmar y Emitir Recibo
   const handleConfirmPayment = async () => {
     if (!selectedStudent) {
-      alert('Por favor seleccioná una alumna beneficiaria.');
+      setToast({ message: 'Por favor seleccioná una alumna beneficiaria.', type: 'error' });
       return;
     }
     if (!selectedConcept) {
-      alert('Por favor seleccioná un concepto de pago.');
+      setToast({ message: 'Por favor seleccioná un concepto de pago.', type: 'error' });
       return;
     }
     const isLiberado = Boolean(selectedConcept && isLiberadoConcept(selectedConcept.name));
     if (!isLiberado && amountReceived <= 0) {
-      alert('El monto ingresado debe ser mayor a 0.');
+      setToast({ message: 'El monto ingresado debe ser mayor a 0.', type: 'error' });
       return;
     }
 
@@ -328,16 +330,14 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
           const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
           window.open(waUrl, '_blank');
         } else {
-          alert(
-            `El pago se registró con éxito, pero la alumna ${selectedStudent.firstName} no tiene un teléfono de contacto en su ficha para enviar el recibo por WhatsApp.`
-          );
+          setToast({ message: `El pago se registró con éxito, pero la alumna ${selectedStudent.firstName} no tiene un teléfono de contacto en su ficha para enviar el recibo por WhatsApp.`, type: 'info' });
         }
       }
 
       // Regresar al control de pagos
       onBack();
     } catch (err: any) {
-      alert('Error al registrar el pago: ' + (err.message || 'Error desconocido'));
+      setToast({ message: 'Error al registrar el pago: ' + (err.message || 'Error desconocido'), type: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -852,6 +852,14 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
           Cancelar
         </button>
       </div>
+      {/* Toast Notificación */}
+      {toast && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

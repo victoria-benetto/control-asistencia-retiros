@@ -23,6 +23,7 @@ import {
 import { getStudents, getPayments, savePayment, updatePayment, deletePayment, resetMonthPayments, getShifts } from '../../services/api';
 import { Student, PaymentRecord, AdminUser, OFFICIAL_SHIFTS } from '../../types';
 import { isNonCuotaConcept } from '../../utils/plans';
+import { ConfirmModal, ToastNotification } from '../Common/ConfirmModal';
 
 interface PaymentControlViewProps {
   user: AdminUser;
@@ -83,6 +84,23 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
 
   // Modal para ver comprobante en grande
   const [viewReceiptModal, setViewReceiptModal] = useState<string | null>(null);
+
+  // Modal personalizado de Confirmación y Notificación estilo Vulpiare
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string | React.ReactNode;
+    note?: string | React.ReactNode;
+    confirmText?: string;
+    variant?: 'danger' | 'purple';
+    isLoading?: boolean;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: 'success' | 'error' | 'info';
+  } | null>(null);
 
   // Cargar estudiantes y turnos
   const loadData = async () => {
@@ -316,7 +334,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('La imagen no debe superar los 5MB.');
+      setToast({ message: 'La imagen no debe superar los 5MB.', type: 'error' });
       return;
     }
 
@@ -359,51 +377,69 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
 
       setPaymentModalOpen(false);
       await loadData();
+      setToast({ message: 'Pago registrado con éxito.', type: 'success' });
     } catch (err: any) {
-      alert('Error al guardar el pago: ' + (err.message || 'Error desconocido'));
+      setToast({ message: 'Error al guardar el pago: ' + (err.message || 'Error desconocido'), type: 'error' });
     } finally {
       setSubmittingPayment(false);
     }
   };
 
-  // Eliminar pago individual / revertir
-  const handleDeletePayment = async (paymentId: string) => {
-    const confirmDelete = window.confirm(
-      '¿Deseas revertir este pago? Si generó excedente a favor en el mes siguiente, también se anulará automáticamente.'
-    );
-    if (!confirmDelete) return;
-
-    try {
-      await deletePayment(paymentId);
-      setPaymentModalOpen(false);
-      await loadData();
-    } catch (err: any) {
-      alert('Error al anular pago: ' + err.message);
-    }
+  // Eliminar pago individual / revertir con modal estilizado Vulpiare
+  const handleDeletePayment = (paymentId: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: '¿Revertir este comprobante de pago?',
+      message: 'Estás a punto de anular este comprobante de pago del sistema.',
+      note: '💡 Si este cobro generó saldo a favor (excedente) para el mes siguiente, ese excedente también se anulará automáticamente para preservar la trazabilidad.',
+      confirmText: 'Sí, anular pago',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await deletePayment(paymentId);
+          setPaymentModalOpen(false);
+          setConfirmModal(null);
+          await loadData();
+          setToast({ message: 'Pago anulado exitosamente.', type: 'success' });
+        } catch (err: any) {
+          setToast({ message: 'Error al anular pago: ' + (err.message || 'Error desconocido'), type: 'error' });
+          setConfirmModal(null);
+        }
+      },
+    });
   };
 
-  // Anulación total del mes (Volver a 0 / Impago por error de selección de alumna)
-  const handleResetMonthPayments = async (studentId: string, studentName: string) => {
-    const confirmReset = window.confirm(
-      `¿Deseas anular TODOS los pagos de ${studentName} para ${selectedMonthLabel} y volver a $0?\n\nSi este pago generó saldo a favor (excedente) para el mes siguiente, ese excedente también se eliminará automáticamente.`
-    );
-    if (!confirmReset) return;
-
-    try {
-      await resetMonthPayments(studentId, selectedMonth);
-      setPaymentModalOpen(false);
-      await loadData();
-    } catch (err: any) {
-      alert('Error al anular pagos del mes: ' + err.message);
-    }
+  // Anulación total del mes (Volver a 0 / Impago por error de selección de alumna) con modal estilizado Vulpiare
+  const handleResetMonthPayments = (studentId: string, studentName: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: '¿Anular TODOS los pagos del mes?',
+      message: `Estás por anular todos los pagos de ${studentName} para ${selectedMonthLabel} y volver su estado a $0 (impago).`,
+      note: '⚠️ Si estos pagos generaron saldo a favor para el mes siguiente, dicho excedente se eliminará automáticamente.',
+      confirmText: 'Sí, volver a $0',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await resetMonthPayments(studentId, selectedMonth);
+          setPaymentModalOpen(false);
+          setConfirmModal(null);
+          await loadData();
+          setToast({ message: `Todos los pagos de ${studentName} fueron anulados.`, type: 'success' });
+        } catch (err: any) {
+          setToast({ message: 'Error al anular pagos del mes: ' + (err.message || 'Error desconocido'), type: 'error' });
+          setConfirmModal(null);
+        }
+      },
+    });
   };
 
   // Enviar recordatorio por WhatsApp
   const handleSendReminder = (item: StudentPaymentInfo) => {
     if (!item.phone) {
-      alert(
-        `La alumna ${item.student.firstName} ${item.student.lastName} no posee un número de teléfono de contacto registrado en su ficha de alta. Podés agregarlo desde el módulo de Alumnas.`
-      );
+      setToast({
+        message: `La alumna ${item.student.firstName} ${item.student.lastName} no posee teléfono registrado en su ficha de alta.`,
+        type: 'error',
+      });
       return;
     }
 
@@ -1319,6 +1355,30 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
             </button>
           </div>
         </div>
+      )}
+
+      {/* MODAL 4: CONFIRMACIÓN ESTILIZADA VULPIARE */}
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          note={confirmModal.note}
+          confirmText={confirmModal.confirmText}
+          variant={confirmModal.variant}
+          isLoading={confirmModal.isLoading}
+          onConfirm={confirmModal.onConfirm}
+          onClose={() => setConfirmModal(null)}
+        />
+      )}
+
+      {/* TOAST FLOTANTE ESTILIZADO VULPIARE */}
+      {toast && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

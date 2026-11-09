@@ -1,3 +1,4 @@
+import { ToastNotification } from '../Common/ConfirmModal';
 import React, { useState, useEffect } from 'react';
 import { UserCheck, Clock, CheckCircle2, ShieldCheck, AlertCircle, RefreshCw, Calendar, Search, X, UserPlus } from 'lucide-react';
 import { getTodayAttendance, savePickup } from '../../services/api';
@@ -34,6 +35,7 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
   const [otherDni, setOtherDni] = useState('');
   const [otherPhone, setOtherPhone] = useState('');
   const [otherNotes, setOtherNotes] = useState('');
+  const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' } | null>(null);
 
   const openOtherModal = (attendanceId: string, student: Student) => {
     setOtherModalData({ attendanceId, student });
@@ -61,11 +63,11 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
     if (!otherModalData) return;
 
     if (!otherFullName.trim()) {
-      alert('Por favor ingresá el nombre y apellido del adulto que retira.');
+      setToast({ message: 'Por favor ingresá el nombre y apellido del adulto que retira.', type: 'error' });
       return;
     }
     if (!otherRelationship.trim()) {
-      alert('Por favor indicá el vínculo o parentesco con la alumna (ej: Tía, Abuela, etc.).');
+      setToast({ message: 'Por favor indicá el vínculo o parentesco con la alumna (ej: Tía, Abuela, etc.).', type: 'error' });
       return;
     }
 
@@ -85,7 +87,7 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
       closeOtherModal();
       await fetchPresentStudents();
     } catch (err: any) {
-      alert(err.message || 'Error al registrar el retiro con otro adulto.');
+      setToast({ message: err.message || 'Error al registrar el retiro con otro adulto.', type: 'error' });
     } finally {
       setSavingId(null);
     }
@@ -136,7 +138,7 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
   const handleRegisterPickup = async (attendanceId: string) => {
     const authorizedPersonId = selectedPersonMap[attendanceId];
     if (!authorizedPersonId) {
-      alert('Por favor seleccioná quién retira a la alumna.');
+      setToast({ message: 'Por favor seleccioná quién retira a la alumna.', type: 'error' });
       return;
     }
 
@@ -149,7 +151,7 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
       });
       await fetchPresentStudents();
     } catch (err: any) {
-      alert(err.message || 'Error al registrar el retiro.');
+      setToast({ message: err.message || 'Error al registrar el retiro.', type: 'error' });
     } finally {
       setSavingId(null);
     }
@@ -607,6 +609,14 @@ export const PickupsView: React.FC<PickupsViewProps> = ({ shift, user, onShiftCh
             </form>
           </div>
         </div>
+      )}
+      {/* Toast Notificación */}
+      {toast && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

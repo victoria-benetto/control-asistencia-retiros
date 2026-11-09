@@ -18,6 +18,7 @@ import {
   deletePaymentConcept,
 } from '../../services/api';
 import { AdminUser, PaymentConcept } from '../../types';
+import { ConfirmModal, ToastNotification } from '../Common/ConfirmModal';
 
 interface PaymentConceptsManagementProps {
   user: AdminUser;
@@ -34,6 +35,23 @@ export const PaymentConceptsManagement: React.FC<PaymentConceptsManagementProps>
   const [amount, setAmount] = useState<number>(22000);
   const [description, setDescription] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
+
+  // Modal estilizado de confirmación y toast Vulpiare
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string | React.ReactNode;
+    note?: string | React.ReactNode;
+    confirmText?: string;
+    variant?: 'danger' | 'purple';
+    isLoading?: boolean;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: 'success' | 'error' | 'info';
+  } | null>(null);
 
   const fetchConcepts = async () => {
     setLoading(true);
@@ -70,7 +88,7 @@ export const PaymentConceptsManagement: React.FC<PaymentConceptsManagementProps>
   const handleSaveConcept = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || amount < 0) {
-      alert('Por favor ingresá un nombre y un monto válido.');
+      setToast({ message: 'Por favor ingresá un nombre y un monto válido.', type: 'error' });
       return;
     }
 
@@ -92,24 +110,32 @@ export const PaymentConceptsManagement: React.FC<PaymentConceptsManagementProps>
       setModalOpen(false);
       await fetchConcepts();
     } catch (err: any) {
-      alert('Error al guardar concepto: ' + (err.message || 'Error desconocido'));
+      setToast({ message: 'Error al guardar concepto: ' + (err.message || 'Error desconocido'), type: 'error' });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteConcept = async (id: string, conceptName: string) => {
-    const confirmDelete = window.confirm(
-      `¿Deseas eliminar el concepto "${conceptName}"?\nYa no aparecerá como opción al registrar nuevos pagos.`
-    );
-    if (!confirmDelete) return;
-
-    try {
-      await deletePaymentConcept(id);
-      await fetchConcepts();
-    } catch (err: any) {
-      alert('Error al eliminar concepto: ' + err.message);
-    }
+  const handleDeleteConcept = (id: string, conceptName: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: '¿Eliminar este concepto de pago?',
+      message: `¿Deseas eliminar el concepto "${conceptName}"?`,
+      note: '💡 Ya no aparecerá como opción al registrar nuevos pagos en el sistema.',
+      confirmText: 'Sí, eliminar concepto',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await deletePaymentConcept(id);
+          setConfirmModal(null);
+          await fetchConcepts();
+          setToast({ message: 'Concepto eliminado correctamente.', type: 'success' });
+        } catch (err: any) {
+          setConfirmModal(null);
+          setToast({ message: 'Error al eliminar concepto: ' + (err.message || 'Error desconocido'), type: 'error' });
+        }
+      },
+    });
   };
 
   return (
@@ -307,6 +333,29 @@ export const PaymentConceptsManagement: React.FC<PaymentConceptsManagementProps>
             </form>
           </div>
         </div>
+      )}
+      {/* Modal estilizado de confirmación */}
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          note={confirmModal.note}
+          confirmText={confirmModal.confirmText}
+          variant={confirmModal.variant}
+          isLoading={confirmModal.isLoading}
+          onConfirm={confirmModal.onConfirm}
+          onClose={() => setConfirmModal(null)}
+        />
+      )}
+
+      {/* Toast de notificación flotante */}
+      {toast && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

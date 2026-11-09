@@ -3,6 +3,7 @@ import { Plus, Trash2, Edit2, ShieldAlert, UserPlus, X, Save, Search, Calendar, 
 import { getStudents, createStudent, updateStudent, deleteStudent, getShifts, getStudentAttendances, deleteAttendance, getPayments } from '../../services/api';
 import { Student, AdminUser, StudentStatus, OFFICIAL_SHIFTS } from '../../types';
 import { STUDENT_PLANS, StudentPlan, WEEK_DAYS, DAY_SHIFTS, formatMoney, describeSchedule, ENROLLMENT_FEE, ScheduleEntry } from '../../utils/plans';
+import { ConfirmModal, ToastNotification } from '../Common/ConfirmModal';
 
 interface StudentManagementProps {
   user: AdminUser;
@@ -37,6 +38,23 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+
+  // Modales estilizados de confirmación y toast Vulpiare
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string | React.ReactNode;
+    note?: string | React.ReactNode;
+    confirmText?: string;
+    variant?: 'danger' | 'purple';
+    isLoading?: boolean;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: 'success' | 'error' | 'info';
+  } | null>(null);
 
   // Form State
   const [firstName, setFirstName] = useState('');
@@ -74,7 +92,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
         setShifts(shList);
       }
     } catch (err) {
-      alert('Error al cargar alumnas.');
+      setToast({ message: 'Error al cargar alumnas.', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -189,9 +207,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     } else {
       const planDef = STUDENT_PLANS[plan];
       if (planDef.days > 0 && plan !== 'PASE_LIBRE' && plan !== 'LIBERADO' && schedule.length >= planDef.days) {
-        alert(
-          `El plan seleccionado "${planDef.label}" requiere exactamente ${planDef.days} clase(s)/turno(s) semanales. Desmarcá un turno previo para agregar este.`
-        );
+        setToast({ message: `El plan seleccionado "${planDef.label}" requiere exactamente ${planDef.days} clase(s)/turno(s) semanales. Desmarcá un turno previo para agregar este.`, type: 'error' });
         return;
       }
       setSchedule([...schedule, { day: dayKey, shift: shiftVal }]);
@@ -217,32 +233,39 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     }
   };
 
-  const handleDeleteAttendance = async (attendanceId: string, recordDate: string, recordShift: string) => {
-    const confirmDelete = window.confirm(
-      `¿Confirmás que querés eliminar la asistencia del día ${recordDate} (${recordShift})?\nEsta acción es irreversible y corregirá el registro si fue marcado de forma incorrecta.`
-    );
-    if (!confirmDelete) return;
-
-    setDeletingAttId(attendanceId);
-    try {
-      await deleteAttendance(attendanceId, user.dni);
-      setStudentAttendances((prev) => prev.filter((a) => a.id !== attendanceId));
-      setStudents((prev) =>
-        prev.map((st) => {
-          if (st.id === historyStudent?.id) {
-            return {
-              ...st,
-              attendances: (st.attendances || []).filter((a) => a.id !== attendanceId),
-            };
-          }
-          return st;
-        })
-      );
-    } catch (err: any) {
-      alert(err.message || 'Error al eliminar la asistencia.');
-    } finally {
-      setDeletingAttId(null);
-    }
+  const handleDeleteAttendance = (attendanceId: string, recordDate: string, recordShift: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: '¿Eliminar asistencia registrada?',
+      message: `¿Confirmás que querés eliminar la asistencia del día ${recordDate} (${recordShift})?`,
+      note: '💡 Esta acción es irreversible y corregirá el registro si fue marcado de forma incorrecta.',
+      confirmText: 'Sí, eliminar asistencia',
+      variant: 'danger',
+      onConfirm: async () => {
+        setDeletingAttId(attendanceId);
+        try {
+          await deleteAttendance(attendanceId, user.dni);
+          setStudentAttendances((prev) => prev.filter((a) => a.id !== attendanceId));
+          setStudents((prev) =>
+            prev.map((st) => {
+              if (st.id === historyStudent?.id) {
+                return {
+                  ...st,
+                  attendances: (st.attendances || []).filter((a) => a.id !== attendanceId),
+                };
+              }
+              return st;
+            })
+          );
+          setToast({ message: 'Asistencia eliminada correctamente.', type: 'success' });
+        } catch (err: any) {
+          setToast({ message: err.message || 'Error al eliminar la asistencia.', type: 'error' });
+        } finally {
+          setDeletingAttId(null);
+          setConfirmModal(null);
+        }
+      },
+    });
   };
 
   const handleAddAuthorizedRow = () => {
@@ -265,7 +288,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firstName.trim() || !lastName.trim() || !dni.trim()) {
-      alert('Nombre, Apellido y DNI son requeridos.');
+      setToast({ message: 'Nombre, Apellido y DNI son requeridos.', type: 'error' });
       return;
     }
 
@@ -274,7 +297,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
 
     if (plan !== 'CLASE_SUELTA' && plan !== 'LIBERADO' && plan !== 'PASE_LIBRE') {
       if (planDef.days > 0 && selectedDaysCount !== planDef.days) {
-        alert(`El plan "${planDef.label}" requiere exactamente ${planDef.days} día(s). Tenés seleccionados ${selectedDaysCount}.`);
+        setToast({ message: `El plan "${planDef.label}" requiere exactamente ${planDef.days} día(s). Tenés seleccionados ${selectedDaysCount}.`, type: 'error' });
         return;
       }
     }
@@ -313,7 +336,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
       setModalOpen(false);
       fetchAll();
     } catch (err: any) {
-      alert(err.message || 'Error al guardar la alumna.');
+      setToast({ message: err.message || 'Error al guardar la alumna.', type: 'error' });
     }
   };
 
@@ -324,18 +347,30 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
         prev.map((s) => (s.id === studentId ? { ...s, status: newStatus } : s))
       );
     } catch (err: any) {
-      alert(err.message || 'Error al cambiar estado de la alumna.');
+      setToast({ message: err.message || 'Error al cambiar estado de la alumna.', type: 'error' });
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`¿Estás seguro de eliminar permanentemente a ${name} de la base de datos?\n\n(Tip: Si solo dejó de asistir, podés cambiar su estado a "Inactiva" para conservar su historial).`)) return;
-    try {
-      await deleteStudent(user.dni, id);
-      fetchAll();
-    } catch (err: any) {
-      alert(err.message || 'Error al eliminar alumna.');
-    }
+  const handleDelete = (id: string, name: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: '¿Eliminar alumna permanentemente?',
+      message: `¿Estás seguro de eliminar permanentemente a ${name} de la base de datos?`,
+      note: '💡 Tip: Si solo dejó de asistir, podés cambiar su estado a "Inactiva" para conservar su historial intacto.',
+      confirmText: 'Sí, eliminar alumna',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await deleteStudent(user.dni, id);
+          setConfirmModal(null);
+          fetchAll();
+          setToast({ message: 'Alumna eliminada exitosamente.', type: 'success' });
+        } catch (err: any) {
+          setConfirmModal(null);
+          setToast({ message: err.message || 'Error al eliminar alumna.', type: 'error' });
+        }
+      },
+    });
   };
 
   const getSelectedMonthName = (monthStr: string) => {
@@ -1256,6 +1291,29 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
             </form>
           </div>
         </div>
+      )}
+      {/* Modal estilizado de confirmación */}
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          note={confirmModal.note}
+          confirmText={confirmModal.confirmText}
+          variant={confirmModal.variant}
+          isLoading={confirmModal.isLoading}
+          onConfirm={confirmModal.onConfirm}
+          onClose={() => setConfirmModal(null)}
+        />
+      )}
+
+      {/* Toast de notificación flotante */}
+      {toast && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );
