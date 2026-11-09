@@ -4,6 +4,35 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
+## 🚀 Despliegue Oficial a Producción (Rama `main` en Vercel)
+**Fecha**: 9 de Noviembre 2026
+**Autorización**: Aprobado por el usuario explícitamente tras completar el ciclo de desarrollo en `develop`.
+
+### 📦 Resumen de Cambios Desplegados a Producción:
+1. **Erradicación Total de Alertas y Confirmaciones Planas del Navegador**:
+   - Reemplazo del 100% de `window.confirm()` y `alert()` por componentes nativos de la aplicación: `ConfirmModal` (tarjetas `rounded-3xl` con variantes púrpura y destructiva roja, spinner de proceso y notas explicativas) y `ToastNotification` (toasts no bloqueantes animados para confirmaciones y errores).
+   - Aplicado en: Control de Pagos, Reportes de Ingresos, Gastos Fijos, Conceptos de Pago, Gestión de Alumnas, Gestión de Profesores, Control de Asistencias, Retiros e Historial.
+2. **Clases Sueltas Repetibles**:
+   - Compra múltiple de clases sueltas (ej: 5 clases = $50.000) con selector de cantidad sin límite, respetando el precio unitario del arancel.
+3. **Plantilla Oficial de WhatsApp con Corazón Púrpura**:
+   - Mensaje oficial de recibo y recordatorio encabezado con `💜 *VULPIARE Acrobacia Aérea*` y estructura formal.
+4. **Ausencias No Acumulativas a partir de Noviembre 2026**:
+   - Cómputo mensual de faltas a partir del 1 de noviembre (las faltas de meses anteriores ya no se arrastran para recuperar).
+5. **Trazabilidad y Visibilidad Completa de Retiros**:
+   - Visualización de retiros pasados en el portal de alumnas y padres con identificación precisa de quién retiró a la alumna (nombre, parentesco y DNI).
+6. **Plan y Concepto "Liberado / Beca" ($0)**:
+   - Registro con arancel de $0 que figura al día en el control de pagos sin generar deuda.
+7. **Recuperatorios Flexibles en Días Alternos del Mismo Turno**:
+   - Permite que una alumna con cronograma de días específicos (ej: lunes y miércoles) pueda recuperar en otro día del mismo turno (ej: viernes) o en otro turno compatible sin bloqueos.
+
+### 🧪 Verificación de Calidad Previa al Despliegue:
+- **Frontend**: 23/23 tests unitarios y de integración pasando.
+- **Frontend Build**: 0 errores de tipos en compilación Vite/TypeScript.
+- **Backend**: 27/27 tests de integración pasando contra Supabase.
+- **Git**: `develop` fusionado con éxito en `main` y pusheado a `origin main`.
+
+---
+
 ## 💜 Hito: Clases Sueltas Múltiples, Mensajes Oficiales, Ausencias No Acumulativas desde Noviembre, Retiros Históricos y Plan Liberado (Rama `develop`)
 **Fecha**: 9 de Noviembre 2026
 
