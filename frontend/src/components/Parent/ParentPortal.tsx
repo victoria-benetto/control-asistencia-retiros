@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, Bell, X } from 'lucide-react';
 import { Student, AttendanceRecord, PaymentRecord, PaymentConcept } from '../../types';
+import { isNonCuotaConcept } from '../../utils/plans';
 import { getPayments, getPaymentConcepts, cancelMakeupClass, getStudentAttendances } from '../../services/api';
 import { ParentHeader } from './ParentHeader';
 import { BottomNav, ParentTab } from './BottomNav';
@@ -165,27 +166,29 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
     return activeConcept?.amount || concepts[0]?.amount || 22000;
   }, [concepts]);
 
-  const currentMonthPayments = useMemo(() => {
-    return payments.filter((p) => p.month === currentMonthStr);
+  const currentMonthCuotaPayments = useMemo(() => {
+    return payments.filter((p) => p.month === currentMonthStr && !isNonCuotaConcept(p.concept));
   }, [payments, currentMonthStr]);
 
   const currentMonthPaid = useMemo(() => {
-    return currentMonthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-  }, [currentMonthPayments]);
+    return currentMonthCuotaPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  }, [currentMonthCuotaPayments]);
 
   const currentExpectedFee = useMemo(() => {
-    if (currentMonthPayments.length > 0 && currentMonthPayments[0].expectedAmount) {
-      return currentMonthPayments[0].expectedAmount;
+    if (student.plan === 'LIBERADO') return 0;
+    if (currentMonthCuotaPayments.length > 0 && currentMonthCuotaPayments[0].expectedAmount) {
+      return currentMonthCuotaPayments[0].expectedAmount;
     }
+    const baseFee = student.monthlyFee || defaultMonthlyFee;
     // El 10% de recargo rige a partir del día 11 (hasta las 23:59 del 10 se abona precio base)
     const isOverdue = currentDayOfMonth > 10;
-    return isOverdue ? Math.round(defaultMonthlyFee * 1.1) : defaultMonthlyFee;
-  }, [currentMonthPayments, defaultMonthlyFee, currentDayOfMonth]);
+    return isOverdue ? Math.round(baseFee * 1.1) : baseFee;
+  }, [currentMonthCuotaPayments, student.plan, student.monthlyFee, defaultMonthlyFee, currentDayOfMonth]);
 
   const currentRemainingDebt = Math.max(0, currentExpectedFee - currentMonthPaid);
 
   const currentMonthSurplusChild = useMemo(() => {
-    const parentIds = currentMonthPayments.map((p) => p.id);
+    const parentIds = currentMonthCuotaPayments.map((p) => p.id);
     return payments.find(
       (p) =>
         p.month > currentMonthStr &&
@@ -194,7 +197,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
             p.notes?.includes(`[ORIGIN:${pid}]`) || p.operationNumber === `SURPLUS:${pid}`
         )
     );
-  }, [currentMonthPayments, payments, currentMonthStr]);
+  }, [currentMonthCuotaPayments, payments, currentMonthStr]);
 
   const currentStatusInfo = useMemo(() => {
     if (currentMonthPaid >= currentExpectedFee) {
@@ -229,9 +232,9 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
     };
   }, [currentMonthPaid, currentExpectedFee, currentDayOfMonth]);
 
-  const currentMonthConcept = currentMonthPayments[0]?.concept || 'Acrobacia y Danza aérea';
-  const currentMonthReceipt = currentMonthPayments.find((p) => p.receiptUrl)?.receiptUrl || null;
-  const latestCurrentPayment = currentMonthPayments[0] || null;
+  const currentMonthConcept = currentMonthCuotaPayments[0]?.concept || 'Cuota Mensual Regular';
+  const currentMonthReceipt = currentMonthCuotaPayments.find((p) => p.receiptUrl)?.receiptUrl || null;
+  const latestCurrentPayment = currentMonthCuotaPayments[0] || null;
 
   // Recordatorio de cuota para los días 9 y 10
   const reminderInfo = useMemo(() => {
@@ -245,6 +248,30 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
     }
     return 'unsupported';
   });
+
+  // Modal para solicitar permiso inmediatamente al entrar a la app si aún está en default
+  const [showNotificationPromptModal, setShowNotificationPromptModal] = useState<boolean>(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      return Notification.permission === 'default';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    // Intentar solicitar permiso del navegador inmediatamente al ingresar a la app
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      try {
+        Notification.requestPermission().then((perm) => {
+          setNotificationPermission(perm);
+          if (perm === 'granted') {
+            setShowNotificationPromptModal(false);
+            const isPaid = currentMonthPaid >= currentExpectedFee;
+            checkAndTriggerPaymentNotification(student.id, currentDayOfMonth, isPaid, todayDateStr);
+          }
+        }).catch(() => {});
+      } catch (e) {}
+    }
+  }, []);
 
   useEffect(() => {
     const isPaid = currentMonthPaid >= currentExpectedFee;
@@ -493,6 +520,72 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
           type={toast.type}
           onClose={() => setToast(null)}
         />
+      )}
+
+      {/* Modal Prominente de Permiso de Notificaciones al Ingresar */}
+      {showNotificationPromptModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-purple-100 text-center flex flex-col items-center gap-3 relative animate-in zoom-in-95 duration-200">
+            {/* Botón cerrar X */}
+            <button
+              type="button"
+              onClick={() => setShowNotificationPromptModal(false)}
+              aria-label="Cerrar"
+              className="absolute right-4 top-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Icono de Campana Púrpura */}
+            <div className="w-16 h-16 rounded-3xl bg-purple-50 border border-purple-200 text-purple-700 flex items-center justify-center shadow-inner mt-1">
+              <span className="text-3xl">🔔</span>
+            </div>
+
+            {/* Textos explicativos */}
+            <div className="space-y-1.5 px-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-purple-700 bg-purple-100/80 px-2.5 py-0.5 rounded-full border border-purple-200">
+                Aviso Importante
+              </span>
+              <h3 className="text-lg font-black text-slate-900 leading-tight">
+                Activá los avisos de tu cuota
+              </h3>
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                Para que no se te pasen las fechas de pago y abones siempre al precio base sin recargos, Vulpiare te avisará los días <strong>9 y 10 de cada mes</strong> en tu celular o computadora.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 font-semibold w-full text-left flex items-start gap-2">
+              <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>Recordá que hasta las 23:59 hs del día 10 pagás el precio base original; a partir del día 11 se aplica el 10% de recargo.</span>
+            </div>
+
+            {/* Acciones */}
+            <div className="flex flex-col gap-2 w-full pt-1">
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleRequestNotification();
+                  setShowNotificationPromptModal(false);
+                }}
+                className="w-full py-3.5 px-4 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-black text-xs sm:text-sm shadow-md shadow-purple-200 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              >
+                <span>🔔 Permitir y Activar Notificaciones</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowNotificationPromptModal(false)}
+                className="w-full py-2.5 px-4 rounded-2xl text-slate-500 hover:text-slate-800 font-bold text-xs transition-colors cursor-pointer"
+              >
+                Ahora no, recordarme más tarde
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
