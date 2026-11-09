@@ -88,9 +88,8 @@ router.get('/today', async (req: Request, res: Response) => {
 
     // Agregar alumnas de recuperatorio que asistieron en esta fecha Y TURNO (de otro turno habitual o día no habitual)
     const makeupRecords = existingAttendances.filter(record =>
-      record.isMakeup &&
       record.student &&
-      !studentAttendsShift(record.student, targetShift, selectedDate) &&
+      (record.isMakeup || !studentAttendsShift(record.student, targetShift, selectedDate)) &&
       (record.makeupShift === targetShift || record.shift === targetShift)
     );
 

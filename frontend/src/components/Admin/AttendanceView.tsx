@@ -3,6 +3,7 @@ import { CheckCircle2, XCircle, Clock, RefreshCw, UserCheck, Plus, Search, X, Ca
 import { getTodayAttendance, saveAttendance, getStudents, getPublicTeachers, getShiftAssistants, addShiftAssistant, removeShiftAssistant } from '../../services/api';
 import { TodayStudentAttendance, AdminUser, Student, OFFICIAL_SHIFTS, ShiftAssistant } from '../../types';
 import { getDefaultShiftForDate, isShiftMatchingDay } from '../../utils/shiftUtils';
+import { studentAttendsShift } from '../../utils/plans';
 
 interface AttendanceViewProps {
   shift: string;
@@ -121,17 +122,40 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
     const prevData = data;
     // Actualización optimista inmediata
     if (data) {
-      const updatedStudents = data.students.map((item) => {
-        if (item.student.id === studentId) {
-          return {
-            ...item,
-            status: targetStatus,
-            isMakeup: isMakeup || item.isMakeup,
-            makeupShift: isMakeup ? (item.makeupShift || shift) : item.makeupShift,
-          };
+      const studentExists = data.students.some((item) => item.student.id === studentId);
+      let updatedStudents: TodayStudentAttendance[];
+      if (studentExists) {
+        updatedStudents = data.students.map((item) => {
+          if (item.student.id === studentId) {
+            return {
+              ...item,
+              status: targetStatus,
+              isMakeup: isMakeup || item.isMakeup,
+              makeupShift: isMakeup ? (item.makeupShift || shift) : item.makeupShift,
+            };
+          }
+          return item;
+        });
+      } else {
+        const foundStudent = allStudents.find((s) => s.id === studentId);
+        if (foundStudent) {
+          updatedStudents = [
+            {
+              student: foundStudent,
+              attendanceId: null,
+              status: targetStatus,
+              isMakeup: true,
+              makeupShift: shift,
+              date: selectedDate,
+              recordedBy: { fullName: user.fullName, dni: user.dni },
+              pickups: [],
+            },
+            ...data.students,
+          ];
+        } else {
+          updatedStudents = data.students;
         }
-        return item;
-      });
+      }
       const updatedData = { ...data, students: updatedStudents };
       setData(updatedData);
       cacheRef.current.set(`${selectedDate}__${shift}`, { data: updatedData, assistants });
@@ -236,7 +260,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
   const makeupStudentsList = allStudents.filter(
     (s) =>
-      s.shift !== shift &&
+      !data?.students.some((item) => item.student.id === s.id) &&
       (s.status === 'ACTIVE' || !s.status) &&
       (s.firstName.toLowerCase().includes(searchMakeup.toLowerCase()) ||
         s.lastName.toLowerCase().includes(searchMakeup.toLowerCase()) ||
@@ -467,7 +491,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
         <div className="grid grid-cols-1 gap-3">
           {filteredStudents.map((item) => {
             const { student, status, isMakeup, makeupShift } = item;
-            const isActuallyMakeup = Boolean(isMakeup) && Boolean(student && student.shift !== shift);
+            const isActuallyMakeup = Boolean(isMakeup) || (Boolean(student) && !studentAttendsShift(student, shift, selectedDate));
             const isSaving = savingId === student.id;
 
             return (
