@@ -33,6 +33,33 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
+## ⚡ Hito: Cobro Rápido en 1 Clic, Pastilla "Pagado" Verde, Recargo desde Día 11 y Recordatorios Persistentes (Rama `develop`)
+**Fecha**: 9 de Noviembre 2026
+
+### 🎯 Objetivos Implementados
+1. **Cobro Rápido en 1 Clic sin Salir de la Vista (`PaymentControlView.tsx`)**:
+   - Reemplazo del confuso botón `[ ✓ Pagado ]` por **`[ ⚡ Cobro Rápido ]`**.
+   - Al tocarlo, no saca a la administradora de la pantalla ni la redirige al formulario general: despliega un `ConfirmModal` directo con el importe de la cuota del mes precargado ($37.000 / cuota mensual personalizada) y medio por defecto ("Transferencia").
+   - Con un solo toque en **"Sí, registrar cobro"**, se guarda el cobro en la base de datos y la tarjeta pasa instantáneamente a **`Pagado` en verde** en menos de un segundo, permitiendo continuar con la siguiente alumna sin demoras.
+   - Botón de ajustes `[ ⚙️ ]` al lado para quienes abonaron en efectivo, desean editar el importe o adjuntar foto del comprobante sin salir de la vista.
+   - Botón `[ ⚡ Saldar ]` para pagos parciales con saldo pendiente.
+2. **Pastilla "Pagado" en Verde y Borde Emerald**:
+   - Cuando una alumna abona su cuota, la pastilla cambia a **`Pagado` en verde esmeralda** (`bg-emerald-100 text-emerald-800 border-emerald-200` con `CheckCircle`).
+3. **Recargo del 10% Estricto desde el Día 11**:
+   - Hasta las 23:59 del día 10 del mes en curso se abona estrictamente el precio base. El 10% de recargo se aplica automáticamente a partir de las 00:00 del día 11 (`currentDay > 10`).
+4. **Notificaciones y Recordatorios de Vencimiento de Cuota (Días 9 y 10)**:
+   - Días 9: "Vence mañana (10)".
+   - Días 10: "Vence hoy (10)".
+   - Utilidad de Web Notifications nativas y modal obligatorio en el portal de alumnas para activar permisos en el celular al iniciar sesión.
+   - Persistencia constante del aviso de cuota en el portal de alumnas excluyendo conceptos que no sean cuotas (como Inscripción).
+
+### 🧪 Verificación de Calidad:
+- **Frontend**: 29/29 tests pasando con Vitest.
+- **Frontend Build**: Compilación exitosa en 0 errores con `tsc && vite build`.
+- **Git**: Commits `adafabe` y `066a40e` subidos a `origin develop`. Pendiente de validación antes del pase a producción.
+
+---
+
 ## 💜 Hito: Clases Sueltas Múltiples, Mensajes Oficiales, Ausencias No Acumulativas desde Noviembre, Retiros Históricos y Plan Liberado (Rama `develop`)
 **Fecha**: 9 de Noviembre 2026
 
