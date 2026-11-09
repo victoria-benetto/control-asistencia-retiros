@@ -19,6 +19,8 @@ import {
   Filter,
   Check,
   Plus,
+  Zap,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { getStudents, getPayments, savePayment, updatePayment, deletePayment, resetMonthPayments, getShifts } from '../../services/api';
 import { Student, PaymentRecord, AdminUser, OFFICIAL_SHIFTS } from '../../types';
@@ -345,6 +347,63 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
     reader.readAsDataURL(file);
   };
 
+  // Cobro Rápido en 1 Clic (Registra cuota por Transferencia de forma instantánea sin salir de la vista)
+  const handleQuickPay = (item: StudentPaymentInfo) => {
+    const feeToPay = item.isPartial && item.remainingDebt ? item.remainingDebt : item.amount;
+    const conceptName = item.isPartial ? 'Cuota Mensual (Saldo)' : 'Cuota Mensual';
+
+    setConfirmModal({
+      isOpen: true,
+      title: '¿Confirmar Cobro Rápido de Cuota?',
+      message: (
+        <div className="space-y-3 text-left">
+          <p className="text-slate-700 text-sm leading-relaxed">
+            ¿Registrar cobro de cuota para <strong className="text-slate-900 font-extrabold">{item.student.firstName} {item.student.lastName}</strong>?
+          </p>
+          <div className="p-3.5 bg-purple-50 rounded-2xl border border-purple-100 flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-extrabold text-purple-600 uppercase tracking-wider">Monto de Cuota</span>
+              <span className="text-xl font-black text-purple-950">${feeToPay.toLocaleString('es-AR')}</span>
+            </div>
+            <div className="flex flex-col text-right">
+              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Medio por Defecto</span>
+              <span className="text-xs font-black text-slate-800">💳 Transferencia</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-xs text-slate-500 px-1 font-semibold">
+            <span>Mes: <strong className="text-slate-700">{selectedMonthLabel}</strong></span>
+            <span>DNI: <strong className="text-slate-700">{item.student.dni}</strong></span>
+          </div>
+        </div>
+      ),
+      note: '⚡ La alumna pasará a figurar como "Pagado" al instante en verde sin tener que llenar formularios. Si necesitás cobrar en efectivo o adjuntar comprobante, podés usar el botón de opciones al lado.',
+      confirmText: 'Sí, registrar cobro',
+      variant: 'purple',
+      onConfirm: async () => {
+        try {
+          await savePayment({
+            studentId: item.student.id,
+            month: selectedMonth,
+            amount: feeToPay,
+            paymentMethod: 'TRANSFER',
+            concept: conceptName,
+            recordedByAdminId: user.id,
+          });
+          await loadData();
+          setToast({
+            message: `¡Cobro de $\${feeToPay.toLocaleString('es-AR')} registrado con éxito para \${item.student.firstName}!`,
+            type: 'success',
+          });
+        } catch (err: any) {
+          setToast({
+            message: 'Error al registrar cobro: ' + (err.message || 'Error desconocido'),
+            type: 'error',
+          });
+        }
+      },
+    });
+  };
+
   // Guardar o modificar pago (soporta volver a 0)
   const handleSavePayment = async () => {
     if (!targetStudent) return;
@@ -369,6 +428,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
           month: selectedMonth,
           amount: amountInput,
           paymentMethod: selectedMethod,
+          concept: 'Cuota Mensual',
           receiptUrl: selectedMethod === 'TRANSFER' ? receiptBase64 : null,
           notes: notesInput.trim() || null,
           recordedByAdminId: user.id,
@@ -907,13 +967,13 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                   {/* Si ya está al día: Botón para editar / ver recibo */}
                   {isPaid ? (
                     <>
-                      {isPartial && onNavigateToRegisterPayment && (
+                      {isPartial && (
                         <button
-                          onClick={() => onNavigateToRegisterPayment(item.student.id)}
+                          onClick={() => handleQuickPay(item)}
                           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs transition-colors active:scale-98 shadow-xs"
-                          title="Registrar pago del saldo restante"
+                          title="Registrar cobro del saldo restante en 1 clic"
                         >
-                          <Plus className="w-3.5 h-3.5" />
+                          <Zap className="w-3.5 h-3.5 text-amber-200 fill-amber-200" />
                           <span>Saldar (${item.remainingDebt?.toLocaleString('es-AR')})</span>
                         </button>
                       )}
@@ -938,20 +998,23 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                       </button>
                     </>
                   ) : (
-                    /* Si NO está paga: Botón "Pagado" (abre el mini modal) + Botón "Recordar" */
+                    /* Si NO está paga: Botón "Cobro Rápido" (1 clic) + Botón "Opciones" + Botón "Recordar" */
                     <>
                       <button
-                        onClick={() => {
-                          if (onNavigateToRegisterPayment) {
-                            onNavigateToRegisterPayment(item.student.id);
-                          } else {
-                            handleOpenPaymentModal(item);
-                          }
-                        }}
+                        onClick={() => handleQuickPay(item)}
                         className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-xs shadow-md shadow-purple-200 active:scale-98 transition-all"
+                        title="Registrar cobro de cuota rápido en 1 clic"
                       >
-                        <Check className="w-4 h-4" />
-                        <span>Pagado</span>
+                        <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+                        <span>Cobro Rápido</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleOpenPaymentModal(item)}
+                        title="Opciones avanzadas: Cobrar en efectivo, ajustar monto o adjuntar comprobante"
+                        className="flex items-center justify-center p-2.5 rounded-2xl bg-slate-100 hover:bg-purple-100 text-slate-700 hover:text-purple-800 border border-slate-200 transition-colors active:scale-98"
+                      >
+                        <SlidersHorizontal className="w-4 h-4" />
                       </button>
 
                       <button
@@ -1193,6 +1256,21 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
+
+            {onNavigateToRegisterPayment && (
+              <div className="pt-1 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentModalOpen(false);
+                    onNavigateToRegisterPayment(targetStudent.id);
+                  }}
+                  className="text-[11px] font-bold text-purple-700 hover:text-purple-900 hover:underline"
+                >
+                  Abrir en formulario completo detallado →
+                </button>
+              </div>
+            )}
 
             {/* Acciones del Modal */}
             <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">

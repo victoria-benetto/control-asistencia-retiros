@@ -177,9 +177,9 @@ describe('PaymentControlView Component Integration Tests', () => {
     // Violeta tiene pago -> debe mostrar estado "Al día"
     expect(screen.getAllByText(/Al día/i).length).toBeGreaterThan(0);
 
-    // Angelina no tiene pago registrado -> debe mostrar botón "Pagado" y "Recordar"
-    const pagadoButtons = screen.getAllByRole('button', { name: /Pagado/i });
-    expect(pagadoButtons.length).toBeGreaterThan(0);
+    // Angelina no tiene pago registrado -> debe mostrar botón "Cobro Rápido" y "Recordar"
+    const cobroButtons = screen.getAllByRole('button', { name: /Cobro Rápido|Pagado/i });
+    expect(cobroButtons.length).toBeGreaterThan(0);
 
     const recordarButtons = screen.getAllByRole('button', { name: /Recordar/i });
     expect(recordarButtons.length).toBeGreaterThan(0);
