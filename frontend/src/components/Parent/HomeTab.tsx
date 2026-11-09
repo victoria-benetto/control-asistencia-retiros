@@ -45,10 +45,14 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  // Métricas del mes en curso
+  // Métricas del mes en curso (Regla: ausencias a partir de noviembre no acumulativas)
   const monthlyMetrics = useMemo(() => {
-    const allAbsences = (student.attendances || []).filter((a) => a.status === 'ABSENT' && !a.isMakeup);
-    const allCompletedMakeups = (student.attendances || []).filter((a) => a.isMakeup && a.status === 'PRESENT');
+    const eligibleAbsencesThisMonth = (student.attendances || []).filter(
+      (a) => a.status === 'ABSENT' && !a.isMakeup && a.date.startsWith(currentMonthStr) && a.date >= '2026-11-01'
+    );
+    const completedMakeupsThisMonth = (student.attendances || []).filter(
+      (a) => a.isMakeup && a.status === 'PRESENT' && a.date.startsWith(currentMonthStr) && a.date >= '2026-11-01'
+    );
     const pendingMakeup = (student.attendances || []).find((a) => a.isMakeup && a.status === 'PENDING');
 
     const attendancesThisMonth = (student.attendances || []).filter((a) =>
@@ -58,8 +62,8 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     const attendedCount = attendancesThisMonth.filter((a) => a.status === 'PRESENT').length;
     const absentCount = attendancesThisMonth.filter((a) => a.status === 'ABSENT' && !a.isMakeup).length;
 
-    // Solo se puede recuperar tantas clases como ausencias tenga menos las ya agendadas o completadas
-    const remainingToRecover = Math.max(0, allAbsences.length - allCompletedMakeups.length - (pendingMakeup ? 1 : 0));
+    // Solo se puede recuperar tantas clases como ausencias tenga en el mes menos las ya recuperadas o pendientes
+    const remainingToRecover = Math.max(0, eligibleAbsencesThisMonth.length - completedMakeupsThisMonth.length - (pendingMakeup ? 1 : 0));
 
     // Calcular el total estimado de clases del mes según el turno
     const shiftLower = (student.shift || '').toLowerCase();
@@ -329,12 +333,14 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                       <span>Retiro Confirmado</span>
                     </div>
                     <p className="text-sm font-black">
-                      Retirada por: {recentPickup.authorizedPerson.fullName}
+                      Retirada por: {recentPickup.authorizedPerson?.fullName || recentPickup.notes || 'Adulto autorizado'}
                     </p>
-                    <p className="text-xs text-pink-100">
-                      Vínculo: <strong>{recentPickup.authorizedPerson.relationship}</strong> (DNI:{' '}
-                      {recentPickup.authorizedPerson.dni})
-                    </p>
+                    {recentPickup.authorizedPerson && (
+                      <p className="text-xs text-pink-100">
+                        Vínculo: <strong>{recentPickup.authorizedPerson.relationship}</strong> (DNI:{' '}
+                        {recentPickup.authorizedPerson.dni})
+                      </p>
+                    )}
                     <div className="pt-2 border-t border-white/20 flex flex-wrap items-center justify-between gap-1 text-[11px] font-semibold text-pink-100">
                       <span>
                         Hora:{' '}

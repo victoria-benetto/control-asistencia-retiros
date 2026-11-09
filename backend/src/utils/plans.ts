@@ -9,6 +9,7 @@ export const STUDENT_PLANS: Record<string, { label: string; fee: number; days: n
   DOS_VECES: { label: '2 veces por semana', fee: 37000, days: 2 },
   TRES_VECES: { label: '3 veces por semana', fee: 40000, days: 3 },
   PASE_LIBRE: { label: 'Pase libre', fee: 60000, days: 5 },
+  LIBERADO: { label: 'Liberado / Beca', fee: 0, days: 0 },
 };
 
 // Turnos oficiales disponibles por día (índices de OFFICIAL_SHIFTS)
@@ -36,7 +37,7 @@ export function validatePlanSchedule(plan: string, schedule: any): { schedule: S
   const planDef = STUDENT_PLANS[plan];
   if (!planDef) return { error: 'Plan inválido.' };
   const list: ScheduleEntry[] = Array.isArray(schedule) ? schedule : [];
-  if (planDef.days === 0) return { schedule: [] };
+  if (planDef.days === 0 && plan !== 'LIBERADO') return { schedule: [] };
 
   const slots = new Set<string>();
   for (const entry of list) {
@@ -50,8 +51,8 @@ export function validatePlanSchedule(plan: string, schedule: any): { schedule: S
     slots.add(slotKey);
   }
 
-  // Si no es PASE_LIBRE, exigir la cantidad exacta de clases por semana
-  if (plan !== 'PASE_LIBRE' && slots.size !== planDef.days) {
+  // Si no es PASE_LIBRE ni LIBERADO, exigir la cantidad exacta de clases por semana
+  if (plan !== 'PASE_LIBRE' && plan !== 'LIBERADO' && slots.size !== planDef.days) {
     return { error: `El plan "${planDef.label}" requiere exactamente ${planDef.days} clase(s)/turno(s) por semana.` };
   }
 
@@ -74,5 +75,26 @@ export function studentAttendsShift(student: { shift: string; schedule?: any }, 
 export function isNonCuotaConcept(concept?: string | null): boolean {
   if (!concept) return false;
   const c = concept.toLowerCase();
-  return c.includes('seguro') || c.includes('inscrip') || c.includes('matríc') || c.includes('matric');
+  return (
+    c.includes('seguro') ||
+    c.includes('inscrip') ||
+    c.includes('matríc') ||
+    c.includes('matric') ||
+    c.includes('clase suelta') ||
+    c.includes('suelta') ||
+    c.includes('liberad') ||
+    c.includes('beca')
+  );
+}
+
+export function isClaseSueltaConcept(concept?: string | null): boolean {
+  if (!concept) return false;
+  const c = concept.toLowerCase();
+  return c.includes('clase suelta') || c.includes('suelta');
+}
+
+export function isLiberadoConcept(concept?: string | null): boolean {
+  if (!concept) return false;
+  const c = concept.toLowerCase();
+  return c.includes('liberad') || c.includes('beca');
 }

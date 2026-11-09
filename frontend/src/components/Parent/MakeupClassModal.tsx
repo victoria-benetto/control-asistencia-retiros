@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { X, Calendar, Clock, CheckCircle2, AlertCircle, RotateCw } from 'lucide-react';
 import { Student, AttendanceRecord, OFFICIAL_SHIFTS } from '../../types';
 import { requestMakeupClass } from '../../services/api';
+import { studentAttendsShift } from '../../utils/plans';
 
 interface MakeupClassModalProps {
   isOpen: boolean;
@@ -31,6 +32,26 @@ export const MakeupClassModal: React.FC<MakeupClassModalProps> = ({
   const pendingMakeup = (student.attendances || []).find((a) => a.isMakeup && a.status === 'PENDING');
   const hasPendingMakeup = Boolean(pendingMakeup);
 
+  // 🔒 REGLA: Las ausencias rigen a partir de noviembre y se renuevan mes a mes (no acumulativas)
+  const currentMonthStr = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  const eligibleAbsences = useMemo(() => {
+    return (student.attendances || []).filter(
+      (a) => a.status === 'ABSENT' && !a.isMakeup && a.date.startsWith(currentMonthStr) && a.date >= '2026-11-01'
+    );
+  }, [student.attendances, currentMonthStr]);
+
+  const completedMakeups = useMemo(() => {
+    return (student.attendances || []).filter(
+      (a) => a.isMakeup && a.status === 'PRESENT' && a.date.startsWith(currentMonthStr) && a.date >= '2026-11-01'
+    );
+  }, [student.attendances, currentMonthStr]);
+
+  const remainingToRecover = Math.max(0, eligibleAbsences.length - completedMakeups.length - (hasPendingMakeup ? 1 : 0));
+
   // Calcular días de la semana según el turno seleccionado
   const shiftDaysOfWeek = useMemo(() => {
     const s = selectedShift.toLowerCase();
@@ -46,7 +67,7 @@ export const MakeupClassModal: React.FC<MakeupClassModalProps> = ({
     return [1, 3];
   }, [selectedShift]);
 
-  // Generar opciones de fechas válidas para el mes actual
+  // Generar opciones de fechas válidas para el mes actual excluyendo los días habituales de la alumna
   const availableDates = useMemo(() => {
     const dates: { dateStr: string; label: string }[] = [];
     const now = new Date();
@@ -54,7 +75,7 @@ export const MakeupClassModal: React.FC<MakeupClassModalProps> = ({
     const month = now.getMonth();
     const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
 
-    // Empezar desde el día actual para adelante (o todos los días del mes si se quiere recuperar)
+    // Empezar desde el día actual para adelante
     const startDay = now.getDate();
 
     for (let day = startDay; day <= totalDaysInMonth; day++) {
@@ -64,14 +85,16 @@ export const MakeupClassModal: React.FC<MakeupClassModalProps> = ({
         const dayStr = String(day).padStart(2, '0');
         const dateStr = `${year}-${monthStr}-${dayStr}`;
 
-        const label = dateObj.toLocaleDateString('es-AR', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-        });
-        const formattedLabel = label.charAt(0).toUpperCase() + label.slice(1);
-
-        dates.push({ dateStr, label: formattedLabel });
+        // Solo permitir si NO es un día habitual de clase para la alumna
+        if (!studentAttendsShift(student, selectedShift, dateStr)) {
+          const label = dateObj.toLocaleDateString('es-AR', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+          });
+          const formattedLabel = label.charAt(0).toUpperCase() + label.slice(1);
+          dates.push({ dateStr, label: formattedLabel });
+        }
       }
     }
 
@@ -87,20 +110,21 @@ export const MakeupClassModal: React.FC<MakeupClassModalProps> = ({
           const dayStr = String(day).padStart(2, '0');
           const dateStr = `${nextYear}-${monthStr}-${dayStr}`;
 
-          const label = dateObj.toLocaleDateString('es-AR', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-          });
-          const formattedLabel = label.charAt(0).toUpperCase() + label.slice(1);
-
-          dates.push({ dateStr, label: formattedLabel });
+          if (!studentAttendsShift(student, selectedShift, dateStr)) {
+            const label = dateObj.toLocaleDateString('es-AR', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+            });
+            const formattedLabel = label.charAt(0).toUpperCase() + label.slice(1);
+            dates.push({ dateStr, label: formattedLabel });
+          }
         }
       }
     }
 
     return dates;
-  }, [shiftDaysOfWeek]);
+  }, [shiftDaysOfWeek, selectedShift, student]);
 
   // Auto-seleccionar la primera fecha disponible cuando cambian las fechas
   React.useEffect(() => {
@@ -181,6 +205,17 @@ export const MakeupClassModal: React.FC<MakeupClassModalProps> = ({
               Turno: <strong>{pendingMakeup?.makeupShift || pendingMakeup?.shift}</strong> • Fecha: <strong>{pendingMakeup?.date}</strong>.
               <br />
               Solo podés tener 1 clase para recuperar agendada a la vez. Si te equivocaste de fecha, cancelala desde tu inicio para elegir otra.
+            </p>
+          </div>
+        )}
+
+        {remainingToRecover === 0 && !hasPendingMakeup && (
+          <div className="mt-3 p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold space-y-1">
+            <p className="font-extrabold flex items-center gap-1.5 text-amber-950">
+              ⚠️ Sin ausencias pendientes en el mes
+            </p>
+            <p className="text-[11px] text-amber-800 font-medium">
+              A partir de noviembre, las ausencias se renuevan mensualmente y no son acumulativas.
             </p>
           </div>
         )}
@@ -275,7 +310,7 @@ export const MakeupClassModal: React.FC<MakeupClassModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={saving || !selectedShift || !selectedDate}
+              disabled={saving || !selectedShift || !selectedDate || hasPendingMakeup || remainingToRecover === 0}
               className="px-5 py-2.5 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-xs shadow-md shadow-purple-200 transition-all disabled:opacity-40 flex items-center gap-2 min-h-[42px] active:scale-98"
             >
               {saving ? (

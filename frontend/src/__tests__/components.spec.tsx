@@ -131,7 +131,7 @@ describe('Frontend Component Unit & Integration Tests', () => {
         {
           id: 'att-3',
           studentId: 's-1',
-          date: '2026-10-15',
+          date: '2026-11-03',
           status: 'ABSENT',
         },
       ],
@@ -279,7 +279,7 @@ describe('Frontend Component Unit & Integration Tests', () => {
           {
             id: 'att-absent-1',
             studentId: 'student-test-1',
-            date: '2026-10-29',
+            date: '2026-11-03',
             shift: 'MARTES Y JUEVES 17:00 A 19:00',
             status: 'ABSENT',
             isMakeup: false,
@@ -312,7 +312,7 @@ describe('Frontend Component Unit & Integration Tests', () => {
               {
                 id: 'att-absent-1',
                 studentId: 'student-test-1',
-                date: '2026-10-29',
+                date: '2026-11-03',
                 shift: 'MARTES Y JUEVES 17:00 A 19:00',
                 status: 'ABSENT',
                 isMakeup: false,
@@ -326,7 +326,7 @@ describe('Frontend Component Unit & Integration Tests', () => {
       render(<ParentPortal student={studentWithMakeup} onLogout={vi.fn()} />);
 
       // Verificar que inicialmente muestra que tiene un recuperatorio agendado
-      expect(screen.getByText(/Recuperatorio Agendado/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Recuperatorio Agendado/i)[0]).toBeInTheDocument();
 
       // Hacer clic en Cancelar / Cambiar
       const cancelBtn = screen.getByRole('button', { name: /cancelar \/ cambiar/i });

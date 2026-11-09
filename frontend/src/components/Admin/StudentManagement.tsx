@@ -166,6 +166,10 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
       return;
     }
 
+    if (newPlan === 'LIBERADO') {
+      return;
+    }
+
     if (newPlan === 'PASE_LIBRE') {
       if (schedule.length === 0) {
         setSchedule(WEEK_DAYS.map((d) => ({ day: d.key, shift: DAY_SHIFTS[d.key][0].shift })));
@@ -184,7 +188,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
       setSchedule(schedule.filter((e) => !(e.day === dayKey && e.shift === shiftVal)));
     } else {
       const planDef = STUDENT_PLANS[plan];
-      if (planDef.days > 0 && plan !== 'PASE_LIBRE' && schedule.length >= planDef.days) {
+      if (planDef.days > 0 && plan !== 'PASE_LIBRE' && plan !== 'LIBERADO' && schedule.length >= planDef.days) {
         alert(
           `El plan seleccionado "${planDef.label}" requiere exactamente ${planDef.days} clase(s)/turno(s) semanales. Desmarcá un turno previo para agregar este.`
         );
@@ -268,9 +272,11 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
     const planDef = STUDENT_PLANS[plan];
     const selectedDaysCount = Object.keys(schedule).length;
 
-    if (planDef.days > 0 && selectedDaysCount !== planDef.days) {
-      alert(`El plan "${planDef.label}" requiere exactamente ${planDef.days} día(s). Tenés seleccionados ${selectedDaysCount}.`);
-      return;
+    if (plan !== 'CLASE_SUELTA' && plan !== 'LIBERADO' && plan !== 'PASE_LIBRE') {
+      if (planDef.days > 0 && selectedDaysCount !== planDef.days) {
+        alert(`El plan "${planDef.label}" requiere exactamente ${planDef.days} día(s). Tenés seleccionados ${selectedDaysCount}.`);
+        return;
+      }
     }
 
     const scheduleEntries = Object.entries(schedule).map(([day, shiftVal]) => ({
@@ -1061,7 +1067,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
               </div>
 
               {/* Asignación Dinámica de Días y Turnos */}
-              {STUDENT_PLANS[plan].days > 0 ? (
+              {STUDENT_PLANS[plan].days > 0 || plan === 'LIBERADO' ? (
                 <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1069,8 +1075,8 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ user }) =>
                         Días y Horarios de Asistencia *
                       </label>
                       <p className="text-[11px] text-slate-500 font-medium">
-                        {plan === 'PASE_LIBRE' ? (
-                          <span>Marcá todos los turnos a los que asiste la alumna ({schedule.length} seleccionados).</span>
+                        {plan === 'PASE_LIBRE' || plan === 'LIBERADO' ? (
+                          <span>Marcá los turnos a los que asiste la alumna ({schedule.length} seleccionados).</span>
                         ) : (
                           <span>
                             Seleccioná exactamente <strong>{STUDENT_PLANS[plan].days} clase(s)/turno(s)</strong> ({schedule.length}/{STUDENT_PLANS[plan].days} seleccionados).

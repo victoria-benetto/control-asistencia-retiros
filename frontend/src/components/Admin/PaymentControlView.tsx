@@ -163,6 +163,22 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
         };
       }
 
+      // Si la alumna está bajo plan LIBERADO o su cuota mensual es 0:
+      if (student.plan === 'LIBERADO' || student.monthlyFee === 0) {
+        return {
+          student,
+          status: 'PAID' as const,
+          amount: 0,
+          expectedAmount: 0,
+          remainingDebt: 0,
+          isPartial: false,
+          paymentRecord: cuotaPayments[cuotaPayments.length - 1],
+          allPayments: studentPayments,
+          phone,
+          contactName,
+        };
+      }
+
       // Si no pagó cuota mensual:
       // Si el mes ya pasó o si es el mes actual pero pasaron los 10 días -> VENCIDA con 10% de recargo
       const isOverdue = isPastMonth || (isCurrentMonth && currentDay > 10);
@@ -407,7 +423,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
         ? `vencida (con el 10% de recargo incluido: $${item.amount.toLocaleString('es-AR')})`
         : `pendiente ($${item.amount.toLocaleString('es-AR')}, recordá que abona hasta el 10 del mes)`;
 
-    const message = `🩰 *VULPIARE Danza y Acrobacia Aérea*\n\nHola${
+    const message = `💜 *VULPIARE Acrobacia Aérea*\n\nHola${
       item.contactName ? ` ${item.contactName}` : ''
     }! Te contactamos de la administración para recordarte el estado de la cuota de *${
       item.student.firstName

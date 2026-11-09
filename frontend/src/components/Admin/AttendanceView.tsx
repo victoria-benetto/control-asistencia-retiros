@@ -512,6 +512,15 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                         ⚠️ {student.notes}
                       </p>
                     )}
+                    {item.pickups && item.pickups.length > 0 && (
+                      <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-100/90 text-purple-900 text-xs font-black border border-purple-200">
+                        <UserCheck className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+                        <span>
+                          Retirada por: <strong>{item.pickups[0].authorizedPerson?.fullName || item.pickups[0].notes || 'Adulto autorizado'}</strong>
+                          {item.pickups[0].authorizedPerson?.relationship ? ` (${item.pickups[0].authorizedPerson.relationship})` : ''}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

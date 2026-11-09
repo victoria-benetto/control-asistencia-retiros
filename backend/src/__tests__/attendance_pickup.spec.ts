@@ -306,6 +306,16 @@ describe('Attendance & Pickup Flow Integration Tests', () => {
     const studentId = sRes.body.id;
 
     try {
+      // Registrar inasistencia en noviembre para que tenga derecho a recuperar
+      await request(app)
+        .post('/api/attendance')
+        .send({
+          studentId,
+          status: 'ABSENT',
+          date: '2026-11-04',
+          shift: testShift,
+        });
+
       // 2. Request a makeup class
       const makeupRes = await request(app)
         .post('/api/attendance/makeup-request')

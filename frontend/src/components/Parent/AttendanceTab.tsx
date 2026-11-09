@@ -248,10 +248,11 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                   <div className="p-2.5 rounded-xl bg-purple-50/70 border border-purple-100 text-[11px] text-purple-900 space-y-0.5">
                     <p className="font-extrabold flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
-                      Retirada por {pickup.authorizedPerson.fullName} ({pickup.authorizedPerson.relationship})
+                      Retirada por {pickup.authorizedPerson?.fullName || pickup.notes || 'Adulto autorizado'}
+                      {pickup.authorizedPerson?.relationship ? ` (${pickup.authorizedPerson.relationship})` : ''}
                     </p>
                     <p className="text-slate-500">
-                      DNI: {pickup.authorizedPerson.dni} • Hora:{' '}
+                      {pickup.authorizedPerson?.dni && `DNI: ${pickup.authorizedPerson.dni} • `}Hora:{' '}
                       <strong>
                         {new Date(pickup.pickupTime).toLocaleTimeString('es-AR', {
                           hour: '2-digit',

@@ -23,7 +23,7 @@ import {
   getPayments,
 } from '../../services/api';
 import { Student, PaymentConcept, AdminUser, PaymentMethod, PaymentRecord } from '../../types';
-import { isNonCuotaConcept } from '../../utils/plans';
+import { isNonCuotaConcept, isClaseSueltaConcept, isLiberadoConcept } from '../../utils/plans';
 
 function getNextMonth(monthStr: string): string {
   const [yearStr, monthNumStr] = (monthStr || '').split('-');
@@ -85,6 +85,7 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
 
   // Concepto de Pago
   const [selectedConcept, setSelectedConcept] = useState<PaymentConcept | null>(null);
+  const [claseSueltaQuantity, setClaseSueltaQuantity] = useState<number>(1);
 
   // Monto a Cobrar y Edición con Lápiz
   const [amountReceived, setAmountReceived] = useState<number>(22000);
@@ -147,10 +148,15 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
   // Al cambiar de concepto, actualizar monto si el usuario no lo estaba editando libremente
   const handleSelectConcept = (concept: PaymentConcept) => {
     setSelectedConcept(concept);
-    const targetAmount = (concept.name.toLowerCase().includes('cuota') && selectedStudent?.monthlyFee)
-      ? selectedStudent.monthlyFee
-      : concept.amount;
-    setAmountReceived(targetAmount);
+    setClaseSueltaQuantity(1);
+    if (isLiberadoConcept(concept.name)) {
+      setAmountReceived(0);
+    } else {
+      const targetAmount = (concept.name.toLowerCase().includes('cuota') && selectedStudent?.monthlyFee)
+        ? selectedStudent.monthlyFee
+        : concept.amount;
+      setAmountReceived(targetAmount);
+    }
     setIsEditingAmount(false);
   };
 
@@ -250,10 +256,16 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
       alert('Por favor seleccioná un concepto de pago.');
       return;
     }
-    if (amountReceived <= 0) {
+    const isLiberado = Boolean(selectedConcept && isLiberadoConcept(selectedConcept.name));
+    if (!isLiberado && amountReceived <= 0) {
       alert('El monto ingresado debe ser mayor a 0.');
       return;
     }
+
+    const isClaseSuelta = Boolean(selectedConcept && isClaseSueltaConcept(selectedConcept.name));
+    const conceptLabel = isClaseSuelta && claseSueltaQuantity > 1
+      ? `${selectedConcept.name} (${claseSueltaQuantity} clases)`
+      : selectedConcept.name;
 
     setSubmitting(true);
     try {
@@ -265,11 +277,13 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
         month: paymentMonth,
         amount: amountReceived,
         expectedAmount,
-        concept: selectedConcept.name,
+        concept: conceptLabel,
         operationNumber: paymentMethod === 'TRANSFER' ? operationNumber.trim() || undefined : undefined,
         paymentMethod,
         receiptUrl: paymentMethod === 'TRANSFER' ? receiptBase64 : null,
-        notes: isSurplus
+        notes: isClaseSuelta && claseSueltaQuantity > 1
+          ? `(${claseSueltaQuantity} clases sueltas) ${notes}`.trim()
+          : isSurplus
           ? `Pago con excedente de $${surplus.toLocaleString('es-AR')} acreditado a ${nextMonthName}. ${notes}`.trim()
           : isPartialPayment
             ? `Pago Parcial (Saldo adeudado: $${remainingDebt.toLocaleString('es-AR')}) ${notes}`.trim()
@@ -295,12 +309,14 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
               ? `\n⚠️ *Pago Parcial registrado* (Monto del concepto: $${expectedAmount.toLocaleString('es-AR')})\n*Total acumulado abonado:* $${totalAfterThisPayment.toLocaleString('es-AR')}\n*Saldo adeudado restante:* $${remainingDebt.toLocaleString('es-AR')}\n`
               : alreadyPaidThisMonth > 0
                 ? `\n✨ *Estado:* Cuota totalmente saldada ($${totalAfterThisPayment.toLocaleString('es-AR')} abonados en total)\n`
-                : `\n✨ *Estado:* Cuota totalmente al día\n`;
+                : isLiberado
+                  ? `\n✨ *Estado:* Beca / Alumna Liberada ($0)\n`
+                  : `\n✨ *Estado:* Cuota totalmente al día\n`;
 
           const message =
-            `🩰 *VULPIARE Danza y Acrobacia Aérea*\n` +
+            `💜 *VULPIARE Acrobacia Aérea*\n` +
             `*RECIBO DE PAGO OFICIAL*\n\n` +
-            `📄 *Concepto:* ${selectedConcept.name}\n` +
+            `📄 *Concepto:* ${conceptLabel}\n` +
             `👤 *Alumna:* ${selectedStudent.firstName} ${selectedStudent.lastName} (DNI: ${selectedStudent.dni})\n` +
             `💰 *Monto abonado:* $${amountReceived.toLocaleString('es-AR')}\n` +
             `💳 *Medio de pago:* ${paymentMethod === 'TRANSFER' ? 'Transferencia Bancaria' : 'Efectivo en estudio'}\n` +
@@ -518,6 +534,44 @@ export const RegisterPaymentView: React.FC<RegisterPaymentViewProps> = ({
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {selectedConcept && isClaseSueltaConcept(selectedConcept.name) && (
+          <div className="mt-3 p-3.5 rounded-2xl bg-purple-50/80 border border-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-black text-purple-950 block">Cantidad de clases sueltas</span>
+              <span className="text-[11px] text-purple-700 font-medium">
+                Arancel unitario: ${selectedConcept.amount.toLocaleString('es-AR')} • Las alumnas pueden repetir la cantidad de clases que deseen
+              </span>
+            </div>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  const newQ = Math.max(1, claseSueltaQuantity - 1);
+                  setClaseSueltaQuantity(newQ);
+                  setAmountReceived(newQ * selectedConcept.amount);
+                }}
+                className="w-9 h-9 rounded-xl bg-white border border-purple-200 text-purple-900 font-black text-lg flex items-center justify-center hover:bg-purple-100 shadow-2xs active:scale-95"
+              >
+                -
+              </button>
+              <span className="w-10 text-center font-black text-sm text-purple-950 bg-white border border-purple-200 rounded-xl py-1.5 shadow-2xs">
+                {claseSueltaQuantity}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const newQ = claseSueltaQuantity + 1;
+                  setClaseSueltaQuantity(newQ);
+                  setAmountReceived(newQ * selectedConcept.amount);
+                }}
+                className="w-9 h-9 rounded-xl bg-white border border-purple-200 text-purple-900 font-black text-lg flex items-center justify-center hover:bg-purple-100 shadow-2xs active:scale-95"
+              >
+                +
+              </button>
+            </div>
           </div>
         )}
       </div>

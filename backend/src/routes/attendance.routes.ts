@@ -86,11 +86,11 @@ router.get('/today', async (req: Request, res: Response) => {
       };
     });
 
-    // Agregar alumnas de recuperatorio que asistieron en esta fecha Y TURNO (de otro turno habitual)
+    // Agregar alumnas de recuperatorio que asistieron en esta fecha Y TURNO (de otro turno habitual o día no habitual)
     const makeupRecords = existingAttendances.filter(record =>
       record.isMakeup &&
       record.student &&
-      record.student.shift !== targetShift &&
+      !studentAttendsShift(record.student, targetShift, selectedDate) &&
       (record.makeupShift === targetShift || record.shift === targetShift)
     );
 
@@ -185,8 +185,9 @@ router.post('/', async (req: Request, res: Response) => {
     const student = await prisma.student.findUnique({ where: { id: studentId } });
     const targetShift = shift || (isMakeup ? makeupShift : student?.shift) || '';
 
-    // Solo es recuperatorio si asiste a un turno DISTINTO a su turno habitual
-    const isActuallyMakeup = Boolean(isMakeup) && Boolean(student && student.shift !== targetShift);
+    // Solo es recuperatorio si asiste a un turno o día DISTINTO a su cronograma habitual
+    const isHabitual = Boolean(student && studentAttendsShift(student, targetShift, targetDate));
+    const isActuallyMakeup = Boolean(isMakeup) && !isHabitual;
     const finalMakeupShift = isActuallyMakeup ? (makeupShift || targetShift) : null;
 
     const record = await prisma.attendanceRecord.upsert({
@@ -261,24 +262,50 @@ router.post('/makeup-request', async (req: Request, res: Response) => {
       });
     }
 
-    // 🔒 REGLA: Solo puede recuperar tantas clases como ausencias tenga en el período
+    // 🔒 REGLA: No se puede agendar recuperatorio en el turno y día habitual de la alumna
+    if (studentAttendsShift(student, targetShift, targetDate)) {
+      return res.status(400).json({
+        error: 'No podés agendar una clase de recuperación en tu propio día u horario habitual.',
+      });
+    }
+
+    // 🔒 REGLA: Las ausencias rigen a partir de noviembre y se renuevan mes a mes (no acumulativas)
+    const targetMonthPrefix = targetDate.slice(0, 7);
+    const NOV_2026 = '2026-11';
+    const effectiveMonth = targetMonthPrefix >= NOV_2026 ? targetMonthPrefix : NOV_2026;
+
     const absencesCount = await prisma.attendanceRecord.count({
       where: {
         studentId,
         status: 'ABSENT',
         isMakeup: false,
+        date: {
+          gte: `${effectiveMonth}-01`,
+          lte: `${effectiveMonth}-31`,
+        },
       },
     });
+
     const makeupsCount = await prisma.attendanceRecord.count({
       where: {
         studentId,
         isMakeup: true,
+        date: {
+          gte: `${effectiveMonth}-01`,
+          lte: `${effectiveMonth}-31`,
+        },
       },
     });
 
-    if (absencesCount > 0 && makeupsCount >= absencesCount) {
+    if (absencesCount === 0) {
       return res.status(400).json({
-        error: `Solo podés recuperar tantas clases como ausencias tengas (${absencesCount}). Ya alcanzaste el límite disponible.`,
+        error: 'No tenés ausencias registradas para recuperar en este mes.',
+      });
+    }
+
+    if (makeupsCount >= absencesCount) {
+      return res.status(400).json({
+        error: `Solo podés recuperar tantas clases como ausencias tengas en el mes (${absencesCount}). Ya alcanzaste el límite disponible.`,
       });
     }
 
@@ -393,11 +420,11 @@ router.get('/history', async (req: Request, res: Response) => {
       orderBy: [{ date: 'desc' }, { student: { lastName: 'asc' } }],
     });
 
-    // Normalizar isMakeup: si el turno es el turno habitual del estudiante, NUNCA es recuperatorio
+    // Normalizar isMakeup: si el turno y fecha corresponden al cronograma habitual, NUNCA es recuperatorio
     const sanitizedRecords = records.map((record) => {
       const isActualMakeup =
         Boolean(record.isMakeup) &&
-        Boolean(record.student && (record.makeupShift || record.shift) !== record.student.shift);
+        Boolean(record.student && !studentAttendsShift(record.student, record.makeupShift || record.shift, record.date));
       return {
         ...record,
         isMakeup: isActualMakeup,
@@ -530,6 +557,12 @@ router.get('/student/:studentId', async (req: Request, res: Response) => {
       where: { studentId },
       include: {
         recordedBy: { select: { fullName: true, dni: true } },
+        pickups: {
+          include: {
+            authorizedPerson: true,
+            recordedBy: { select: { fullName: true, dni: true } },
+          },
+        },
       },
       orderBy: { date: 'desc' },
     });

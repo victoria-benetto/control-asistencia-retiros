@@ -76,6 +76,15 @@ const INITIAL_CONCEPTS: LocalConcept[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: 'concept-5',
+    name: 'Liberado / Beca',
+    amount: 0,
+    description: 'Beca o alumna liberada de arancel ($0)',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
 function getLocalPayments(): LocalPayment[] {

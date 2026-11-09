@@ -293,16 +293,21 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
   }, [payments, currentMonthStr, defaultMonthlyFee]);
 
   const monthlyMetrics = useMemo(() => {
-    const allAbsences = localAttendances.filter((a) => a.status === 'ABSENT' && !a.isMakeup);
-    const allCompletedMakeups = localAttendances.filter((a) => a.isMakeup && a.status === 'PRESENT');
+    // 🔒 REGLA: Las ausencias rigen a partir de noviembre y se renuevan mes a mes (no acumulativas)
+    const eligibleAbsencesThisMonth = localAttendances.filter((a) =>
+      a.status === 'ABSENT' && !a.isMakeup && a.date.startsWith(currentMonthStr) && a.date >= '2026-11-01'
+    );
+    const completedMakeupsThisMonth = localAttendances.filter((a) =>
+      a.isMakeup && a.status === 'PRESENT' && a.date.startsWith(currentMonthStr) && a.date >= '2026-11-01'
+    );
     const pendingMakeup = localAttendances.find((a) => a.isMakeup && a.status === 'PENDING');
-    const remainingToRecover = Math.max(0, allAbsences.length - allCompletedMakeups.length - (pendingMakeup ? 1 : 0));
+    const remainingToRecover = Math.max(0, eligibleAbsencesThisMonth.length - completedMakeupsThisMonth.length - (pendingMakeup ? 1 : 0));
     return {
       toRecoverClasses: remainingToRecover,
       hasPendingMakeup: Boolean(pendingMakeup),
       pendingMakeupRecord: pendingMakeup || null,
     };
-  }, [localAttendances]);
+  }, [localAttendances, currentMonthStr]);
 
   const handleMakeupSuccess = (newRecord: AttendanceRecord) => {
     setLocalAttendances((prev) => {

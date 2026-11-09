@@ -4,6 +4,37 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
+## 💜 Hito: Clases Sueltas Múltiples, Mensajes Oficiales, Ausencias No Acumulativas desde Noviembre, Retiros Históricos y Plan Liberado (Rama `develop`)
+**Fecha**: 9 de Noviembre 2026
+
+### 🎯 Objetivos Implementados
+1. **Clases Sueltas Repetibles con Selector de Cantidad**:
+   - Selector dinámico de cantidad en `RegisterPaymentView.tsx` (ej: comprar 5 clases sueltas = $50.000 total a $10.000 cada una).
+   - No bloquea ni consume cuotas mensuales ordinarias (`isNonCuotaConcept`).
+2. **Plantilla Oficial de Recibo por WhatsApp con Corazón Púrpura**:
+   - Unificación de los mensajes de recibo y recordatorio con el encabezado oficial: `💜 *VULPIARE Acrobacia Aérea*\n*RECIBO DE PAGO OFICIAL*...`.
+3. **Ausencias No Acumulativas a partir de Noviembre 2026**:
+   - En backend (`/makeup-request`) y en frontend (`HomeTab`, `ParentPortal`, `AttendanceTab`), las faltas y recuperatorios se computan estrictamente por mes calendario a partir del 1 de noviembre de 2026 (`date >= '2026-11-01'`). Faltas de septiembre u octubre ya no se acumulan.
+4. **Trazabilidad y Visibilidad de Retiros en Portal Alumno/Padre**:
+   - Inclusión de la relación `pickups: { include: { authorizedPerson: true, recordedBy: true } }` en el endpoint `GET /api/attendance/student/:studentId`.
+   - Se visualizan todos los retiros históricos en el perfil de la alumna y de los padres.
+5. **Identificación Explícita de Quién Retira a la Alumna**:
+   - Se muestra nombre completo, parentesco y DNI del adulto que retira tanto en el portal de la alumna como en la lista de asistencia docente (`AttendanceView.tsx` y `PickupsView.tsx`).
+6. **Pop-ups y Modales con Estilo Propio Vulpiare**:
+   - Creación de `ConfirmModal.tsx` y `ToastNotification.tsx` reutilizables para reemplazar diálogos nativos del navegador (`window.confirm`, `window.alert`).
+7. **Opción "Liberado / Beca" con Costo $0**:
+   - Agregada como Plan de Alumna (`LIBERADO`, arancel $0) y como Concepto de Pago (`Liberado / Beca`, importe $0). En Control de Pagos figura al día sin generar deuda.
+8. **Recuperatorios en Días No Habituales (ej. Viernes para Alumnas de 2 Días)**:
+   - Uso de `studentAttendsShift` en backend y en `MakeupClassModal.tsx` para verificar el día específico en vez de excluir el turno completo. Permite a alumnas con cronograma de 2 días agendar su clase recuperatoria el viernes en el turno de 3 días.
+
+### 🧪 Verificación de Calidad:
+- **Frontend**: 23/23 tests pasando.
+- **Frontend Build**: TypeScript + Vite exitoso en 0 errores.
+- **Backend**: 27/27 tests pasando en Supabase.
+- **Aislamiento**: Todo implementado exclusivamente en la rama `develop`. Sin despliegue a producción hasta recibir autorización explícita.
+
+---
+
 ## 🎨 Hito: Unificación Estética Minimalista - Reemplazo de Degradés por Color Liso de Marca (Rama `develop`)
 **Fecha**: 3 de Noviembre 2026
 
