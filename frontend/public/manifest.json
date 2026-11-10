@@ -6,10 +6,13 @@
   "id": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
   "theme_color": "#4c1d95",
+  "dir": "ltr",
   "lang": "es-AR",
+  "categories": ["education", "sports", "lifestyle"],
   "icons": [
     {
       "src": "/pwa-192.png",

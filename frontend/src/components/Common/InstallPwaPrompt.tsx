@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Share2, PlusSquare, X, Smartphone, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Download, Share2, PlusSquare, X, Smartphone, Sparkles, CheckCircle2, Info, Compass } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -9,13 +9,15 @@ interface BeforeInstallPromptEvent extends Event {
 export const InstallPwaPrompt: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState<boolean>(false);
+  const [isSamsung, setIsSamsung] = useState<boolean>(false);
   const [isStandalone, setIsStandalone] = useState<boolean>(false);
   const [showPrompt, setShowPrompt] = useState<boolean>(false);
   const [showIOSGuide, setShowIOSGuide] = useState<boolean>(false);
+  const [showSamsungGuide, setShowSamsungGuide] = useState<boolean>(false);
   const [installedSuccess, setInstalledSuccess] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. Detectar si ya está corriendo en modo Standalone (App instalada)
+    // 1. Detectar si ya está corriendo en modo Standalone (App instalada a pantalla completa)
     const checkStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as any).standalone === true ||
@@ -24,26 +26,29 @@ export const InstallPwaPrompt: React.FC = () => {
     setIsStandalone(checkStandalone);
     if (checkStandalone) return;
 
-    // 2. Detectar si es iOS (iPhone / iPad)
+    // 2. Detectar plataforma y navegador
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIPhoneOrIPad = /iphone|ipad|ipod/.test(userAgent);
-    setIsIOS(isIPhoneOrIPad);
+    const isSamsungBrowser = /samsungbrowser/.test(userAgent);
 
-    // Si es iOS y no fue descartado en esta sesión, mostramos el prompt guiado tras 2 segundos
-    const dismissedIOS = sessionStorage.getItem('vulpiare_pwa_ios_dismissed');
-    if (isIPhoneOrIPad && !dismissedIOS) {
-      const timer = setTimeout(() => {
-        setShowPrompt(true);
-      }, 2500);
-      return () => clearTimeout(timer);
+    setIsIOS(isIPhoneOrIPad);
+    setIsSamsung(isSamsungBrowser);
+
+    // Si es iOS o Samsung y no fue descartado en esta sesión, mostramos el prompt tras 2 segundos
+    const dismissed = sessionStorage.getItem('vulpiare_pwa_prompt_dismissed');
+    if (!dismissed) {
+      if (isIPhoneOrIPad || isSamsungBrowser) {
+        const timer = setTimeout(() => {
+          setShowPrompt(true);
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
     }
 
     // 3. Capturar evento de instalación nativo en Chrome / Android / Edge
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      // Si no fue descartado en esta sesión, mostramos el banner
-      const dismissed = sessionStorage.getItem('vulpiare_pwa_prompt_dismissed');
       if (!dismissed) {
         setShowPrompt(true);
       }
@@ -66,6 +71,11 @@ export const InstallPwaPrompt: React.FC = () => {
   }, []);
 
   const handleInstallClick = async () => {
+    if (isSamsung && !deferredPrompt) {
+      setShowSamsungGuide(true);
+      return;
+    }
+
     if (!deferredPrompt) {
       if (isIOS) {
         setShowIOSGuide(true);
@@ -88,11 +98,8 @@ export const InstallPwaPrompt: React.FC = () => {
   const handleDismiss = () => {
     setShowPrompt(false);
     setShowIOSGuide(false);
-    if (isIOS) {
-      sessionStorage.setItem('vulpiare_pwa_ios_dismissed', 'true');
-    } else {
-      sessionStorage.setItem('vulpiare_pwa_prompt_dismissed', 'true');
-    }
+    setShowSamsungGuide(false);
+    sessionStorage.setItem('vulpiare_pwa_prompt_dismissed', 'true');
   };
 
   // Si ya está instalada a pantalla completa o no hay prompt activo, no mostrar nada
@@ -150,9 +157,28 @@ export const InstallPwaPrompt: React.FC = () => {
         </div>
 
         {/* Explicación según plataforma */}
-        {!isIOS ? (
+        {!isIOS && !isSamsung ? (
           <p className="text-xs text-slate-600 font-medium leading-relaxed">
             Instalá la aplicación para ingresar directo desde tu pantalla de inicio, sin barras del navegador y con actualización instantánea.
+          </p>
+        ) : isSamsung && showSamsungGuide ? (
+          /* Guía para navegador Samsung Internet */
+          <div className="bg-purple-50/80 rounded-2xl p-3 border border-purple-100 text-xs text-purple-950 space-y-2">
+            <span className="font-extrabold text-[11px] uppercase tracking-wider text-purple-700 block">
+              Instalación sin avisos en Samsung:
+            </span>
+            <div className="flex items-start gap-2 font-medium">
+              <span className="w-5 h-5 rounded-full bg-purple-700 text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">A</span>
+              <span><strong>Opción rápida:</strong> Abrí este mismo enlace en <strong>Google Chrome</strong> e instalala directamente con 1 toque sin ningún cartel.</span>
+            </div>
+            <div className="flex items-start gap-2 font-medium">
+              <span className="w-5 h-5 rounded-full bg-purple-700 text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">B</span>
+              <span><strong>Desde este navegador:</strong> Tocá el menú (<strong>☰</strong> abajo), elegí <strong>"Añadir página a"</strong> y seleccioná <strong>"Pantalla de inicio"</strong>.</span>
+            </div>
+          </div>
+        ) : isSamsung ? (
+          <p className="text-xs text-slate-600 font-medium leading-relaxed">
+            Instalá la app para abrirla directo en pantalla completa. Recomendado: abrir en <strong>Google Chrome</strong> para instalación limpia en 1 clic.
           </p>
         ) : !showIOSGuide ? (
           <p className="text-xs text-slate-600 font-medium leading-relaxed">
@@ -181,7 +207,7 @@ export const InstallPwaPrompt: React.FC = () => {
 
         {/* Botonera de Acción */}
         <div className="flex items-center gap-2 pt-1">
-          {!isIOS ? (
+          {deferredPrompt ? (
             <button
               onClick={handleInstallClick}
               className="flex-1 py-2.5 px-4 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-black text-xs shadow-md shadow-purple-200 flex items-center justify-center gap-2 active:scale-98 transition-all"
@@ -189,7 +215,15 @@ export const InstallPwaPrompt: React.FC = () => {
               <Download className="w-4 h-4" />
               <span>Instalar Aplicación</span>
             </button>
-          ) : !showIOSGuide ? (
+          ) : isSamsung && !showSamsungGuide ? (
+            <button
+              onClick={() => setShowSamsungGuide(true)}
+              className="flex-1 py-2.5 px-4 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-black text-xs shadow-md shadow-purple-200 flex items-center justify-center gap-2 active:scale-98 transition-all"
+            >
+              <Compass className="w-4 h-4" />
+              <span>Ver cómo instalar</span>
+            </button>
+          ) : isIOS && !showIOSGuide ? (
             <button
               onClick={() => setShowIOSGuide(true)}
               className="flex-1 py-2.5 px-4 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-black text-xs shadow-md shadow-purple-200 flex items-center justify-center gap-2 active:scale-98 transition-all"
