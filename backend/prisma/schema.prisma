@@ -54,6 +54,8 @@ model Student {
   plan             String?            // CLASE_SUELTA | UNA_VEZ | DOS_VECES | TRES_VECES | PASE_LIBRE
   monthlyFee       Float?             // Valor de la cuota mensual según el plan
   schedule         Json?              // [{ "day": "LUNES", "shift": "<turno oficial>" }]
+  termsAcceptedAt  DateTime?          // Timestamp de aceptación vinculante de términos
+  termsVersion     String?            // Versión de términos aceptada (ej: "2026.11")
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   authorizedPeople AuthorizedPerson[]

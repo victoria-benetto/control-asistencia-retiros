@@ -135,6 +135,8 @@ router.post('/login', async (req: Request, res: Response) => {
           plan: student.plan,
           monthlyFee: student.monthlyFee,
           schedule: student.schedule,
+          termsAcceptedAt: student.termsAcceptedAt,
+          termsVersion: student.termsVersion,
           authorizedPeople: student.authorizedPeople,
           attendances: student.attendances,
         },

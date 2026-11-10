@@ -33,6 +33,32 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
+## 📜 Hito: Términos y Condiciones, Reglamento Interno y Política de Privacidad Vinculante (Rama `develop`)
+**Fecha**: 10 de Noviembre 2026
+
+### 🎯 Requerimientos Implementados
+1. **Contenido Obligatorio del Reglamento (Punto Crítico del Seguro)**:
+   - Cláusula destacada e intransigible: obligatoriedad estricta del seguro de accidentes personales / cobertura médica. Sin el seguro abonado, queda terminantemente prohibido realizar actividades acrobáticas o subirse a los elementos.
+   - Salud y aptitud física: certificado médico obligatorio y declaración jurada de salud.
+   - Seguridad en el retiro de menores: entrega exclusiva a personas autorizadas registradas en el sistema con DNI y parentesco verificado.
+   - Aranceles y vencimientos: vencimiento de cuotas el día 10, recargo administrativo del 10% a partir del día 11, ausencias no acumulables y condiciones de recuperatorios.
+   - Privacidad y cesión de imagen institucional.
+2. **Modalidad de Aceptación Vinculante (Opción B)**:
+   - Modal bloqueante al ingresar al Portal de Alumnas/Padres si no ha aceptado la versión vigente (`2026.11`).
+   - Checkbox obligatorio y botón "Confirmar y Continuar".
+   - Persistencia en base de datos (`termsAcceptedAt`, `termsVersion` en modelo `Student`), sincronización en sesión (`vulpiare_session_active`) y fallback en `localStorage`.
+3. **Apartado de Consulta Abierta Permanente**:
+   - Acceso desde el Header del portal ("Reglamento"), tarjeta en Inicio ("Normativa Oficial") y pie de página en todas las pestañas ("Términos y Condiciones • Reglamento Interno • Política de Privacidad").
+   - Navegación responsive mediante pestañas estilizadas acordes a la identidad visual de VULPIARE.
+
+### 🧪 Verificación de Calidad:
+- **Frontend**: 42/42 tests pasando con Vitest (incluye suite completa `terms_and_conditions.spec.tsx`).
+- **Frontend Build**: 0 errores en compilación con Vite + TypeScript (`tsc && vite build`).
+- **Backend**: 28/28 tests pasando contra Supabase (incluye test específico de aceptación de términos en `students.spec.ts`).
+- **Base de Datos**: Esquema sincronizado con Supabase (`prisma db push`).
+
+---
+
 ## 🎯 Hito: Trazabilidad Completa de Plan, Cuota y Cronograma en Portal de Alumnas (Rama `develop`)
 **Fecha**: 10 de Noviembre 2026
 

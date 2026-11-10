@@ -92,6 +92,15 @@ export async function getStudentById(id: string): Promise<Student> {
   const res = await fetch(`${API_BASE}/students/${id}`);
   return parseResponse(res);
 }
+export async function acceptStudentTerms(studentId: string, version: string = '2026.11'): Promise<{ success: boolean; student: Partial<Student> }> {
+  const res = await fetch(`${API_BASE}/students/${studentId}/terms`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ version }),
+  });
+  return parseResponse(res);
+}
+
 
 export async function createStudent(userDni: string, studentData: any): Promise<Student> {
   const res = await fetch(`${API_BASE}/admin/students`, {

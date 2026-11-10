@@ -48,6 +48,8 @@ export interface Student {
   plan?: string | null;
   monthlyFee?: number | null;
   schedule?: { day: string; shift: string }[] | null;
+  termsAcceptedAt?: string | null;
+  termsVersion?: string | null;
   authorizedPeople: AuthorizedPerson[];
   attendances?: AttendanceRecord[];
 }

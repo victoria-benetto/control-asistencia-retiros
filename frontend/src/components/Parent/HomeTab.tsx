@@ -33,6 +33,7 @@ interface HomeTabProps {
     label: string;
     badgeClass: string;
   };
+  onOpenTerms?: () => void;
 }
 
 export const HomeTab: React.FC<HomeTabProps> = ({
@@ -47,6 +48,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   notificationPermission,
   onRequestNotification,
   currentStatusInfo,
+  onOpenTerms,
 }) => {
   // Iniciales para el avatar
   const initials = useMemo(() => {
@@ -589,6 +591,35 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             </div>
             <ArrowRight className="w-4 h-4 text-purple-600 shrink-0 group-hover:translate-x-1 transition-transform" />
           </button>
+
+          {/* Acceso a Reglamento y Términos */}
+          {onOpenTerms && (
+            <button
+              type="button"
+              onClick={onOpenTerms}
+              className="p-4 rounded-3xl bg-white border border-purple-100 shadow-[0_4px_16px_-2px_rgba(30,27,38,0.04)] hover:border-purple-300 transition-all text-left flex items-center justify-between group active:scale-98 sm:col-span-2 cursor-pointer"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-black text-slate-900 truncate">
+                      Reglamento Interno y Términos
+                    </h3>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full border bg-purple-50 text-purple-800 border-purple-200">
+                      Normativa Oficial
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Seguro obligatorio, apto médico, retiro de menores y aranceles
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-purple-600 shrink-0 group-hover:translate-x-1 transition-transform" />
+            </button>
+          )}
         </div>
       </section>
     </div>

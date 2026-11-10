@@ -103,4 +103,41 @@ describe('Student ABM Integration Tests & Bug Regressions', () => {
       }
     }
   });
+
+  it('Student can record binding terms and regulations acceptance', async () => {
+    const testDni = `97${Date.now().toString().slice(-6)}`;
+    const createRes = await request(app)
+      .post('/api/admin/students')
+      .set('x-user-dni', '44122509')
+      .send({
+        firstName: 'TermsTest',
+        lastName: 'Student',
+        dni: testDni,
+        shift: 'Lunes y miércoles de 8 a 10',
+      });
+
+    expect(createRes.status).toBe(201);
+    const studentId = createRes.body.id;
+
+    try {
+      const termsRes = await request(app)
+        .post(`/api/students/${studentId}/terms`)
+        .send({ version: '2026.11' });
+
+      expect(termsRes.status).toBe(200);
+      expect(termsRes.body.success).toBe(true);
+      expect(termsRes.body.student.termsVersion).toBe('2026.11');
+      expect(termsRes.body.student.termsAcceptedAt).toBeDefined();
+
+      // Verify GET /api/students/:id returns terms fields
+      const getRes = await request(app).get(`/api/students/${studentId}`);
+      expect(getRes.status).toBe(200);
+      expect(getRes.body.termsVersion).toBe('2026.11');
+      expect(getRes.body.termsAcceptedAt).toBeDefined();
+    } finally {
+      if (studentId) {
+        await request(app).delete(`/api/admin/students/${studentId}`).set('x-user-dni', '44122509');
+      }
+    }
+  });
 });

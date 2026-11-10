@@ -131,4 +131,56 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/students/{id}/terms:
+ *   post:
+ *     summary: Registrar aceptación vinculante de Términos y Condiciones / Reglamento
+ *     tags: [Alumnas]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               version:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Aceptación registrada con éxito.
+ */
+router.post('/:id/terms', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { version } = req.body || {};
+    const student = await prisma.student.findUnique({ where: { id } });
+    if (!student) {
+      return res.status(404).json({ error: 'Alumna no encontrada.' });
+    }
+    const updated = await prisma.student.update({
+      where: { id },
+      data: {
+        termsAcceptedAt: new Date(),
+        termsVersion: typeof version === 'string' && version.trim() ? version.trim() : '2026.11',
+      },
+      select: {
+        id: true,
+        termsAcceptedAt: true,
+        termsVersion: true,
+      },
+    });
+    return res.json({ success: true, student: updated });
+  } catch (error) {
+    console.error('Error al registrar aceptación de términos:', error);
+    return res.status(500).json({ error: 'Error al registrar la aceptación de términos.' });
+  }
+});
+
 export default router;

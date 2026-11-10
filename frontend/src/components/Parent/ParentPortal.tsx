@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { CheckCircle2, Clock, AlertCircle, Bell, X } from 'lucide-react';
 import { Student, AttendanceRecord, PaymentRecord, PaymentConcept } from '../../types';
 import { isNonCuotaConcept, isClaseSueltaConcept } from '../../utils/plans';
-import { getPayments, getPaymentConcepts, cancelMakeupClass, getStudentAttendances, getStudentById } from '../../services/api';
+import { getPayments, getPaymentConcepts, cancelMakeupClass, getStudentAttendances, getStudentById, acceptStudentTerms } from '../../services/api';
+import { TermsAndConditionsModal } from './TermsAndConditionsModal';
 import { ParentHeader } from './ParentHeader';
 import { BottomNav, ParentTab } from './BottomNav';
 import { HomeTab } from './HomeTab';
@@ -14,6 +15,7 @@ import { CancelMakeupModal, ToastNotification } from './CancelMakeupModal';
 import { getPaymentReminderInfo, checkAndTriggerPaymentNotification, requestPaymentNotificationPermission, PaymentReminderInfo } from '../../utils/paymentNotifications';
 
 const SESSION_STORAGE_KEY = 'vulpiare_session_active';
+const CURRENT_TERMS_VERSION = '2026.11';
 
 interface ParentPortalProps {
   student: Student & {
@@ -38,6 +40,69 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
   const [recordToCancel, setRecordToCancel] = useState<AttendanceRecord | null>(null);
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
+  const [isAcceptingTerms, setIsAcceptingTerms] = useState<boolean>(false);
+
+  const isTermsAccepted = useMemo(() => {
+    if (currentStudent.termsAcceptedAt && currentStudent.termsVersion === CURRENT_TERMS_VERSION) {
+      return true;
+    }
+    try {
+      const local = localStorage.getItem(`vulpiare_terms_accepted_${currentStudent.id}`);
+      if (local === CURRENT_TERMS_VERSION) return true;
+    } catch (e) {
+      // ignore
+    }
+    return false;
+  }, [currentStudent.termsAcceptedAt, currentStudent.termsVersion, currentStudent.id]);
+
+  const handleAcceptTerms = async () => {
+    try {
+      setIsAcceptingTerms(true);
+      await acceptStudentTerms(currentStudent.id, CURRENT_TERMS_VERSION).catch((e) => {
+        console.warn('Backend terms acceptance fallback to localStorage:', e);
+      });
+
+      const nowIso = new Date().toISOString();
+      try {
+        localStorage.setItem(`vulpiare_terms_accepted_${currentStudent.id}`, CURRENT_TERMS_VERSION);
+      } catch (e) {
+        console.error('Error saving terms to localStorage:', e);
+      }
+
+      setCurrentStudent((prev) => ({
+        ...prev,
+        termsAcceptedAt: nowIso,
+        termsVersion: CURRENT_TERMS_VERSION,
+      }));
+
+      try {
+        const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.type === 'PARENT' && parsed.student) {
+            parsed.student.termsAcceptedAt = nowIso;
+            parsed.student.termsVersion = CURRENT_TERMS_VERSION;
+            localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(parsed));
+          }
+        }
+      } catch (err) {
+        console.error('Error al sincronizar sesión persistente con términos:', err);
+      }
+
+      setToast({
+        message: '¡Reglamento y Términos aceptados con éxito!',
+        type: 'success',
+      });
+    } catch (err: any) {
+      setToast({
+        message: 'Error al registrar la aceptación de términos.',
+        type: 'error',
+      });
+    } finally {
+      setIsAcceptingTerms(false);
+    }
+  };
 
   const updatePersistentSessionAttendances = useCallback((updatedAttendances: AttendanceRecord[]) => {
     try {
@@ -439,7 +504,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
   return (
     <div className="min-h-[100dvh] bg-[#fdf7ff] text-slate-900 antialiased pb-28">
       {/* Header fijo superior modular */}
-      <ParentHeader todayFormatted={todayFormatted} onLogout={onLogout} />
+      <ParentHeader todayFormatted={todayFormatted} onLogout={onLogout} onOpenTerms={() => setShowTermsModal(true)} />
 
       {/* Contenedor Principal con las pestañas */}
       <main className="max-w-xl mx-auto px-4 sm:px-6 pt-5">
@@ -456,6 +521,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
             notificationPermission={notificationPermission}
             onRequestNotification={handleRequestNotification}
             currentStatusInfo={currentStatusInfo}
+            onOpenTerms={() => setShowTermsModal(true)}
           />
         )}
 
@@ -493,6 +559,37 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
             hasPendingMakeup={monthlyMetrics.hasPendingMakeup}
           />
         )}
+        {/* Footer Institucional con accesos a términos */}
+        <footer className="mt-10 mb-4 text-center text-xs text-slate-400 space-y-2 px-4">
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setShowTermsModal(true)}
+              className="font-bold text-purple-700 hover:text-purple-900 underline underline-offset-2 transition-colors cursor-pointer"
+            >
+              Términos y Condiciones
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => setShowTermsModal(true)}
+              className="font-bold text-purple-700 hover:text-purple-900 underline underline-offset-2 transition-colors cursor-pointer"
+            >
+              Reglamento Interno
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => setShowTermsModal(true)}
+              className="font-bold text-purple-700 hover:text-purple-900 underline underline-offset-2 transition-colors cursor-pointer"
+            >
+              Política de Privacidad
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-400">
+            VULPIARE Acrobacia Aérea • Todos los derechos reservados
+          </p>
+        </footer>
       </main>
 
       {/* Barra de navegación inferior */}
@@ -528,6 +625,29 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
           message={toast.message}
           type={toast.type}
           onClose={() => setToast(null)}
+        />
+      )}
+
+{/* Modal Bloqueante de Aceptación Vinculante de Términos */}
+      {!isTermsAccepted && (
+        <TermsAndConditionsModal
+          isOpen={true}
+          onClose={() => {}}
+          isBinding={true}
+          onAccept={handleAcceptTerms}
+          isSubmitting={isAcceptingTerms}
+          studentName={`${currentStudent.firstName} ${currentStudent.lastName}`}
+        />
+      )}
+
+      {/* Modal de Consulta Abierta de Términos */}
+      {showTermsModal && (
+        <TermsAndConditionsModal
+          isOpen={showTermsModal}
+          onClose={() => setShowTermsModal(false)}
+          isBinding={false}
+          acceptedAt={currentStudent.termsAcceptedAt}
+          studentName={`${currentStudent.firstName} ${currentStudent.lastName}`}
         />
       )}
 
