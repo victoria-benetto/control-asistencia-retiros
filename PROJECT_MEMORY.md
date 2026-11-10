@@ -33,6 +33,34 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
+## 🎯 Hito: Trazabilidad Completa de Plan, Cuota y Cronograma en Portal de Alumnas (Rama `develop`)
+**Fecha**: 10 de Noviembre 2026
+
+### 🛠️ Problema Detectado
+- En el panel de Administración una alumna con plan "Pase Libre" (ej: Luisana Córdoba) figuraba correctamente con cuota de $60.000 y todos sus turnos asignados.
+- Sin embargo, al iniciar sesión desde el lado de la alumna, figuraba con cuota de $37.000, "2 veces por semana" y sin detallar los días asignados.
+- **Causa Raíz**: El endpoint `/api/auth/login` omitía enviar los campos `plan`, `monthlyFee` y `schedule` al portal de alumnas, provocando un fallback al arancel base por defecto ($37.000) y al turno de texto plano legacy.
+
+### 📦 Correcciones Aplicadas
+1. **Sincronización en Login (`backend/src/routes/auth.routes.ts`)**:
+   - Inclusión obligatoria de `plan`, `monthlyFee`, `schedule` y `phone` en el objeto `student` retornado al iniciar sesión como alumna/padre.
+2. **Auto-actualización de Perfil (`frontend/src/services/api.ts` & `ParentPortal.tsx`)**:
+   - Creación de `getStudentById(id)` y actualización proactiva en `ParentPortal` para refrescar automáticamente sesiones existentes en caché.
+3. **Presentación de Plan y Cronograma en Tarjeta de Inicio (`HomeTab.tsx`)**:
+   - Badge distintivo: si el plan es `PASE_LIBRE`, exhibe **"Pase Libre (Todos los turnos)"**.
+   - Desglose de "Días y horarios asignados": lista ordenada de los días y turnos asignados a la alumna.
+   - Cálculo dinámico de clases del mes: 20 clases para Pase Libre (5 días x 4 semanas) o la cantidad exacta según cronograma.
+4. **Respeto Estricto de Cuota en Pagos (`ParentPortal.tsx` & `PaymentsTab.tsx`)**:
+   - El estado de cuenta y cuotas esperadas computa `currentStudent.monthlyFee` ($60.000), erradicando el arancel genérico de $37.000.
+
+### 🧪 Verificación de Calidad:
+- **Frontend**: 36/36 tests pasando.
+- **Frontend Build**: Vite + TypeScript exitoso en 0 errores.
+- **Backend**: 27/27 tests pasando contra Supabase.
+- **Git**: Commit `f99de29` desplegado en `origin develop`.
+
+---
+
 ## ⚡ Hito: Cobro Rápido en 1 Clic, Pastilla "Pagado" Verde, Recargo desde Día 11 y Recordatorios Persistentes (Rama `develop`)
 **Fecha**: 9 de Noviembre 2026
 
