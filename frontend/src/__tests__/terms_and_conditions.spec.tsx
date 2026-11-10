@@ -34,7 +34,7 @@ describe('Términos y Condiciones / Reglamento Interno - VULPIARE', () => {
       expect(screen.getByText(/Aceptación Obligatoria/i)).toBeInTheDocument();
     });
 
-    it('navigates through tabs displaying health, minor pickup, fees, and privacy sections', () => {
+    it('displays the sequential continuous legal document with all articles in one place', () => {
       render(
         <TermsAndConditionsModal
           isOpen={true}
@@ -44,28 +44,12 @@ describe('Términos y Condiciones / Reglamento Interno - VULPIARE', () => {
         />
       );
 
-      // Pestaña Salud y Apto Médico
-      const saludTab = screen.getByRole('button', { name: /salud y apto médico/i });
-      fireEvent.click(saludTab);
-      expect(screen.getByText(/Salud, Aptitud Física y Declaración Médica/i)).toBeInTheDocument();
-      expect(screen.getByText(/Certificado Médico Vigente/i)).toBeInTheDocument();
-
-      // Pestaña Retiro de Menores
-      const retiroTab = screen.getByRole('button', { name: /retiro de menores/i });
-      fireEvent.click(retiroTab);
-      expect(screen.getByText(/Seguridad y Protocolo de Retiro de Menores/i)).toBeInTheDocument();
-      expect(screen.getByText(/Entrega Exclusiva a Autorizados/i)).toBeInTheDocument();
-
-      // Pestaña Aranceles
-      const arancelesTab = screen.getByRole('button', { name: /aranceles y pagos/i });
-      fireEvent.click(arancelesTab);
-      expect(screen.getByText(/Aranceles, Vencimientos, Recargos y Recuperatorios/i)).toBeInTheDocument();
-      expect(screen.getByText(/Recargo del 10% a partir del Día 11/i)).toBeInTheDocument();
-
-      // Pestaña Privacidad
-      const privacidadTab = screen.getByRole('button', { name: /privacidad e imagen/i });
-      fireEvent.click(privacidadTab);
-      expect(screen.getByText(/Protección de Datos y Cesión Institucional de Imagen/i)).toBeInTheDocument();
+      // Todos los artículos visibles en texto continuo sin tabs ni cortes
+      expect(screen.getByText(/1. Seguridad y Seguro Obligatorio de Accidentes Personales/i)).toBeInTheDocument();
+      expect(screen.getByText(/2. Salud, Aptitud Física y Declaración Médica/i)).toBeInTheDocument();
+      expect(screen.getByText(/3. Seguridad y Protocolo de Retiro de Menores/i)).toBeInTheDocument();
+      expect(screen.getByText(/4. Aranceles, Vencimientos, Recargos y Ausencias/i)).toBeInTheDocument();
+      expect(screen.getByText(/5. Privacidad, Confidencialidad y Derechos de Imagen/i)).toBeInTheDocument();
 
       // Estado de aceptación previa visible
       expect(screen.getByText(/Reglamento aceptado con valor de declaración jurada/i)).toBeInTheDocument();
@@ -104,7 +88,7 @@ describe('Términos y Condiciones / Reglamento Interno - VULPIARE', () => {
         />
       );
 
-      const closeBtn = screen.getByRole('button', { name: /entendido \/ cerrar/i });
+      const closeBtn = screen.getByRole('button', { name: /entendido/i });
       fireEvent.click(closeBtn);
       expect(onClose).toHaveBeenCalledTimes(1);
     });
@@ -176,7 +160,7 @@ describe('Términos y Condiciones / Reglamento Interno - VULPIARE', () => {
       });
     });
 
-    it('allows open consultation of terms at any time from header button and footer links', async () => {
+    it('allows open consultation of terms at any time from footer links', async () => {
       const mockStudentAccepted: Student & { attendances: AttendanceRecord[] } = {
         ...mockStudentUnaccepted,
         termsAcceptedAt: '2026-11-05T10:00:00.000Z',
@@ -190,19 +174,19 @@ describe('Términos y Condiciones / Reglamento Interno - VULPIARE', () => {
       // No debe estar bloqueado
       expect(screen.queryByText(/Aceptación Obligatoria/i)).not.toBeInTheDocument();
 
-      // Abrir consulta desde el botón del Header
-      const headerTermsBtn = screen.getByRole('button', { name: /ver reglamento y términos/i });
-      fireEvent.click(headerTermsBtn);
+      // Abrir consulta desde el footer
+      const footerLink = screen.getByRole('button', { name: /reglamento interno/i });
+      fireEvent.click(footerLink);
 
       // Ahora el modal de consulta abierta está visible
-      expect(screen.getByText(/Marco Normativo/i)).toBeInTheDocument();
+      expect(screen.getByText(/Reglamento Oficial/i)).toBeInTheDocument();
       expect(screen.getByText(/Reglamento aceptado con valor de declaración jurada/i)).toBeInTheDocument();
 
       // Cerrar consulta
-      const closeBtn = screen.getByRole('button', { name: /entendido \/ cerrar/i });
+      const closeBtn = screen.getByRole('button', { name: /entendido/i });
       fireEvent.click(closeBtn);
 
-      expect(screen.queryByText(/Marco Normativo/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Reglamento Oficial/i)).not.toBeInTheDocument();
     });
   });
 });

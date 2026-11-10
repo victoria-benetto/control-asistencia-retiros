@@ -504,7 +504,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
   return (
     <div className="min-h-[100dvh] bg-[#fdf7ff] text-slate-900 antialiased pb-28">
       {/* Header fijo superior modular */}
-      <ParentHeader todayFormatted={todayFormatted} onLogout={onLogout} onOpenTerms={() => setShowTermsModal(true)} />
+      <ParentHeader todayFormatted={todayFormatted} onLogout={onLogout} />
 
       {/* Contenedor Principal con las pestañas */}
       <main className="max-w-xl mx-auto px-4 sm:px-6 pt-5">
@@ -521,7 +521,6 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
             notificationPermission={notificationPermission}
             onRequestNotification={handleRequestNotification}
             currentStatusInfo={currentStatusInfo}
-            onOpenTerms={() => setShowTermsModal(true)}
           />
         )}
 
