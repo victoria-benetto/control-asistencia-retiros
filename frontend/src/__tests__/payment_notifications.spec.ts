@@ -37,7 +37,7 @@ describe('Payment Reminder Notifications (Días 9, 10, 15, 20 y 25)', () => {
     expect(reminder?.day).toBe(15);
     expect(reminder?.urgency).toBe('overdue');
     expect(reminder?.body).toContain('vencida con el 10% de recargo');
-    expect(reminder?.inAppBadge).toContain('Día 15');
+    expect(reminder?.inAppBadge).toBe('Cuota adeudada');
   });
 
   it('devuelve segundo aviso de cuota vencida para el día 20 si no ha pagado', () => {
@@ -46,7 +46,7 @@ describe('Payment Reminder Notifications (Días 9, 10, 15, 20 y 25)', () => {
     expect(reminder?.day).toBe(20);
     expect(reminder?.urgency).toBe('overdue');
     expect(reminder?.title).toContain('Segundo Aviso');
-    expect(reminder?.inAppBadge).toContain('Día 20');
+    expect(reminder?.inAppBadge).toBe('Cuota adeudada');
   });
 
   it('devuelve último aviso del mes para el día 25 si no ha pagado', () => {
@@ -55,7 +55,7 @@ describe('Payment Reminder Notifications (Días 9, 10, 15, 20 y 25)', () => {
     expect(reminder?.day).toBe(25);
     expect(reminder?.urgency).toBe('overdue');
     expect(reminder?.title).toContain('Último Aviso');
-    expect(reminder?.inAppBadge).toContain('Día 25');
+    expect(reminder?.inAppBadge).toBe('Cuota adeudada');
   });
 
   it('no devuelve recordatorio si la cuota ya está paga (isPaid: true) en ninguno de los días', () => {
