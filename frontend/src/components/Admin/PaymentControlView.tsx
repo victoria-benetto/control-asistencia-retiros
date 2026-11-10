@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { getStudents, getPayments, savePayment, updatePayment, deletePayment, resetMonthPayments, getShifts } from '../../services/api';
 import { Student, PaymentRecord, AdminUser, OFFICIAL_SHIFTS } from '../../types';
-import { isNonCuotaConcept } from '../../utils/plans';
+import { isNonCuotaConcept, isClaseSueltaConcept } from '../../utils/plans';
 import { ConfirmModal, ToastNotification } from '../Common/ConfirmModal';
 
 interface PaymentControlViewProps {
@@ -162,6 +162,12 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
         }
       }
 
+      const claseSueltaPayments = studentPayments.filter((p) => isClaseSueltaConcept(p.concept));
+      const isClaseSueltaStudent =
+        student.plan === 'CLASE_SUELTA' ||
+        (student.shift || '').toLowerCase().includes('suelta') ||
+        (student.monthlyFee !== null && student.monthlyFee !== undefined && student.monthlyFee <= 10000 && student.plan !== 'LIBERADO');
+
       if (cuotaPayments.length > 0) {
         const totalPaid = cuotaPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
         const studentBaseFee = student.monthlyFee || DEFAULT_FEE;
@@ -177,6 +183,27 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
           remainingDebt,
           isPartial,
           paymentRecord: cuotaPayments[cuotaPayments.length - 1],
+          allPayments: studentPayments,
+          phone,
+          contactName,
+        };
+      }
+
+      // Si pagó una o más clases sueltas (alumna con plan 'Clase suelta' o que abonó clase suelta en el mes):
+      if (claseSueltaPayments.length > 0) {
+        const totalPaid = claseSueltaPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+        const expectedAmount = isClaseSueltaStudent ? (student.monthlyFee || 10000) : totalPaid;
+        const remainingDebt = Math.max(0, expectedAmount - totalPaid);
+        const isPartial = remainingDebt > 0;
+
+        return {
+          student,
+          status: 'PAID' as const,
+          amount: totalPaid,
+          expectedAmount,
+          remainingDebt,
+          isPartial,
+          paymentRecord: claseSueltaPayments[claseSueltaPayments.length - 1],
           allPayments: studentPayments,
           phone,
           contactName,
@@ -350,7 +377,15 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
   // Cobro Rápido en 1 Clic (Registra cuota por Transferencia de forma instantánea sin salir de la vista)
   const handleQuickPay = (item: StudentPaymentInfo) => {
     const feeToPay = item.isPartial && item.remainingDebt ? item.remainingDebt : item.amount;
-    const conceptName = item.isPartial ? 'Cuota Mensual (Saldo)' : 'Cuota Mensual';
+    const isClaseSueltaStudent =
+      item.student.plan === 'CLASE_SUELTA' ||
+      (item.student.shift || '').toLowerCase().includes('suelta') ||
+      (item.student.monthlyFee !== null && item.student.monthlyFee !== undefined && item.student.monthlyFee <= 10000 && item.student.plan !== 'LIBERADO');
+    const conceptName = isClaseSueltaStudent
+      ? 'Clase suelta'
+      : item.isPartial
+      ? 'Cuota Mensual (Saldo)'
+      : 'Cuota Mensual';
 
     setConfirmModal({
       isOpen: true,
@@ -380,6 +415,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
       confirmText: 'Sí, registrar cobro',
       variant: 'purple',
       onConfirm: async () => {
+        setConfirmModal(null);
         try {
           await savePayment({
             studentId: item.student.id,

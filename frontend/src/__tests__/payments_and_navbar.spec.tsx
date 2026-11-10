@@ -238,6 +238,55 @@ describe('PaymentControlView Component Integration Tests', () => {
       expect(screen.getAllByText(/Efectivo/i).length).toBeGreaterThan(0);
     });
   });
+
+  it('marks student with clase suelta as PAID and closes confirm modal immediately on quick pay', async () => {
+    const sueltaStudent: Student = {
+      id: 'student-pia',
+      firstName: 'Pia',
+      lastName: 'Silva',
+      dni: '48897994',
+      shift: 'Clase suelta',
+      status: 'ACTIVE',
+      plan: 'CLASE_SUELTA',
+      monthlyFee: 10000,
+      authorizedPeople: [],
+    };
+
+    const sueltaPayments: PaymentRecord[] = [
+      {
+        id: 'pay-suelta-1',
+        studentId: 'student-pia',
+        month: currentMonthStr,
+        amount: 20000,
+        concept: 'Clase suelta (2 clases)',
+        paymentMethod: 'TRANSFER',
+        paidAt: new Date().toISOString(),
+      },
+    ];
+
+    vi.restoreAllMocks();
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/api/students/shifts')) {
+        return Promise.resolve({ ok: true, json: async () => ['Clase suelta'] });
+      }
+      if (url.includes('/api/students')) {
+        return Promise.resolve({ ok: true, json: async () => [sueltaStudent] });
+      }
+      if (url.includes('/api/payments')) {
+        return Promise.resolve({ ok: true, json: async () => sueltaPayments });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<PaymentControlView user={superAdminUser} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Pia Silva/i)).toBeInTheDocument();
+      // Debe figurar como Pagado en verde, NO Vence el 10
+      expect(screen.getAllByText(/Pagado/i).length).toBeGreaterThan(0);
+      expect(screen.queryByText(/Vence el 10/i)).not.toBeInTheDocument();
+    });
+  });
 });
 
 describe('RegisterPaymentView Component Integration Tests', () => {

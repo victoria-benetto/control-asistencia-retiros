@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { CheckCircle2, Clock, AlertCircle, Bell, X } from 'lucide-react';
 import { Student, AttendanceRecord, PaymentRecord, PaymentConcept } from '../../types';
-import { isNonCuotaConcept } from '../../utils/plans';
+import { isNonCuotaConcept, isClaseSueltaConcept } from '../../utils/plans';
 import { getPayments, getPaymentConcepts, cancelMakeupClass, getStudentAttendances } from '../../services/api';
 import { ParentHeader } from './ParentHeader';
 import { BottomNav, ParentTab } from './BottomNav';
@@ -167,7 +167,11 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
   }, [concepts]);
 
   const currentMonthCuotaPayments = useMemo(() => {
-    return payments.filter((p) => p.month === currentMonthStr && !isNonCuotaConcept(p.concept));
+    return payments.filter(
+      (p) =>
+        p.month === currentMonthStr &&
+        (!isNonCuotaConcept(p.concept) || isClaseSueltaConcept(p.concept))
+    );
   }, [payments, currentMonthStr]);
 
   const currentMonthPaid = useMemo(() => {
