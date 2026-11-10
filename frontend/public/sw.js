@@ -1,11 +1,16 @@
 // VULPIARE Progressive Web App - Service Worker
-const CACHE_NAME = 'vulpiare-pwa-v2';
+const CACHE_NAME = 'vulpiare-pwa-v3';
 
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/vulpiare_logo.png',
+  '/pwa-192-v2.png',
+  '/pwa-512-v2.png',
+  '/pwa-192-maskable-v2.png',
+  '/pwa-512-maskable-v2.png',
+  '/apple-touch-icon-v2.png',
   '/pwa-192.png',
   '/pwa-512.png',
   '/pwa-192-maskable.png',
