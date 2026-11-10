@@ -1,6 +1,6 @@
 export interface PaymentReminderInfo {
   day: number;
-  urgency: 'tomorrow' | 'today';
+  urgency: 'tomorrow' | 'today' | 'overdue';
   title: string;
   body: string;
   inAppBadge: string;
@@ -8,8 +8,9 @@ export interface PaymentReminderInfo {
 }
 
 /**
- * Determina si corresponde emitir recordatorio de cuota para los días 9 y 10 del mes
- * antes de que comience a regir el recargo del 10% a partir del día 11.
+ * Determina si corresponde emitir recordatorio de cuota:
+ * - Días 9 y 10: aviso previo al vencimiento (antes del recargo del 10% del día 11).
+ * - Días 15, 20 y 25: avisos de cuota vencida e impaga si la alumna aún no abonó.
  */
 export function getPaymentReminderInfo(currentDay: number, isPaid: boolean): PaymentReminderInfo | null {
   if (isPaid) return null;
@@ -33,6 +34,39 @@ export function getPaymentReminderInfo(currentDay: number, isPaid: boolean): Pay
       body: '¡Hoy es el último día! Tenés hasta las 23:59 hs para pagar tu cuota con el precio base. A partir de mañana se aplicará un 10% de recargo.',
       inAppBadge: 'Vence hoy (23:59 hs)',
       inAppMessage: '¡Tenés hasta hoy a las 23:59 hs para abonar tu cuota al precio base! A partir de mañana (día 11) se aplicará un recargo del 10%.',
+    };
+  }
+
+  if (currentDay === 15) {
+    return {
+      day: 15,
+      urgency: 'overdue',
+      title: '⚠️ Aviso de Cuota Vencida - Vulpiare',
+      body: 'Tu cuota mensual se encuentra vencida con el 10% de recargo. Por favor regularizá tu pago a la brevedad.',
+      inAppBadge: 'Cuota vencida (Día 15)',
+      inAppMessage: 'Recordá que tu cuota de este mes está vencida con recargo administrativo. Por favor regularizá tu pago a la brevedad.',
+    };
+  }
+
+  if (currentDay === 20) {
+    return {
+      day: 20,
+      urgency: 'overdue',
+      title: '📢 Segundo Aviso: Cuota Vencida - Vulpiare',
+      body: 'Recordá que tenés tu cuota mensual pendiente de pago. Por favor regularizá tu situación para mantener tu cuenta al día.',
+      inAppBadge: 'Segundo aviso (Día 20)',
+      inAppMessage: 'Segundo recordatorio: tu cuota aún figura impaga. Te pedimos regularizar tu saldo para mantener tu cuenta al día.',
+    };
+  }
+
+  if (currentDay === 25) {
+    return {
+      day: 25,
+      urgency: 'overdue',
+      title: '🚨 Último Aviso de Cuota - Vulpiare',
+      body: 'Último aviso del mes: tu cuota continúa pendiente. Por favor regularizá tu pago antes del cierre del período.',
+      inAppBadge: 'Último aviso (Día 25)',
+      inAppMessage: 'Último aviso del mes: tu cuota aún continúa pendiente. Por favor regularizá tu situación antes del cierre del período.',
     };
   }
 
@@ -68,8 +102,8 @@ export function checkAndTriggerPaymentNotification(
 
     new Notification(reminder.title, {
       body: reminder.body,
-      icon: '/vite.svg',
-      badge: '/vite.svg',
+      icon: '/vulpiare_logo.png',
+      badge: '/vulpiare_logo.png',
     });
 
     localStorage.setItem(storageKey, 'true');

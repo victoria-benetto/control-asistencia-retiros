@@ -47,6 +47,9 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
    - Modal bloqueante al ingresar al Portal de Alumnas/Padres si no ha aceptado la versión vigente (`2026.11`).
    - Checkbox obligatorio y botón "Confirmar y Continuar".
    - Persistencia en base de datos (`termsAcceptedAt`, `termsVersion` en modelo `Student`), sincronización en sesión (`vulpiare_session_active`) y fallback en `localStorage`.
+4. **Recordatorios Progresivos de Cuota Impaga (Días 15, 20 y 25)**:
+   - Si la alumna no ha abonado la cuota, a partir del vencimiento del día 10 el sistema emite notificaciones web en los días 15, 20 y 25 del mes con aviso de mora (+10% recargo) y solicitud de regularización antes del cierre de período.
+
 3. **Apartado de Consulta Abierta Permanente**:
    - Acceso desde el Header del portal ("Reglamento"), tarjeta en Inicio ("Normativa Oficial") y pie de página en todas las pestañas ("Términos y Condiciones • Reglamento Interno • Política de Privacidad").
    - Navegación responsive mediante pestañas estilizadas acordes a la identidad visual de VULPIARE.

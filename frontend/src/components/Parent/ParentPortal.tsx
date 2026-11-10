@@ -358,7 +358,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
     setNotificationPermission(perm);
     if (perm === 'granted') {
       setToast({
-        message: '¡Notificaciones activadas! Te recordaremos el vencimiento de tu cuota los días 9 y 10.',
+        message: '¡Notificaciones activadas! Te recordaremos el vencimiento de tu cuota y avisos de pago.',
         type: 'success',
       });
     } else if (perm === 'denied') {
@@ -682,7 +682,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
                 Activá los avisos de tu cuota
               </h3>
               <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                Para que no se te pasen las fechas de pago y abones siempre al precio base sin recargos, Vulpiare te avisará los días <strong>9 y 10 de cada mes</strong> en tu celular o computadora.
+                Para que no se te pasen las fechas de pago y mantengas tu cuota al día, Vulpiare te avisará antes del vencimiento (días <strong>9 y 10</strong>) y enviará recordatorios los días <strong>15, 20 y 25</strong> si tu cuota aún está pendiente.
               </p>
             </div>
 
