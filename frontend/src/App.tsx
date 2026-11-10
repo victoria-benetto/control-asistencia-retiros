@@ -14,6 +14,7 @@ import { FixedExpensesView } from './components/Admin/FixedExpensesView';
 import { ParentPortal } from './components/Parent/ParentPortal';
 import { LoginResponse, AdminUser, Student, AttendanceRecord, OFFICIAL_SHIFTS } from './types';
 import { getDefaultShiftForDate } from './utils/shiftUtils';
+import { InstallPwaPrompt } from './components/Common/InstallPwaPrompt';
 
 const SESSION_STORAGE_KEY = 'vulpiare_session_active';
 
@@ -66,12 +67,22 @@ export function App() {
 
   // 1. Si no hay sesión iniciada, mostrar Login Único por DNI
   if (!currentUser && !parentStudent) {
-    return <LoginView onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <>
+        <LoginView onLoginSuccess={handleLoginSuccess} />
+        <InstallPwaPrompt />
+      </>
+    );
   }
 
   // 2. Si el usuario ingresó como Padre/Tutor
   if (parentStudent) {
-    return <ParentPortal student={parentStudent} onLogout={handleLogout} />;
+    return (
+      <>
+        <ParentPortal student={parentStudent} onLogout={handleLogout} />
+        <InstallPwaPrompt />
+      </>
+    );
   }
 
   // 3. Si el usuario ingresó como Profesora / Super Admin
@@ -154,6 +165,7 @@ export function App() {
             <FixedExpensesView user={currentUser} />
           )}
         </main>
+        <InstallPwaPrompt />
       </div>
     );
   }
