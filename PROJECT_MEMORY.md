@@ -52,9 +52,13 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
    - Días 10: "Vence hoy (10)".
    - Utilidad de Web Notifications nativas y modal obligatorio en el portal de alumnas para activar permisos en el celular al iniciar sesión.
    - Persistencia constante del aviso de cuota en el portal de alumnas excluyendo conceptos que no sean cuotas (como Inscripción).
+5. **Cómputo Inmediato de Clases Sueltas como "Pagado"**:
+   - Alumnas registradas con plan "Clase suelta" o que abonen una o más clases sueltas en el mes ahora figuran automáticamente como **`Pagado` en verde** (resuelto el caso de Pia Silva donde compras de clases sueltas quedaban erróneamente en "Vence el 10").
+6. **Cierre Automático Inmediato del Modal de Cobro Rápido**:
+   - Al presionar **"Sí, registrar cobro"**, el modal se cierra instantáneamente (`setConfirmModal(null)`), liberando la pantalla, refrescando la lista y emitiendo el toast de éxito.
 
 ### 🧪 Verificación de Calidad:
-- **Frontend**: 29/29 tests pasando con Vitest.
+- **Frontend**: 30/30 tests pasando con Vitest (incluye test específico de clases sueltas y cierre de modal).
 - **Frontend Build**: Compilación exitosa en 0 errores con `tsc && vite build`.
 - **Git**: Commits `adafabe` y `066a40e` subidos a `origin develop`. Pendiente de validación antes del pase a producción.
 
