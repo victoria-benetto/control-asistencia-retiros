@@ -427,7 +427,7 @@ export const PaymentControlView: React.FC<PaymentControlViewProps> = ({
           });
           await loadData();
           setToast({
-            message: `¡Cobro de $\${feeToPay.toLocaleString('es-AR')} registrado con éxito para \${item.student.firstName}!`,
+            message: `¡Cobro de $${feeToPay.toLocaleString('es-AR')} registrado con éxito para ${item.student.firstName}!`,
             type: 'success',
           });
         } catch (err: any) {
