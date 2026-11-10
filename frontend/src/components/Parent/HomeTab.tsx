@@ -78,9 +78,16 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     // Solo se puede recuperar tantas clases como ausencias tenga en el mes menos las ya recuperadas o pendientes
     const remainingToRecover = Math.max(0, eligibleAbsencesThisMonth.length - completedMakeupsThisMonth.length - (pendingMakeup ? 1 : 0));
 
-    // Calcular el total estimado de clases del mes según el turno
-    const shiftLower = (student.shift || '').toLowerCase();
-    const daysPerWeek = shiftLower.includes('viernes') ? 3 : 2;
+    // Calcular el total estimado de clases del mes según el plan y cronograma
+    let daysPerWeek = 2;
+    if (student.plan === 'PASE_LIBRE') {
+      daysPerWeek = 5;
+    } else if (Array.isArray(student.schedule) && student.schedule.length > 0) {
+      daysPerWeek = student.schedule.length;
+    } else {
+      const shiftLower = (student.shift || '').toLowerCase();
+      daysPerWeek = shiftLower.includes('viernes') ? 3 : 2;
+    }
     const totalMonthClasses = daysPerWeek * 4;
 
     return {
@@ -92,6 +99,31 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       absentCount,
     };
   }, [student.attendances, student.shift, currentMonthStr]);
+
+  // Formatear cronograma detallado por día y turno
+  const scheduleFormatted = useMemo(() => {
+    if (!Array.isArray(student.schedule) || student.schedule.length === 0) return [];
+
+    const dayLabels: Record<string, string> = {
+      LUNES: 'Lunes',
+      MARTES: 'Martes',
+      MIERCOLES: 'Miércoles',
+      JUEVES: 'Jueves',
+      VIERNES: 'Viernes',
+    };
+
+    const dayOrder = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES'];
+    const sorted = [...student.schedule].sort((a, b) => {
+      const idxA = dayOrder.indexOf((a.day || '').toUpperCase());
+      const idxB = dayOrder.indexOf((b.day || '').toUpperCase());
+      return idxA - idxB;
+    });
+
+    return sorted.map((s) => ({
+      day: dayLabels[(s.day || '').toUpperCase()] || s.day,
+      shift: s.shift,
+    }));
+  }, [student.schedule]);
 
   const recentPickup = mostRecentRecord?.pickups && mostRecentRecord.pickups.length > 0
     ? mostRecentRecord.pickups[0]
@@ -174,10 +206,43 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_4px_20px_-2px_rgba(30,27,38,0.06)] border border-purple-50 flex flex-col gap-4 relative overflow-hidden">
         <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full bg-purple-100/50 blur-2xl pointer-events-none"></div>
 
-        {/* Badge Turno */}
-        <div className="inline-flex items-center gap-1.5 self-start px-3 py-1 rounded-full bg-purple-100 text-purple-900 text-xs font-extrabold tracking-wide shadow-xs">
-          <Clock className="w-3.5 h-3.5 text-purple-700" />
-          <span>Turno {student.shift}</span>
+        {/* Badge Turno y Plan */}
+        <div className="flex flex-col gap-2 self-start w-full">
+          <div className="flex flex-wrap items-center gap-2">
+            {student.plan === 'PASE_LIBRE' ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-700 text-white text-xs font-black tracking-wide shadow-xs">
+                <Sparkles className="w-3.5 h-3.5 text-purple-200" />
+                <span>Pase Libre (Todos los turnos)</span>
+              </span>
+            ) : student.plan ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-900 text-xs font-extrabold tracking-wide shadow-xs">
+                <Clock className="w-3.5 h-3.5 text-purple-700" />
+                <span>{student.plan === 'DOS_VECES' ? '2 veces por semana' : student.plan === 'TRES_VECES' ? '3 veces por semana' : student.plan === 'UNA_VEZ' ? '1 vez por semana' : student.shift}</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-900 text-xs font-extrabold tracking-wide shadow-xs">
+                <Clock className="w-3.5 h-3.5 text-purple-700" />
+                <span>Turno {student.shift}</span>
+              </span>
+            )}
+          </div>
+
+          {/* Días y Horarios asignados del cronograma */}
+          {scheduleFormatted.length > 0 && (
+            <div className="bg-purple-50/70 border border-purple-100 rounded-2xl p-2.5 text-xs text-purple-950 space-y-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-purple-700 block">
+                Días y horarios asignados:
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {scheduleFormatted.map((item, idx) => (
+                  <div key={idx} className="bg-white/90 border border-purple-100/80 rounded-xl px-2.5 py-1 text-[11px] font-medium flex items-center justify-between shadow-2xs">
+                    <span className="font-bold text-purple-900">{item.day}</span>
+                    <span className="text-slate-600 truncate ml-2 text-right">{item.shift}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Nombre y Avatar */}

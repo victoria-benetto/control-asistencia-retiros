@@ -88,6 +88,11 @@ export async function getStudents(shift?: string, status?: string): Promise<Stud
   return parseResponse(res);
 }
 
+export async function getStudentById(id: string): Promise<Student> {
+  const res = await fetch(`${API_BASE}/students/${id}`);
+  return parseResponse(res);
+}
+
 export async function createStudent(userDni: string, studentData: any): Promise<Student> {
   const res = await fetch(`${API_BASE}/admin/students`, {
     method: 'POST',

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { CheckCircle2, Clock, AlertCircle, Bell, X } from 'lucide-react';
 import { Student, AttendanceRecord, PaymentRecord, PaymentConcept } from '../../types';
 import { isNonCuotaConcept, isClaseSueltaConcept } from '../../utils/plans';
-import { getPayments, getPaymentConcepts, cancelMakeupClass, getStudentAttendances } from '../../services/api';
+import { getPayments, getPaymentConcepts, cancelMakeupClass, getStudentAttendances, getStudentById } from '../../services/api';
 import { ParentHeader } from './ParentHeader';
 import { BottomNav, ParentTab } from './BottomNav';
 import { HomeTab } from './HomeTab';
@@ -24,6 +24,11 @@ interface ParentPortalProps {
 
 export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout }) => {
   const [activeTab, setActiveTab] = useState<ParentTab>('home');
+  const [currentStudent, setCurrentStudent] = useState<Student & { attendances: AttendanceRecord[] }>(student);
+
+  useEffect(() => {
+    setCurrentStudent((prev) => ({ ...prev, ...student }));
+  }, [student]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [concepts, setConcepts] = useState<PaymentConcept[]>([]);
   const [loadingPayments, setLoadingPayments] = useState<boolean>(true);
@@ -311,7 +316,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
     return sortedMonths.map((m) => {
       const monthPayments = payments.filter((p) => p.month === m);
       const totalPaid = monthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-      const expectedFee = monthPayments[0]?.expectedAmount || defaultMonthlyFee;
+      const expectedFee = monthPayments[0]?.expectedAmount || currentStudent.monthlyFee || defaultMonthlyFee;
       const isCurrent = m === currentMonthStr;
       const isFuture = m > currentMonthStr;
 
@@ -359,7 +364,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
         methodLabel,
       };
     });
-  }, [payments, currentMonthStr, defaultMonthlyFee]);
+  }, [payments, currentMonthStr, defaultMonthlyFee, currentStudent.monthlyFee]);
 
   const monthlyMetrics = useMemo(() => {
     // 🔒 REGLA: Las ausencias rigen a partir de noviembre y se renuevan mes a mes (no acumulativas)
