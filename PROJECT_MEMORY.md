@@ -33,16 +33,16 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
-## 🔔 Hito: Fase 1, 2 y 3 de Web Push en Segundo Plano (Rama `develop`)
+## 🔔 Hito: Sistema Completo de Web Push en Segundo Plano (Fases 1, 2, 3 y 4 - Rama `develop`)
 **Fecha**: 12 de Noviembre 2026
 **Decisión**: Aprobado por el usuario tras planificar el sistema para alertas con app cerrada / dispositivo bloqueado.
 
 ### 📦 Requerimientos e Infraestructura Implementada
-1. **Librería y Seguridad VAPID**:
+1. **Librería y Seguridad VAPID (Fase 1)**:
    - Instalación de `web-push@3.6.7` (versión CommonJS estable compatible con Express y TypeScript).
    - Generación de claves VAPID criptográficas en `.env` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT`).
    - Módulo utilitario `backend/src/utils/webPush.ts` con inicialización `webpush.setVapidDetails` y función `sendPushToStudent(studentId, payload)` con auto-limpieza de suscripciones expiradas (HTTP 410 / 404).
-2. **Modelo y Base de Datos (Supabase)**:
+2. **Modelo y Base de Datos Supabase (Fase 2)**:
    - Nuevo modelo Prisma `PushSubscription` asociado a `Student` (relación 1:N con borrado en cascada).
    - Campos: `id`, `studentId`, `endpoint` (índice único), `p256dh`, `auth`, `userAgent`, `createdAt`, `updatedAt`.
    - DDL ejecutado de forma segura en esquemas `dev` y `public` de Supabase con RLS habilitado y sin alteración de datos existentes (83 alumnas intactas).
@@ -56,16 +56,20 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
    - Listener de evento `'notificationclick'`: enfoca la ventana existente de la app o abre la URL correspondiente al tocar la alerta.
    - Sincronización en `ParentPortal.tsx` y `paymentNotifications.ts`: suscripción automática mediante `subscribeStudentToPush(studentId)` al conceder permisos o al iniciar sesión si ya estaban otorgados.
    - Proyección garantizada en Android: fallback inteligente mediante `registration.showNotification(...)` que asegura que las notificaciones en primer plano también se visualicen en la bandeja del sistema operativo.
-5. **Cronograma de Cuotas Acordado**:
-   - Estricto a días **9, 10, 15, 20 y 25**.
-   - Día 11 descartado expresamente por el usuario.
+5. **Despachador Automático y Vercel Cron (Fase 4)**:
+   - Módulo `backend/src/utils/paymentReminderCron.ts` con función `runPaymentRemindersCron`:
+     - Zona horaria oficial: calcula fecha y hora de Argentina (`America/Argentina/Buenos_Aires`).
+     - Cronograma estricto: se despacha únicamente los días **9, 10, 15, 20 y 25**. Cualquier otro día (ej: día 11) se rechaza limpiamente sin enviar avisos.
+     - Cómputo inteligente de mora: consulta todas las alumnas activas, calcula su cuota esperada según arancel/plan (excluyendo liberadas/becas), deduce todos los pagos del mes en curso y despacha notificaciones Web Push únicamente a quienes adeuden saldo.
+   - Endpoints `/api/notifications/cron/send-payment-reminders` (GET y POST) protegidos mediante token secreto `CRON_SECRET` (`Authorization: Bearer <CRON_SECRET>` o header `x-cron-secret`).
+   - Configuración en `vercel.json`: `"schedule": "0 13 * * *"` (13:00 UTC = 10:00 AM hora argentina diaria).
 
 ### 🧪 Verificación de Calidad:
-- **Backend Tests**: 32/32 tests pasando en Vitest (incluye suite `notifications.spec.ts`).
+- **Backend Tests**: 35/35 tests pasando en Vitest (incluye suite ampliada `notifications.spec.ts` con pruebas de VAPID, suscripción, desuscripción, validación de días del cron y autenticación segura con token secreto).
 - **Backend Typecheck**: 0 errores en `tsc --noEmit`.
-- **Frontend Tests**: 47/47 tests pasando en Vitest (incluye suite ampliada de notificaciones y PWA).
+- **Frontend Tests**: 47/47 tests pasando en Vitest.
 - **Frontend Build**: Compilación exitosa con Vite y TypeScript (`tsc && vite build`).
-- **Git**: Commits `c38135e` y `4a9274c` en `develop`.
+- **Git**: Commits `c38135e`, `4a9274c` y `6d80727` en `develop`.
 
 ---
 
