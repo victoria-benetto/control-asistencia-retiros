@@ -58,9 +58,10 @@ model Student {
   termsVersion     String?            // Versión de términos aceptada (ej: "2026.11")
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
-  authorizedPeople AuthorizedPerson[]
-  attendances      AttendanceRecord[]
-  payments         PaymentRecord[]
+  authorizedPeople  AuthorizedPerson[]
+  attendances       AttendanceRecord[]
+  payments          PaymentRecord[]
+  pushSubscriptions PushSubscription[]
 }
 
 model AuthorizedPerson {
@@ -170,4 +171,19 @@ model FixedExpense {
   recordedBy        AdminUser?  @relation(fields: [recordedByAdminId], references: [id], onDelete: SetNull)
 
   @@index([month])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  studentId String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
 }

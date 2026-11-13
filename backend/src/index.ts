@@ -10,6 +10,7 @@ import attendanceRoutes from './routes/attendance.routes';
 import pickupRoutes from './routes/pickup.routes';
 import paymentRoutes from './routes/payment.routes';
 import expenseRoutes from './routes/expense.routes';
+import notificationRoutes from './routes/notification.routes';
 
 dotenv.config();
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -41,6 +42,7 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/pickups', pickupRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Endpoint de estado / salud y prueba de base de datos
 app.get('/api/health', async (_req, res) => {
