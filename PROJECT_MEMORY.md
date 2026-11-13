@@ -4,6 +4,35 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
+## 🚀 Despliegue Oficial a Producción: Web Push en Segundo Plano y Cron de Pagos (Rama `main` en Vercel)
+**Fecha**: 12 de Noviembre 2026
+**Autorización**: Aprobado por el usuario explícitamente tras completar las Fases 1, 2, 3 y 4 de Web Push y verificar la integridad de datos.
+
+### 📦 Resumen de Cambios Desplegados a Producción:
+1. **Web Push en Segundo Plano**:
+   - Soporte completo para recibir alertas con la app cerrada y dispositivo bloqueado en Android, Windows, Mac y navegadores compatibles.
+   - Generación y configuración de claves VAPID seguras y endpoints en `/api/notifications`.
+   - Service Worker actualizado (`vulpiare-pwa-v5`) con listeners de eventos `push` y `notificationclick`.
+   - Proyección garantizada en Android mediante `registration.showNotification(...)`.
+2. **Despachador Automático Programado (Vercel Cron)**:
+   - Cron diario programado a las 10:00 AM hora argentina (`0 13 * * *` UTC) en `vercel.json`.
+   - Restringido estrictamente a los días estipulados: **9, 10, 15, 20 y 25** (día 11 descartado).
+   - Detección precisa de saldo de cuotas impagas/pendientes por alumna (excluyendo becas/liberadas).
+   - Protección de endpoint mediante `CRON_SECRET`.
+3. **Integridad de Datos en Producción (Esquema `public`)**:
+   - **82 alumnas** de producción 100% preservadas e intactas.
+   - **54 pagos registrados** 100% preservados e intactos.
+   - **1044 asistencias históricas** 100% preservadas e intactas.
+   - Tabla `PushSubscription` creada y vinculada con RLS activado.
+
+### 🧪 Verificación de Calidad Previa al Despliegue:
+- **Backend Tests**: 35/35 tests pasando en `main`.
+- **Frontend Tests**: 47/47 tests pasando en `main`.
+- **Frontend Build**: Vite + TypeScript exitoso con 0 errores.
+- **Git**: `develop` fusionado con éxito en `main` y subido a `origin/main` (commit `0d6e3ba`).
+
+---
+
 ## 🚀 Despliegue Oficial a Producción (Rama `main` en Vercel)
 **Fecha**: 9 de Noviembre 2026
 **Autorización**: Aprobado por el usuario explícitamente tras completar el ciclo de desarrollo en `develop`.
