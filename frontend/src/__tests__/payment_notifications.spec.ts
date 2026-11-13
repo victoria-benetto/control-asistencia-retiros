@@ -3,6 +3,8 @@ import {
   getPaymentReminderInfo,
   checkAndTriggerPaymentNotification,
   requestPaymentNotificationPermission,
+  urlBase64ToUint8Array,
+  subscribeStudentToPush,
 } from '../utils/paymentNotifications';
 
 describe('Payment Reminder Notifications (Días 9, 10, 15, 20 y 25)', () => {
@@ -102,5 +104,17 @@ describe('Payment Reminder Notifications (Días 9, 10, 15, 20 y 25)', () => {
     expect(result).toBe('granted');
     expect(requestPermissionMock).toHaveBeenCalledTimes(1);
     expect(notificationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('convierte claves VAPID en Base64 URL-safe a Uint8Array correctamente', () => {
+    const vapidKey = 'BMyrfgHTT0qNsEkW970sPyr9cpRuLNABOmVdQdqAO209VeKAENiUGDwQ5qgBPqhRoNiXJC_dqfUp5mPD80oEmeE';
+    const uint8 = urlBase64ToUint8Array(vapidKey);
+    expect(uint8).toBeInstanceOf(Uint8Array);
+    expect(uint8.length).toBeGreaterThan(30);
+  });
+
+  it('retorna false limpiamente si el entorno no soporta ServiceWorker o PushManager', async () => {
+    const res = await subscribeStudentToPush('student-1');
+    expect(res).toBe(false);
   });
 });
