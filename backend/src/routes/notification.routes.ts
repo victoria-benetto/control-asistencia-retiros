@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { getVapidPublicKey } from '../utils/webPush';
+import { runPaymentRemindersCron } from '../utils/paymentReminderCron';
 
 const router = Router();
 
@@ -120,5 +121,58 @@ router.post('/unsubscribe', async (req: Request, res: Response) => {
     });
   }
 });
+
+/**
+ * Valida la autorización para ejecutar el Cron de recordatorios.
+ * Soporta Header Authorization: Bearer <CRON_SECRET> o Header x-cron-secret.
+ */
+function verifyCronAuth(req: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return true; // Si no hay secreto configurado (entorno local dev), se permite
+
+  const authHeader = req.headers.authorization;
+  const xSecret = req.headers['x-cron-secret'];
+
+  if (authHeader && authHeader === `Bearer ${secret}`) return true;
+  if (xSecret && xSecret === secret) return true;
+
+  return false;
+}
+
+/**
+ * Endpoint de ejecución programada (Vercel Cron / Scheduler).
+ * Se ejecuta los días 9, 10, 15, 20 y 25 a las 10:00 AM hora argentina.
+ * Soporta GET (estándar de Vercel Cron) y POST (invocaciones manuales / API).
+ */
+const handleCronReminders = async (req: Request, res: Response) => {
+  if (!verifyCronAuth(req)) {
+    return res.status(401).json({ error: 'No autorizado para ejecutar el cron de recordatorios' });
+  }
+
+  try {
+    const rawDay = req.query.dayOverride ?? req.body?.dayOverride;
+    const dayOverride = rawDay !== undefined ? parseInt(String(rawDay), 10) : undefined;
+
+    const monthOverride = (req.query.monthOverride as string) || req.body?.monthOverride;
+    const force = req.query.force === 'true' || req.body?.force === true;
+
+    const result = await runPaymentRemindersCron({
+      dayOverride,
+      monthOverride,
+      force,
+    });
+
+    return res.json(result);
+  } catch (err: any) {
+    console.error('Error al ejecutar cron de recordatorios de pago:', err);
+    return res.status(500).json({
+      error: 'Error interno al despachar recordatorios de pago',
+      details: err?.message || String(err),
+    });
+  }
+};
+
+router.get('/cron/send-payment-reminders', handleCronReminders);
+router.post('/cron/send-payment-reminders', handleCronReminders);
 
 export default router;

@@ -121,4 +121,48 @@ describe('Web Push Notifications API Tests', () => {
     });
     expect(deleted).toBeNull();
   });
+
+  describe('Payment Reminders Cron Dispatcher', () => {
+    it('does not dispatch reminders on unconfigured days (e.g. Day 11)', async () => {
+      const res = await request(app)
+        .get('/api/notifications/cron/send-payment-reminders?dayOverride=11')
+        .set('x-cron-secret', process.env.CRON_SECRET || '');
+
+      expect(res.status).toBe(200);
+      expect(res.body.executed).toBe(false);
+      expect(res.body.day).toBe(11);
+      expect(res.body.reason).toContain('días 9, 10, 15, 20 y 25');
+    });
+
+    it('executes reminder scan for overdue students on configured days (e.g. Day 15, 20 or 25)', async () => {
+      const res = await request(app)
+        .get('/api/notifications/cron/send-payment-reminders?dayOverride=15')
+        .set('x-cron-secret', process.env.CRON_SECRET || '');
+
+      expect(res.status).toBe(200);
+      expect(res.body.executed).toBe(true);
+      expect(res.body.day).toBe(15);
+      expect(typeof res.body.unpaidStudentsCount).toBe('number');
+      expect(typeof res.body.totalActiveStudents).toBe('number');
+    });
+
+    it('enforces CRON_SECRET authentication when configured in environment', async () => {
+      const originalSecret = process.env.CRON_SECRET;
+      process.env.CRON_SECRET = 'super-secret-test-cron-token-2026';
+
+      try {
+        // 1. Sin token -> 401
+        const resUnauth = await request(app).get('/api/notifications/cron/send-payment-reminders');
+        expect(resUnauth.status).toBe(401);
+
+        // 2. Con token Bearer correcto -> 200
+        const resAuth = await request(app)
+          .get('/api/notifications/cron/send-payment-reminders?dayOverride=11')
+          .set('Authorization', 'Bearer super-secret-test-cron-token-2026');
+        expect(resAuth.status).toBe(200);
+      } finally {
+        process.env.CRON_SECRET = originalSecret;
+      }
+    });
+  });
 });
