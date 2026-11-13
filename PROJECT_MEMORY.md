@@ -33,6 +33,34 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
+## 🔔 Hito: Fase 1 y 2 de Web Push en Segundo Plano (Rama `develop`)
+**Fecha**: 12 de Noviembre 2026
+**Decisión**: Aprobado por el usuario tras planificar el sistema para alertas con app cerrada / dispositivo bloqueado.
+
+### 📦 Requerimientos e Infraestructura Implementada
+1. **Librería y Seguridad VAPID**:
+   - Instalación de `web-push@3.6.7` (versión CommonJS estable compatible con Express y TypeScript).
+   - Generación de claves VAPID criptográficas en `.env` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT`).
+   - Módulo utilitario `backend/src/utils/webPush.ts` con inicialización `webpush.setVapidDetails` y función `sendPushToStudent(studentId, payload)` con auto-limpieza de suscripciones expiradas (HTTP 410 / 404).
+2. **Modelo y Base de Datos (Supabase)**:
+   - Nuevo modelo Prisma `PushSubscription` asociado a `Student` (relación 1:N con borrado en cascada).
+   - Campos: `id`, `studentId`, `endpoint` (índice único), `p256dh`, `auth`, `userAgent`, `createdAt`, `updatedAt`.
+   - DDL ejecutado de forma segura en esquemas `dev` y `public` de Supabase con RLS habilitado y sin alteración de datos existentes (83 alumnas intactas).
+3. **Rutas y API (`/api/notifications`)**:
+   - `GET /api/notifications/vapid-public-key`: expone la clave pública para que el navegador suscriba a la alumna.
+   - `POST /api/notifications/subscribe`: valida y registra/actualiza (upsert) la suscripción del dispositivo de la alumna.
+   - `POST /api/notifications/unsubscribe`: elimina la suscripción por endpoint.
+4. **Cronograma de Cuotas Acordado**:
+   - Estricto a días **9, 10, 15, 20 y 25**.
+   - Día 11 descartado expresamente por el usuario.
+
+### 🧪 Verificación de Calidad:
+- **Backend Tests**: 32/32 tests pasando (incluye nueva suite `notifications.spec.ts` con 4 tests específicos de suscripción, validaciones y VAPID).
+- **TypeScript**: `npm run typecheck` completado con 0 errores.
+- **Git**: Commit `c38135e` en `develop`.
+
+---
+
 ## 📜 Hito: Términos y Condiciones, Reglamento Interno y Política de Privacidad Vinculante (Rama `develop`)
 **Fecha**: 10 de Noviembre 2026
 
