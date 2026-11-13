@@ -33,7 +33,7 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
-## 🔔 Hito: Fase 1 y 2 de Web Push en Segundo Plano (Rama `develop`)
+## 🔔 Hito: Fase 1, 2 y 3 de Web Push en Segundo Plano (Rama `develop`)
 **Fecha**: 12 de Noviembre 2026
 **Decisión**: Aprobado por el usuario tras planificar el sistema para alertas con app cerrada / dispositivo bloqueado.
 
@@ -50,14 +50,22 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
    - `GET /api/notifications/vapid-public-key`: expone la clave pública para que el navegador suscriba a la alumna.
    - `POST /api/notifications/subscribe`: valida y registra/actualiza (upsert) la suscripción del dispositivo de la alumna.
    - `POST /api/notifications/unsubscribe`: elimina la suscripción por endpoint.
-4. **Cronograma de Cuotas Acordado**:
+4. **Service Worker y Flujo en Frontend PWA (Fase 3)**:
+   - Actualización de Service Worker a `vulpiare-pwa-v5` en `frontend/public/sw.js`.
+   - Listener de evento `'push'`: recibe payloads remotos en segundo plano, despierta el dispositivo y proyecta la notificación en la barra del sistema con vibración y tag.
+   - Listener de evento `'notificationclick'`: enfoca la ventana existente de la app o abre la URL correspondiente al tocar la alerta.
+   - Sincronización en `ParentPortal.tsx` y `paymentNotifications.ts`: suscripción automática mediante `subscribeStudentToPush(studentId)` al conceder permisos o al iniciar sesión si ya estaban otorgados.
+   - Proyección garantizada en Android: fallback inteligente mediante `registration.showNotification(...)` que asegura que las notificaciones en primer plano también se visualicen en la bandeja del sistema operativo.
+5. **Cronograma de Cuotas Acordado**:
    - Estricto a días **9, 10, 15, 20 y 25**.
    - Día 11 descartado expresamente por el usuario.
 
 ### 🧪 Verificación de Calidad:
-- **Backend Tests**: 32/32 tests pasando (incluye nueva suite `notifications.spec.ts` con 4 tests específicos de suscripción, validaciones y VAPID).
-- **TypeScript**: `npm run typecheck` completado con 0 errores.
-- **Git**: Commit `c38135e` en `develop`.
+- **Backend Tests**: 32/32 tests pasando en Vitest (incluye suite `notifications.spec.ts`).
+- **Backend Typecheck**: 0 errores en `tsc --noEmit`.
+- **Frontend Tests**: 47/47 tests pasando en Vitest (incluye suite ampliada de notificaciones y PWA).
+- **Frontend Build**: Compilación exitosa con Vite y TypeScript (`tsc && vite build`).
+- **Git**: Commits `c38135e` y `4a9274c` en `develop`.
 
 ---
 
