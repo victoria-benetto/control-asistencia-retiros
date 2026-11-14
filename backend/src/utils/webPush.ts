@@ -1,22 +1,40 @@
-import webpush from 'web-push';
 import { prisma } from './prisma';
 
 let isVapidConfigured = false;
+let webpushModule: any = null;
+
+// Par de claves VAPID oficiales de VULPIARE (con fallback si no están configuradas en Vercel Dashboard)
+const DEFAULT_VAPID_PUBLIC_KEY = 'BMyrfgHTT0qNsEkW970sPyr9cpRuLNABOmVdQdqAO209VeKAENiUGDwQ5qgBPqhRoNiXJC_dqfUp5mPD80oEmeE';
+const DEFAULT_VAPID_PRIVATE_KEY = '66mLMGcaGqEDH-mB1TtGiJlewkhi1PLTiR5fyG0CXlQ';
+const DEFAULT_VAPID_SUBJECT = 'mailto:soporte@vulpiare.com';
+
+function getWebPush() {
+  if (webpushModule) return webpushModule;
+  try {
+    webpushModule = require('web-push');
+    return webpushModule;
+  } catch (err) {
+    console.warn('⚠️ Módulo web-push no disponible en este entorno:', err);
+    return null;
+  }
+}
 
 export function configureVapid(): boolean {
   if (isVapidConfigured) return true;
 
-  const publicKey = process.env.VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT || 'mailto:soporte@vulpiare.com';
+  const wp = getWebPush();
+  if (!wp) return false;
+
+  const publicKey = process.env.VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY || DEFAULT_VAPID_PRIVATE_KEY;
+  const subject = process.env.VAPID_SUBJECT || DEFAULT_VAPID_SUBJECT;
 
   if (!publicKey || !privateKey) {
-    console.warn('⚠️ Claves VAPID no configuradas en el entorno. Las notificaciones Push estarán inactivas.');
     return false;
   }
 
   try {
-    webpush.setVapidDetails(subject, publicKey, privateKey);
+    wp.setVapidDetails(subject, publicKey, privateKey);
     isVapidConfigured = true;
     return true;
   } catch (err) {
@@ -25,8 +43,8 @@ export function configureVapid(): boolean {
   }
 }
 
-export function getVapidPublicKey(): string | null {
-  return process.env.VAPID_PUBLIC_KEY || null;
+export function getVapidPublicKey(): string {
+  return process.env.VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC_KEY;
 }
 
 export interface PushPayload {
@@ -49,7 +67,8 @@ export async function sendPushToStudent(studentId: string, payload: PushPayload)
   failed: number;
   pruned: number;
 }> {
-  if (!configureVapid()) {
+  const wp = getWebPush();
+  if (!wp || !configureVapid()) {
     return { total: 0, sent: 0, failed: 0, pruned: 0 };
   }
 
@@ -85,7 +104,7 @@ export async function sendPushToStudent(studentId: string, payload: PushPayload)
     };
 
     try {
-      await webpush.sendNotification(pushSub, payloadString);
+      await wp.sendNotification(pushSub, payloadString);
       sent++;
     } catch (err: any) {
       failed++;
