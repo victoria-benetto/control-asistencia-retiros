@@ -4,6 +4,35 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
+## 🚀 Despliegue Oficial a Producción: Web Push en Segundo Plano y Cron de Pagos (Rama `main` en Vercel)
+**Fecha**: 12 de Noviembre 2026
+**Autorización**: Aprobado por el usuario explícitamente tras completar las Fases 1, 2, 3 y 4 de Web Push y verificar la integridad de datos.
+
+### 📦 Resumen de Cambios Desplegados a Producción:
+1. **Web Push en Segundo Plano**:
+   - Soporte completo para recibir alertas con la app cerrada y dispositivo bloqueado en Android, Windows, Mac y navegadores compatibles.
+   - Generación y configuración de claves VAPID seguras y endpoints en `/api/notifications`.
+   - Service Worker actualizado (`vulpiare-pwa-v5`) con listeners de eventos `push` y `notificationclick`.
+   - Proyección garantizada en Android mediante `registration.showNotification(...)`.
+2. **Despachador Automático Programado (Vercel Cron)**:
+   - Cron diario programado a las 10:00 AM hora argentina (`0 13 * * *` UTC) en `vercel.json`.
+   - Restringido estrictamente a los días estipulados: **9, 10, 15, 20 y 25** (día 11 descartado).
+   - Detección precisa de saldo de cuotas impagas/pendientes por alumna (excluyendo becas/liberadas).
+   - Protección de endpoint mediante `CRON_SECRET`.
+3. **Integridad de Datos en Producción (Esquema `public`)**:
+   - **82 alumnas** de producción 100% preservadas e intactas.
+   - **54 pagos registrados** 100% preservados e intactos.
+   - **1044 asistencias históricas** 100% preservadas e intactas.
+   - Tabla `PushSubscription` creada y vinculada con RLS activado.
+
+### 🧪 Verificación de Calidad Previa al Despliegue:
+- **Backend Tests**: 35/35 tests pasando en `main`.
+- **Frontend Tests**: 47/47 tests pasando en `main`.
+- **Frontend Build**: Vite + TypeScript exitoso con 0 errores.
+- **Git**: `develop` fusionado con éxito en `main` y subido a `origin/main` (commit `0d6e3ba`).
+
+---
+
 ## 🚀 Despliegue Oficial a Producción (Rama `main` en Vercel)
 **Fecha**: 9 de Noviembre 2026
 **Autorización**: Aprobado por el usuario explícitamente tras completar el ciclo de desarrollo en `develop`.
@@ -33,6 +62,46 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
+## 🔔 Hito: Sistema Completo de Web Push en Segundo Plano (Fases 1, 2, 3 y 4 - Rama `develop`)
+**Fecha**: 12 de Noviembre 2026
+**Decisión**: Aprobado por el usuario tras planificar el sistema para alertas con app cerrada / dispositivo bloqueado.
+
+### 📦 Requerimientos e Infraestructura Implementada
+1. **Librería y Seguridad VAPID (Fase 1)**:
+   - Instalación de `web-push@3.6.7` (versión CommonJS estable compatible con Express y TypeScript).
+   - Generación de claves VAPID criptográficas en `.env` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT`).
+   - Módulo utilitario `backend/src/utils/webPush.ts` con inicialización `webpush.setVapidDetails` y función `sendPushToStudent(studentId, payload)` con auto-limpieza de suscripciones expiradas (HTTP 410 / 404).
+2. **Modelo y Base de Datos Supabase (Fase 2)**:
+   - Nuevo modelo Prisma `PushSubscription` asociado a `Student` (relación 1:N con borrado en cascada).
+   - Campos: `id`, `studentId`, `endpoint` (índice único), `p256dh`, `auth`, `userAgent`, `createdAt`, `updatedAt`.
+   - DDL ejecutado de forma segura en esquemas `dev` y `public` de Supabase con RLS habilitado y sin alteración de datos existentes (83 alumnas intactas).
+3. **Rutas y API (`/api/notifications`)**:
+   - `GET /api/notifications/vapid-public-key`: expone la clave pública para que el navegador suscriba a la alumna.
+   - `POST /api/notifications/subscribe`: valida y registra/actualiza (upsert) la suscripción del dispositivo de la alumna.
+   - `POST /api/notifications/unsubscribe`: elimina la suscripción por endpoint.
+4. **Service Worker y Flujo en Frontend PWA (Fase 3)**:
+   - Actualización de Service Worker a `vulpiare-pwa-v5` en `frontend/public/sw.js`.
+   - Listener de evento `'push'`: recibe payloads remotos en segundo plano, despierta el dispositivo y proyecta la notificación en la barra del sistema con vibración y tag.
+   - Listener de evento `'notificationclick'`: enfoca la ventana existente de la app o abre la URL correspondiente al tocar la alerta.
+   - Sincronización en `ParentPortal.tsx` y `paymentNotifications.ts`: suscripción automática mediante `subscribeStudentToPush(studentId)` al conceder permisos o al iniciar sesión si ya estaban otorgados.
+   - Proyección garantizada en Android: fallback inteligente mediante `registration.showNotification(...)` que asegura que las notificaciones en primer plano también se visualicen en la bandeja del sistema operativo.
+5. **Despachador Automático y Vercel Cron (Fase 4)**:
+   - Módulo `backend/src/utils/paymentReminderCron.ts` con función `runPaymentRemindersCron`:
+     - Zona horaria oficial: calcula fecha y hora de Argentina (`America/Argentina/Buenos_Aires`).
+     - Cronograma estricto: se despacha únicamente los días **9, 10, 15, 20 y 25**. Cualquier otro día (ej: día 11) se rechaza limpiamente sin enviar avisos.
+     - Cómputo inteligente de mora: consulta todas las alumnas activas, calcula su cuota esperada según arancel/plan (excluyendo liberadas/becas), deduce todos los pagos del mes en curso y despacha notificaciones Web Push únicamente a quienes adeuden saldo.
+   - Endpoints `/api/notifications/cron/send-payment-reminders` (GET y POST) protegidos mediante token secreto `CRON_SECRET` (`Authorization: Bearer <CRON_SECRET>` o header `x-cron-secret`).
+   - Configuración en `vercel.json`: `"schedule": "0 13 * * *"` (13:00 UTC = 10:00 AM hora argentina diaria).
+
+### 🧪 Verificación de Calidad:
+- **Backend Tests**: 35/35 tests pasando en Vitest (incluye suite ampliada `notifications.spec.ts` con pruebas de VAPID, suscripción, desuscripción, validación de días del cron y autenticación segura con token secreto).
+- **Backend Typecheck**: 0 errores en `tsc --noEmit`.
+- **Frontend Tests**: 47/47 tests pasando en Vitest.
+- **Frontend Build**: Compilación exitosa con Vite y TypeScript (`tsc && vite build`).
+- **Git**: Commits `c38135e`, `4a9274c` y `6d80727` en `develop`.
+
+---
+
 ## 📜 Hito: Términos y Condiciones, Reglamento Interno y Política de Privacidad Vinculante (Rama `develop`)
 **Fecha**: 10 de Noviembre 2026
 
@@ -47,6 +116,9 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
    - Modal bloqueante al ingresar al Portal de Alumnas/Padres si no ha aceptado la versión vigente (`2026.11`).
    - Checkbox obligatorio y botón "Confirmar y Continuar".
    - Persistencia en base de datos (`termsAcceptedAt`, `termsVersion` en modelo `Student`), sincronización en sesión (`vulpiare_session_active`) y fallback en `localStorage`.
+4. **Recordatorios Progresivos de Cuota Impaga (Días 15, 20 y 25)**:
+   - Si la alumna no ha abonado la cuota, a partir del vencimiento del día 10 el sistema emite notificaciones web en los días 15, 20 y 25 del mes con aviso de mora (+10% recargo) y solicitud de regularización antes del cierre de período.
+
 3. **Apartado de Consulta Abierta Permanente**:
    - Acceso desde el Header del portal ("Reglamento"), tarjeta en Inicio ("Normativa Oficial") y pie de página en todas las pestañas ("Términos y Condiciones • Reglamento Interno • Política de Privacidad").
    - Navegación responsive mediante pestañas estilizadas acordes a la identidad visual de VULPIARE.

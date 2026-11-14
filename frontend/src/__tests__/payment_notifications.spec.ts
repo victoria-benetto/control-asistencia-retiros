@@ -3,9 +3,11 @@ import {
   getPaymentReminderInfo,
   checkAndTriggerPaymentNotification,
   requestPaymentNotificationPermission,
+  urlBase64ToUint8Array,
+  subscribeStudentToPush,
 } from '../utils/paymentNotifications';
 
-describe('Payment Reminder Notifications (Día 9 y 10 - Recargo 10% a partir del 11)', () => {
+describe('Payment Reminder Notifications (Días 9, 10, 15, 20 y 25)', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
@@ -31,14 +33,48 @@ describe('Payment Reminder Notifications (Día 9 y 10 - Recargo 10% a partir del
     expect(reminder?.inAppBadge).toContain('Vence hoy');
   });
 
-  it('no devuelve recordatorio si la cuota ya está paga (isPaid: true)', () => {
-    expect(getPaymentReminderInfo(9, true)).toBeNull();
-    expect(getPaymentReminderInfo(10, true)).toBeNull();
+  it('devuelve recordatorio de cuota vencida con recargo para el día 15 si no ha pagado', () => {
+    const reminder = getPaymentReminderInfo(15, false);
+    expect(reminder).not.toBeNull();
+    expect(reminder?.day).toBe(15);
+    expect(reminder?.urgency).toBe('overdue');
+    expect(reminder?.body).toContain('vencida con el 10% de recargo');
+    expect(reminder?.inAppBadge).toBe('Cuota adeudada');
   });
 
-  it('no devuelve recordatorio fuera de los días 9 y 10 (ej. día 8 o día 11)', () => {
+  it('devuelve segundo aviso de cuota vencida para el día 20 si no ha pagado', () => {
+    const reminder = getPaymentReminderInfo(20, false);
+    expect(reminder).not.toBeNull();
+    expect(reminder?.day).toBe(20);
+    expect(reminder?.urgency).toBe('overdue');
+    expect(reminder?.title).toContain('Segundo Aviso');
+    expect(reminder?.inAppBadge).toBe('Cuota adeudada');
+  });
+
+  it('devuelve último aviso del mes para el día 25 si no ha pagado', () => {
+    const reminder = getPaymentReminderInfo(25, false);
+    expect(reminder).not.toBeNull();
+    expect(reminder?.day).toBe(25);
+    expect(reminder?.urgency).toBe('overdue');
+    expect(reminder?.title).toContain('Último Aviso');
+    expect(reminder?.inAppBadge).toBe('Cuota adeudada');
+  });
+
+  it('no devuelve recordatorio si la cuota ya está paga (isPaid: true) en ninguno de los días', () => {
+    expect(getPaymentReminderInfo(9, true)).toBeNull();
+    expect(getPaymentReminderInfo(10, true)).toBeNull();
+    expect(getPaymentReminderInfo(15, true)).toBeNull();
+    expect(getPaymentReminderInfo(20, true)).toBeNull();
+    expect(getPaymentReminderInfo(25, true)).toBeNull();
+  });
+
+  it('no devuelve recordatorio en días no estipulados (ej. día 8, 11, 14, 16, 21, 26)', () => {
     expect(getPaymentReminderInfo(8, false)).toBeNull();
     expect(getPaymentReminderInfo(11, false)).toBeNull();
+    expect(getPaymentReminderInfo(14, false)).toBeNull();
+    expect(getPaymentReminderInfo(16, false)).toBeNull();
+    expect(getPaymentReminderInfo(21, false)).toBeNull();
+    expect(getPaymentReminderInfo(26, false)).toBeNull();
     expect(getPaymentReminderInfo(1, false)).toBeNull();
   });
 
@@ -47,12 +83,12 @@ describe('Payment Reminder Notifications (Día 9 y 10 - Recargo 10% a partir del
     (globalThis as any).Notification = notificationMock;
     (globalThis.Notification as any).permission = 'granted';
 
-    const emitted1 = checkAndTriggerPaymentNotification('student-1', 9, false, '2026-11-09');
+    const emitted1 = checkAndTriggerPaymentNotification('student-1', 15, false, '2026-11-15');
     expect(emitted1).toBe(true);
     expect(notificationMock).toHaveBeenCalledTimes(1);
 
     // Segunda invocación en el mismo día no debe duplicar la notificación
-    const emitted2 = checkAndTriggerPaymentNotification('student-1', 9, false, '2026-11-09');
+    const emitted2 = checkAndTriggerPaymentNotification('student-1', 15, false, '2026-11-15');
     expect(emitted2).toBe(false);
     expect(notificationMock).toHaveBeenCalledTimes(1);
   });
@@ -64,9 +100,21 @@ describe('Payment Reminder Notifications (Día 9 y 10 - Recargo 10% a partir del
     (globalThis.Notification as any).permission = 'granted';
     (globalThis.Notification as any).requestPermission = requestPermissionMock;
 
-    const result = await requestPaymentNotificationPermission('student-1', 10, false, '2026-11-10');
+    const result = await requestPaymentNotificationPermission('student-1', 20, false, '2026-11-20');
     expect(result).toBe('granted');
     expect(requestPermissionMock).toHaveBeenCalledTimes(1);
     expect(notificationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('convierte claves VAPID en Base64 URL-safe a Uint8Array correctamente', () => {
+    const vapidKey = 'BMyrfgHTT0qNsEkW970sPyr9cpRuLNABOmVdQdqAO209VeKAENiUGDwQ5qgBPqhRoNiXJC_dqfUp5mPD80oEmeE';
+    const uint8 = urlBase64ToUint8Array(vapidKey);
+    expect(uint8).toBeInstanceOf(Uint8Array);
+    expect(uint8.length).toBeGreaterThan(30);
+  });
+
+  it('retorna false limpiamente si el entorno no soporta ServiceWorker o PushManager', async () => {
+    const res = await subscribeStudentToPush('student-1');
+    expect(res).toBe(false);
   });
 });

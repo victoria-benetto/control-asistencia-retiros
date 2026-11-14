@@ -437,3 +437,39 @@ export async function replicateMonthExpenses(
   });
   return parseResponse(res);
 }
+
+// Notificaciones Web Push (Alertas en segundo plano)
+export async function getVapidPublicKey(): Promise<string> {
+  const res = await fetch(`${API_BASE}/notifications/vapid-public-key`);
+  const data = await parseResponse<{ publicKey: string }>(res);
+  return data.publicKey;
+}
+
+export async function subscribeToPushNotifications(
+  studentId: string,
+  subscription: PushSubscription | any
+): Promise<{ success: boolean; message: string }> {
+  const subJson = typeof subscription.toJSON === 'function' ? subscription.toJSON() : subscription;
+  const res = await fetch(`${API_BASE}/notifications/subscribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      studentId,
+      subscription: subJson,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+    }),
+  });
+  return parseResponse(res);
+}
+
+export async function unsubscribeFromPushNotifications(
+  endpoint: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/notifications/unsubscribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ endpoint }),
+  });
+  return parseResponse(res);
+}
+

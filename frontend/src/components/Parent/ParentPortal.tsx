@@ -12,7 +12,7 @@ import { AttendanceTab } from './AttendanceTab';
 import { MakeupClassModal } from './MakeupClassModal';
 import { ReceiptModal } from './ReceiptModal';
 import { CancelMakeupModal, ToastNotification } from './CancelMakeupModal';
-import { getPaymentReminderInfo, checkAndTriggerPaymentNotification, requestPaymentNotificationPermission, PaymentReminderInfo } from '../../utils/paymentNotifications';
+import { getPaymentReminderInfo, checkAndTriggerPaymentNotification, requestPaymentNotificationPermission, subscribeStudentToPush, PaymentReminderInfo } from '../../utils/paymentNotifications';
 
 const SESSION_STORAGE_KEY = 'vulpiare_session_active';
 const CURRENT_TERMS_VERSION = '2026.11';
@@ -333,19 +333,25 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
 
   useEffect(() => {
     // Intentar solicitar permiso del navegador inmediatamente al ingresar a la app
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-      try {
-        Notification.requestPermission().then((perm) => {
-          setNotificationPermission(perm);
-          if (perm === 'granted') {
-            setShowNotificationPromptModal(false);
-            const isPaid = currentMonthPaid >= currentExpectedFee;
-            checkAndTriggerPaymentNotification(student.id, currentDayOfMonth, isPaid, todayDateStr);
-          }
-        }).catch(() => {});
-      } catch (e) {}
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        try {
+          Notification.requestPermission().then((perm) => {
+            setNotificationPermission(perm);
+            if (perm === 'granted') {
+              setShowNotificationPromptModal(false);
+              const isPaid = currentMonthPaid >= currentExpectedFee;
+              checkAndTriggerPaymentNotification(student.id, currentDayOfMonth, isPaid, todayDateStr);
+              subscribeStudentToPush(student.id).catch(() => {});
+            }
+          }).catch(() => {});
+        } catch (e) {}
+      } else if (Notification.permission === 'granted') {
+        // Asegurar que el dispositivo esté registrado en segundo plano
+        subscribeStudentToPush(student.id).catch(() => {});
+      }
     }
-  }, []);
+  }, [student.id]);
 
   useEffect(() => {
     const isPaid = currentMonthPaid >= currentExpectedFee;
@@ -357,8 +363,9 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
     const perm = await requestPaymentNotificationPermission(student.id, currentDayOfMonth, isPaid, todayDateStr);
     setNotificationPermission(perm);
     if (perm === 'granted') {
+      subscribeStudentToPush(student.id).catch(() => {});
       setToast({
-        message: '¡Notificaciones activadas! Te recordaremos el vencimiento de tu cuota los días 9 y 10.',
+        message: '¡Notificaciones activadas! Te recordaremos el vencimiento de tu cuota incluso con la app cerrada.',
         type: 'success',
       });
     } else if (perm === 'denied') {
@@ -682,7 +689,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ student, onLogout })
                 Activá los avisos de tu cuota
               </h3>
               <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                Para que no se te pasen las fechas de pago y abones siempre al precio base sin recargos, Vulpiare te avisará los días <strong>9 y 10 de cada mes</strong> en tu celular o computadora.
+                Para que no se te pasen las fechas de pago y mantengas tu cuota al día, Vulpiare te avisará antes del vencimiento (días <strong>9 y 10</strong>) y enviará recordatorios los días <strong>15, 20 y 25</strong> si tu cuota aún está pendiente.
               </p>
             </div>
 
