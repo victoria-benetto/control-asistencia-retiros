@@ -3,9 +3,6 @@ import { prisma } from './prisma';
 let isVapidConfigured = false;
 let webpushModule: any = null;
 
-// Par de claves VAPID oficiales de VULPIARE (con fallback si no están configuradas en Vercel Dashboard)
-const DEFAULT_VAPID_PUBLIC_KEY = 'BMyrfgHTT0qNsEkW970sPyr9cpRuLNABOmVdQdqAO209VeKAENiUGDwQ5qgBPqhRoNiXJC_dqfUp5mPD80oEmeE';
-const DEFAULT_VAPID_PRIVATE_KEY = '66mLMGcaGqEDH-mB1TtGiJlewkhi1PLTiR5fyG0CXlQ';
 const DEFAULT_VAPID_SUBJECT = 'mailto:soporte@vulpiare.com';
 
 function getWebPush() {
@@ -25,8 +22,8 @@ export function configureVapid(): boolean {
   const wp = getWebPush();
   if (!wp) return false;
 
-  const publicKey = process.env.VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY || DEFAULT_VAPID_PRIVATE_KEY;
+  const publicKey = process.env.VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
   const subject = process.env.VAPID_SUBJECT || DEFAULT_VAPID_SUBJECT;
 
   if (!publicKey || !privateKey) {
@@ -44,7 +41,7 @@ export function configureVapid(): boolean {
 }
 
 export function getVapidPublicKey(): string {
-  return process.env.VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC_KEY;
+  return process.env.VAPID_PUBLIC_KEY || '';
 }
 
 export interface PushPayload {

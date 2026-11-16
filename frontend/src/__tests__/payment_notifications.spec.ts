@@ -107,7 +107,7 @@ describe('Payment Reminder Notifications (Días 9, 10, 15, 20 y 25)', () => {
   });
 
   it('convierte claves VAPID en Base64 URL-safe a Uint8Array correctamente', () => {
-    const vapidKey = 'BMyrfgHTT0qNsEkW970sPyr9cpRuLNABOmVdQdqAO209VeKAENiUGDwQ5qgBPqhRoNiXJC_dqfUp5mPD80oEmeE';
+    const vapidKey = 'BHmxWPouuCDLxiJPETYJqIKhaH4Sqcb6UiYmzhv8wFa7IqKdtZM_6XCiidHD1gLUIZFrpwiFRSM7i5Kedr7SZrk';
     const uint8 = urlBase64ToUint8Array(vapidKey);
     expect(uint8).toBeInstanceOf(Uint8Array);
     expect(uint8.length).toBeGreaterThan(30);
