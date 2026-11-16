@@ -4,6 +4,26 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
+## 🔒 Seguridad & Remediación de Claves VAPID (GitGuardian Alert Resolution)
+**Fecha**: 16 de Noviembre 2026
+**Incidente**: Alerta automática de GitGuardian por clave privada VAPID expuesta en el commit `2300ed0` (`DEFAULT_VAPID_PRIVATE_KEY` en `webPush.ts`).
+
+### 🛠️ Acciones de Remediación Ejecutadas:
+1. **Erradicación de Claves Hardcodeadas en Código**:
+   - Se removieron por completo `DEFAULT_VAPID_PUBLIC_KEY` y `DEFAULT_VAPID_PRIVATE_KEY` de `backend/src/utils/webPush.ts`.
+   - `configureVapid()` y `getVapidPublicKey()` leen estrictamente de las variables de entorno (`process.env.VAPID_PUBLIC_KEY` y `process.env.VAPID_PRIVATE_KEY`).
+   - Si no están configuradas, el servicio push se apaga silenciosamente sin arrojar errores 500 ni interrumpir el inicio de sesión o la API.
+2. **Rotación Completa de Par de Claves VAPID**:
+   - Clave comprometida revocada y reemplazada por un nuevo par criptográfico seguro generado con `web-push`.
+   - Claves nuevas actualizadas en `backend/.env` (ignorado por git).
+   - Se añadió plantilla limpia sin valores reales en `backend/.env.example`.
+3. **Verificación y Sincronización de Ramas**:
+   - 35/35 tests de backend pasando.
+   - 47/47 tests de frontend pasando.
+   - Commits aplicados y enviados a `origin/main` y `origin/develop` (`144fa0e`).
+
+---
+
 ## 🚀 Despliegue Oficial a Producción: Web Push en Segundo Plano y Cron de Pagos (Rama `main` en Vercel)
 **Fecha**: 12 de Noviembre 2026
 **Autorización**: Aprobado por el usuario explícitamente tras completar las Fases 1, 2, 3 y 4 de Web Push y verificar la integridad de datos.
