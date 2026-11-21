@@ -115,11 +115,43 @@ export async function subscribeStudentToPush(studentId: string): Promise<boolean
     const registration = await navigator.serviceWorker.ready;
     let subscription = await registration.pushManager.getSubscription();
 
-    if (!subscription) {
-      const publicKey = await getVapidPublicKey().catch(() => null);
-      if (!publicKey) return false;
+    const publicKey = await getVapidPublicKey().catch(() => null);
+    if (!publicKey) return false;
 
-      const applicationServerKey = urlBase64ToUint8Array(publicKey);
+    const applicationServerKey = urlBase64ToUint8Array(publicKey);
+
+    // Si ya existe una suscripción, verificar si coincide con la clave VAPID pública actual del servidor
+    if (subscription) {
+      let isMismatch = false;
+      try {
+        if (subscription.options && subscription.options.applicationServerKey) {
+          const currentKeyBytes = new Uint8Array(subscription.options.applicationServerKey);
+          if (currentKeyBytes.length !== applicationServerKey.length) {
+            isMismatch = true;
+          } else {
+            for (let i = 0; i < currentKeyBytes.length; i++) {
+              if (currentKeyBytes[i] !== applicationServerKey[i]) {
+                isMismatch = true;
+                break;
+              }
+            }
+          }
+        }
+      } catch (keyErr) {
+        isMismatch = true;
+      }
+
+      if (isMismatch) {
+        try {
+          await subscription.unsubscribe();
+        } catch (unsubErr) {
+          console.warn('Error al desuscribir suscripción anterior:', unsubErr);
+        }
+        subscription = null;
+      }
+    }
+
+    if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: applicationServerKey as unknown as BufferSource,

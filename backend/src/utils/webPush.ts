@@ -106,8 +106,8 @@ export async function sendPushToStudent(studentId: string, payload: PushPayload)
     } catch (err: any) {
       failed++;
       const statusCode = err?.statusCode;
-      if (statusCode === 410 || statusCode === 404) {
-        // Suscripción caducada o desinstalada: limpiar
+      if (statusCode === 410 || statusCode === 404 || statusCode === 401 || statusCode === 403) {
+        // Suscripción caducada, no autorizada o desfasada de clave VAPID: limpiar de la base de datos
         try {
           await prisma.pushSubscription.delete({
             where: { id: sub.id },
