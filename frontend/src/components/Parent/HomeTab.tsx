@@ -545,17 +545,17 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             onClick={() => onSelectTab('payments')}
             className="p-4 rounded-3xl bg-white border border-purple-100 shadow-[0_4px_16px_-2px_rgba(30,27,38,0.04)] hover:border-purple-300 transition-all text-left flex items-center justify-between group active:scale-98"
           >
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-3.5 min-w-0 flex-1">
               <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <Wallet className="w-5 h-5" />
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs font-black text-slate-900 truncate">
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <h3 className="text-xs sm:text-sm font-black text-slate-900 leading-tight">
                     Estado de Cuenta y Cuotas
                   </h3>
                   {currentStatusInfo && (
-                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${currentStatusInfo.badgeClass}`}>
+                    <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border whitespace-nowrap shrink-0 shadow-2xs ${currentStatusInfo.badgeClass}`}>
                       {currentStatusInfo.label}
                     </span>
                   )}
@@ -565,7 +565,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 </p>
               </div>
             </div>
-            <ArrowRight className="w-4 h-4 text-purple-600 shrink-0 group-hover:translate-x-1 transition-transform" />
+            <ArrowRight className="w-4 h-4 text-purple-600 shrink-0 group-hover:translate-x-1 transition-transform ml-2" />
           </button>
 
           {/* Acceso a Asistencias */}

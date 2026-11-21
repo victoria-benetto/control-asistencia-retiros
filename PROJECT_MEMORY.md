@@ -4,6 +4,29 @@ Memoria persistente del proyecto para seguimiento de arquitectura, decisiones y 
 
 ---
 
+## 🎨 Optimización Visual UI Mobile (Portal Alumna - HomeTab y PaymentsTab)
+**Fecha**: 21 de Noviembre 2026
+**Autorización**: Aprobado por el usuario explícitamente tras validar la propuesta visual ajustada.
+
+### 📦 Resumen de Cambios Estéticos:
+1. **Acceso a Pagos en Inicio (`HomeTab.tsx`)**:
+   - Se eliminó el truncamiento con puntos suspensivos (`Estado de Cuenta y ...`).
+   - El título ahora se muestra completo: **`Estado de Cuenta y Cuotas`** a ancho completo.
+   - La pastilla de estado (`Vencida (+10% recargo)`) se mantiene en una sola línea continua (`whitespace-nowrap`) sin partirse en dos renglones.
+2. **Tarjeta Período en Curso (`PaymentsTab.tsx`)**:
+   - Jerarquía vertical ordenada solicitada:
+     - **Arriba**: Etiqueta con el mes actual formateado (`Noviembre 2026 • Período en curso`).
+     - **Abajo**: Pastilla completa de estado (`[ (!) Vencida (+10% recargo) ]`).
+     - **Abajo**: Línea divisoria elegante (`border-b border-purple-100/80`).
+     - **Cuerpo a ancho completo**: Título `Cuota Mensual Regular` en un solo renglón legible (ya no se quiebra en 3 líneas verticales), subtítulo de arancel y bloque de montos abonado/restante.
+3. **Verificación**:
+   - 47/47 tests de frontend pasando.
+   - 35/35 tests de backend pasando.
+   - Compilación de producción (`tsc && vite build`) completada con 0 errores.
+   - Despliegue simultáneo a `develop` y `main`.
+
+---
+
 ## 🔒 Seguridad & Remediación de Claves VAPID (GitGuardian Alert Resolution)
 **Fecha**: 16 de Noviembre 2026
 **Incidente**: Alerta automática de GitGuardian por clave privada VAPID expuesta en el commit `2300ed0` (`DEFAULT_VAPID_PRIVATE_KEY` en `webPush.ts`).

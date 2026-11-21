@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Wallet,
   Clock,
@@ -75,6 +75,12 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
 }) => {
   const StatusIcon = currentStatusInfo.icon;
 
+  const currentMonthFormatted = useMemo(() => {
+    const now = new Date();
+    const mStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return formatMonthNice(mStr);
+  }, [formatMonthNice]);
+
   return (
     <div className="space-y-6">
       {/* 1. SECCIÓN: ESTADO DE CUENTA Y CUOTAS */}
@@ -137,26 +143,39 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
         )}
 
         {/* Tarjeta Destacada de Cuota del Período en Curso */}
-        <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_4px_20px_-2px_rgba(30,27,38,0.06)] border border-purple-50 space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                Período en curso
+        <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_4px_20px_-2px_rgba(30,27,38,0.06)] border border-purple-50 space-y-3.5">
+          {/* Cabecera: Arriba mes en curso, abajo pastilla de estado */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-black uppercase tracking-wider text-purple-700 bg-purple-100/70 px-2.5 py-0.5 rounded-md border border-purple-200">
+                {currentMonthFormatted}
               </span>
-              <h3 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
-                {currentMonthConcept}
-              </h3>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Cuota Mensual Regular: <strong>${currentExpectedFee.toLocaleString('es-AR')}</strong>
-              </p>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                • Período en curso
+              </span>
             </div>
 
-            <div
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border shadow-2xs shrink-0 ${currentStatusInfo.badgeClass}`}
-            >
-              <StatusIcon className="w-3.5 h-3.5" />
-              <span>{currentStatusInfo.label}</span>
+            <div>
+              <div
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border shadow-2xs ${currentStatusInfo.badgeClass}`}
+              >
+                <StatusIcon className="w-3.5 h-3.5" />
+                <span>{currentStatusInfo.label}</span>
+              </div>
             </div>
+          </div>
+
+          {/* Línea divisoria */}
+          <div className="border-b border-purple-100/80 pt-0.5" />
+
+          {/* Lo que ya sigue normal a ancho completo */}
+          <div className="space-y-0.5 pt-0.5">
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+              {currentMonthConcept}
+            </h3>
+            <p className="text-xs text-slate-500 font-medium">
+              Cuota Mensual Regular: <strong>${currentExpectedFee.toLocaleString('es-AR')}</strong>
+            </p>
           </div>
 
           {/* Montos y Detalles del Pago del Mes */}
